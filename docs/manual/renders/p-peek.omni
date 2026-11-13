@@ -14,7 +14,7 @@ expect view 0
 wait 1500
 press FX
 wait 400
-expect view 13
+expect view 15
 turn K4 30 80
 wait 300
 wait 1500

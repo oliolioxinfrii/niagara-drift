@@ -2743,7 +2743,7 @@ static void lk_values(void)
             char big[16];
             const int nb = (int)(sp - t), sep = *sp == ' ' ? 3 : 1;
             const char *unit = *sp == ' ' ? sp + 1 : sp;
-            int c, f = on ? 0 : 1;
+            int c, f = on || ui.view == V_LFO ? 0 : 1;  /* larger send depths at rest, as on the earlier LFO page */
             for (c = 0; c < nb; c++)
                 big[c] = t[c];
             big[nb] = 0;

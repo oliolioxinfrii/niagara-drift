@@ -543,8 +543,8 @@ int main(void)
                                                  scene_has(0, 1) && scene_has(1, 2));
         check("... the Tuning 12-tone, no offsets (39, 2026-10-30)", proj.par[P_TUNING] == DR_TUN_12 &&
               scene_get(1, 2)[P_TUNING] == DR_TUN_12 && !proj.tun_off[0] && !proj.tun_off[1] && !proj.tun_off[2]);
-        check("... and saved as 44", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == 44u &&
-                                     ((const bank_t *)store[OBJ_BANKB])->format == 44u);
+        check("... and saved in current format", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == PROJ_FORMAT &&
+                                     ((const bank_t *)store[OBJ_BANKB])->format == PROJ_FORMAT);
     }
     {   /* 40: the Tunings reordered, simplest to richest (Evan, 2026-10-30): a 39 sound keeps its Tuning */
         static proj_v40_t o;
@@ -579,8 +579,8 @@ int main(void)
         check("... each keeps its Tuning: LMY, Shruti, Harmonics", proj.par[P_TUNING] == DR_TUN_LMY &&
               scene_get(0, 0) && scene_get(0, 0)[P_TUNING] == DR_TUN_SHRUTI && scene_get(1, 1) &&
               scene_get(1, 1)[P_TUNING] == DR_TUN_HARM);
-        check("... and saved as 44", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == 44u &&
-                                     ((const bank_t *)store[OBJ_BANKB])->format == 44u);
+        check("... and saved in current format", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == PROJ_FORMAT &&
+                                     ((const bank_t *)store[OBJ_BANKB])->format == PROJ_FORMAT);
     }
     {   /* 41: Tune in Hz, Sync (Evan, 2026-11-01): a 40 Tune in cents becomes the nearest 0.1 Hz; Sync on */
         static proj_v40_t o;
@@ -617,8 +617,8 @@ int main(void)
               scene_get(0, 0)[P_TUNE] == 129 && scene_get(1, 3)[P_TUNE] == -125);
         check("... Sync on, the fine tuning kept", proj.par[P_CLK_SYNC] == 1 && scene_get(1, 3)[P_CLK_SYNC] == 1 &&
                                                    proj.tun_off[1] == 7);
-        check("... and saved as 44", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == 44u &&
-                                     ((const bank_t *)store[OBJ_BANKB])->format == 44u);
+        check("... and saved in current format", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == PROJ_FORMAT &&
+                                     ((const bank_t *)store[OBJ_BANKB])->format == PROJ_FORMAT);
     }
     {   /* 43: the LFO rate 0..152, every second from 100 s to 10 s (Evan, 2026-11-07): a 41 rate (the project) and a 42
          * one (bank B, #78's test build) become the nearest step of the same speed */
@@ -658,8 +658,8 @@ int main(void)
         check("... 26 s is 74, 50 s 50, 0.53 Hz 106, 70 Hz 152", proj.par[P_LFO_RATE] == 74 &&
               scene_get(0, 0)[P_LFO_RATE] == 50 && scene_get(1, 3)[P_LFO_RATE] == 106 && scene_get(1, 4)[P_LFO_RATE] == 152);
         check("... the rest kept", proj.tun_off[1] == 7 && proj.par[P_TUNE] == 0 && scene_get(1, 3)[P_CLK_SYNC] == 1);
-        check("... and saved as 44", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == 44u &&
-                                     ((const bank_t *)store[OBJ_BANKB])->format == 44u);
+        check("... and saved in current format", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == PROJ_FORMAT &&
+                                     ((const bank_t *)store[OBJ_BANKB])->format == PROJ_FORMAT);
     }
     {   /* format 43 (Evan, 2026-11-08): the LFO on X-Wave and the resonance turns at their ends, its depth 100 their
          * whole range; a saved sound keeps the range it reached */
@@ -715,8 +715,8 @@ int main(void)
                scene_get(BANK_D, 1)[DR_GP(1, GP_FLFO_DEPTH)]);
         check("... Movement 0 converted as at 50 (X-Wave 40 is 57), a negative send on both LFOs keeps its sign (-30 is -50)",
               scene_get(BANK_D, 1)[DR_GP(0, GP_OLFO_DEPTH)] == 57 && scene_get(BANK_D, 1)[DR_GP(1, GP_FLFO_DEPTH)] == -50);
-        check("... and saved as 44, D too", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == 44u &&
-                                              ((const bank8_t *)store[BANKX_OBJ[0]])->format == 44u);
+        check("... and saved in current format, D too", project_save() == 0 && ((const project_t *)store[OBJ_PROJ])->format == PROJ_FORMAT &&
+                                              ((const bank8_t *)store[BANKX_OBJ[0]])->format == PROJ_FORMAT);
     }
     {   /* 0.3's eight banks (Evan, 2026-11-07): D, E, F yours, keys 1-8, an object each; the Presets' second bank
          * P9-P16 on keys 1-8, fixed; a new FM-1's C and F empty (nothing copied into them) */

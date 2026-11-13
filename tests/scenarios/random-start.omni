@@ -4,8 +4,8 @@ notips
 set 71 0
 expect playing 0
 expect par51 29
-expect par53 0
-expect par54 60
+expect par53 60
+expect par54 0
 expect par74 1
 expect par110 0
 expect scenes 0
@@ -28,8 +28,8 @@ expect dirty 1
 expect scene_at -1
 expect scenes 0
 expect par51 29
-expect par53 0
-expect par54 60
+expect par53 60
+expect par54 0
 expect par71 0
 expect par74 1
 expect par110 0

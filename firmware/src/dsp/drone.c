@@ -599,7 +599,10 @@ void dr_param_text(int i, int v, char *b)
     }
     else if (gp == GP_PITCH)
         pitch_text(v, b);
-    else if (gp == GP_CUTOFF || gp == GP_RESO) {   /* 0..1000 shown 0..100: "70", "70.5" between */
+    else if (gp == GP_CUTOFF) {               /* display only: round 0..1000 tenths to integer 0..100 */
+        itoa_s((v + 5) / 10, b);
+    }
+    else if (gp == GP_RESO) {                 /* retain 0.1 precision for resonance */
         itoa_s(v / 10, b);
         if (v % 10) {
             while (*b)

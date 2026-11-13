@@ -229,6 +229,18 @@ int main(void)
 {
     int i;
 
+    {   /* Cutoff is displayed in whole percentages, but retains its 0.1 control precision. */
+        char b[24];
+        dr_param_text(DR_GP(0, GP_CUTOFF), 274, b);
+        check("cutoff display: below half rounds down", !strcmp(b, "27"));
+        dr_param_text(DR_GP(0, GP_CUTOFF), 275, b);
+        check("cutoff display: half rounds up", !strcmp(b, "28"));
+        dr_param_text(DR_GP(1, GP_CUTOFF), 999, b);
+        check("cutoff display: near maximum rounds to 100", !strcmp(b, "100"));
+        dr_param_text(DR_GP(0, GP_RESO), 275, b);
+        check("resonance display: still shows tenths", !strcmp(b, "27.5"));
+    }
+
     {   /* WANDER's and CHORD's notes on the Tuning (Evan, 2026-10-30): 12-tone as before; the 12-note Tunings the same
          * keys; the others the nearest note to the pure size; Just and Shruti pure over drone I, wherever it is */
         struct { int tun, p1; float cur; int j; float want; const char *what; } c[] = {

@@ -53,10 +53,12 @@ spin K1 20
 spin K2 50
 wait 2500
 shot source.png
-# LFO: Wave I a triangle, Wave II an exp saw; some depth on each drone's filter
+# LFO Waves: the waveform traces now show each cycle's live phase position.
 tap LFO
 expect view 6
-# Wave/level page precedes the original sends page.
+wait 1300
+shot lfo-waves.png
+# LFO Sends: larger routing labels and values, without duplicate wave traces.
 tap LFO
 expect view 7
 tap OCT+

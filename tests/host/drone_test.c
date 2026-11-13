@@ -957,6 +957,7 @@ int main(void)
         dry_init();
         dr_set(P_LFO_W1, 1);
         dr_set(P_LFO_AMP1, -101);
+        run(secs(0.1f));            /* allow the smoothed bypass to reach zero */
         for (i = 0; i < 500; i++) {
             dr_render(small, 32, 3277);
             if (fabsf(dr_lfo[0]) > 1e-5f) off = 0;

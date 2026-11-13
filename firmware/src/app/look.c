@@ -2651,7 +2651,9 @@ static void lk_values(void)
                           : p < P_XMOD && p % GP_N == GP_RESO ? dr_reso[p / GP_N]
                           : dr_pitch_live[p / GP_N] * 100.0f;
             const int v = (int)(x + (x >= 0.0f ? 0.5f : -0.5f));
-            h = hash(h, (uint32_t)(v / (p < P_XMOD && (p % GP_N == GP_CUTOFF || p % GP_N == GP_RESO) ? 10 : 5)));
+            /* Keep redraw thresholds aligned with the displayed rounded integer. */
+            h = hash(h, (uint32_t)(p < P_XMOD && (p % GP_N == GP_CUTOFF || p % GP_N == GP_RESO) ?
+                                     (v + 5) / 10 : v / 5));
         }
         if (VIEW_KNOB[ui.view][i].g < G)       /* a drone's knob may follow another of its settings (PW the wave,
                                                 * a send its key) */

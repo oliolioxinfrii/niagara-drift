@@ -237,8 +237,12 @@ int main(void)
         check("cutoff display: half rounds up", !strcmp(b, "28"));
         dr_param_text(DR_GP(1, GP_CUTOFF), 999, b);
         check("cutoff display: near maximum rounds to 100", !strcmp(b, "100"));
+        dr_param_text(DR_GP(0, GP_RESO), 274, b);
+        check("resonance display: below half rounds down", !strcmp(b, "27"));
         dr_param_text(DR_GP(0, GP_RESO), 275, b);
-        check("resonance display: still shows tenths", !strcmp(b, "27.5"));
+        check("resonance display: half rounds up", !strcmp(b, "28"));
+        dr_param_text(DR_GP(1, GP_RESO), 999, b);
+        check("resonance display: near maximum rounds to 100", !strcmp(b, "100"));
     }
 
     {   /* WANDER's and CHORD's notes on the Tuning (Evan, 2026-10-30): 12-tone as before; the 12-note Tunings the same

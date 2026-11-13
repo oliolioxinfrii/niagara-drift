@@ -38,8 +38,8 @@ Every combination of keys, and every hold and tap, in one place.
 | tap a page button again | its next page ("1/2") |
 | hold [[ARP]] | toggle Swell on/off without changing pages |
 | tap [[ARP]] | open Swell page 1 or cycle between its two pages |
-| tap [[D#4]] (non-LFO pages) or [[C#5]] (LFO pages) | lock/free the LFO to Swell |
-| hold that key for 500 ms | reset LFO phase without changing the lock state |
+| tap [[C#5]] (on any page) | lock/free the LFO to Swell |
+| hold [[C#5]] for 500 ms | reset LFO phase without changing the lock state |
 | tap [[OCT−]] or [[OCT+]] | select the next active waveform for LFO I or LFO II |
 | hold [[OCT−]] or [[OCT+]] for 400 ms | bypass or restore that LFO, retaining its waveform and level |
 | tap [[REC]] three times | record your moves, loop them, stop |

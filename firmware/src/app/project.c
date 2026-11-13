@@ -105,7 +105,7 @@ static const int16_t PRESET_CHANGES[][PRESET_N + 1] = {
      * a slow Swell */
     {I_(GP_PITCH), 3800, I_(GP_CUTOFF), 620, I_(GP_RESO), 600, I_(GP_DRIVE), 40, I_(GP_LEVEL), 86, I_(GP_PARTNER), 0,
      I_(GP_OLFO_DEPTH), 29, I_(GP_FLFO_DEPTH), 0, II_(GP_CUTOFF), 640, II_(GP_RESO), 400, II_(GP_LEVEL), 74,
-     II_(GP_FLFO_DEPTH), 0, P_XMOD, 1, P_XMOD_AMT, 45, P_LFO_RATE, 112, P_LFO_W1, 9, P_LFO_W2, 0, P_PULSE_RATE, 10,
+     II_(GP_FLFO_DEPTH), 0, P_XMOD, 1, P_XMOD_AMT, 45, P_LFO_RATE, 112, P_LFO_W1, 9, P_LFO_W2, 8, P_LFO_AMP2, -101, P_PULSE_RATE, 10,
      P_PULSE_DEPTH, 45, P_PULSE_SHAPE, 0, P_DLY_TIME, 55, P_DLY_MIX, 30, P_REV_MIX, 25, P_FEEDBACK, 20,
      P_DLY_TYPE, 2, -1},
     /* P12 ASHRAM: a warm organ on Eb: a filtered pulse with a sine sub, a second voice ~24 c sharp, the bass wandering
@@ -436,6 +436,19 @@ static void convert(int16_t *v, uint32_t from)
             if (v[DR_GP(g, GP_FLFO_DEST)] == DR_TO_RESO)
                 v[DR_GP(g, GP_FLFO_DEPTH)] = fit_depth(v, g, GP_FLFO, GP_FLFO_DEPTH, v[DR_GP(g, GP_RESO)] * 0.001f, 0);
         }
+    if (from <= 44u) {
+        const int off1 = v[P_LFO_W1] == 0, off2 = v[P_LFO_W2] == 0;
+        v[P_I_OUT] = 0;
+        v[P_SWELL_PHASE] = 0;
+        v[P_SWELL_WAVE] = 0;
+        v[P_SWELL_SKEW] = 0;
+        v[P_SWELL_EDGE] = 0;
+        v[P_SWELL_WIDTH] = 50;
+        v[P_LFO_AMP1] = off1 ? -101 : 100;
+        v[P_LFO_AMP2] = off2 ? -101 : 100;
+        if (off1) v[P_LFO_W1] = dr_param_info(P_LFO_W1)->def;
+        if (off2) v[P_LFO_W2] = dr_param_info(P_LFO_W2)->def;
+    }
 }
 
 static int in_range(const int16_t *v)
@@ -668,7 +681,7 @@ static void bank_load(int b)                   /* B (1) or C (2): from its objec
     bank_fmt[b - 1] = ld.b.format;
     if (ld.b.format == PROJ_FORMAT) {
         *k = ld.b;
-    } else if (ld.b.format >= 41u && ld.b.format <= 43u) {   /* 41-43: as now, the LFO rate on an old scale (41,
+    } else if (ld.b.format >= 41u && ld.b.format <= 44u) {   /* 41-43: as now, the LFO rate on an old scale (41,
                                                                 * 42) or the X-WAVE and resonance depths (43) */
         *k = ld.b;
         for (i = 0; i < NSCENES; i++)
@@ -745,7 +758,7 @@ static void bank_load(int b)                   /* B (1) or C (2): from its objec
 
 /* D, E or F (j 0..2) from its object: new in format 43, read in 43 (converted) and 44 (a later format converts it
  * here too, as bank_load does B and C) */
-_Static_assert(PROJ_FORMAT == 44, "bankx_load reads D-F only in formats 43 and 44: add their conversion (as bank_load "
+_Static_assert(PROJ_FORMAT == 45, "bankx_load reads D-F only in formats 43 and 44: add their conversion (as bank_load "
                                   "does B and C) before raising PROJ_FORMAT, or everyone's D, E and F are dropped");
 static void bankx_load(int j)
 {
@@ -754,7 +767,7 @@ static void bankx_load(int j)
     bankx_blank(k);
     memset(ld.raw, 0, sizeof ld.raw);
     if (plat_store_load(BANKX_OBJ[j], ld.raw, sizeof ld.raw) < (int)sizeof *k || ld.x.magic != BANK_MAGIC ||
-        (ld.x.format != PROJ_FORMAT && ld.x.format != 43u))
+        (ld.x.format != PROJ_FORMAT && ld.x.format != 43u && ld.x.format != 44u))
         return;
     *k = ld.x;
     if (k->format != PROJ_FORMAT) {            /* 43: the X-WAVE and resonance depths */
@@ -778,7 +791,7 @@ static const int16_t *old_scene(int n, uint32_t *from)   /* scene n of the bank 
 {
     uint32_t f = ld.b.format;
     *from = f;
-    if (f == PROJ_FORMAT || (f >= 41u && f <= 43u)) return ld.b.scene[n];
+    if (f == PROJ_FORMAT || (f >= 41u && f <= 44u)) return ld.b.scene[n];
     if (f == 39u || f == 40u) return ld.b40.scene[n];
     if (f == 37u || f == 38u) return ld.b38.scene[n];
     if (f == 36u) return ld.b36.scene[n];
@@ -900,7 +913,7 @@ int project_load(void)
     }
     if (from == PROJ_FORMAT) {
         proj = ld.p;
-    } else if (from >= 41u && from <= 43u) {   /* 41-43: as now, the LFO rate on an old scale (41, 42) or the
+    } else if (from >= 41u && from <= 44u) {   /* 41-43: as now, the LFO rate on an old scale (41, 42) or the
                                                 * X-WAVE and resonance depths (43) */
         proj = ld.p;
         convert(proj.par, from);

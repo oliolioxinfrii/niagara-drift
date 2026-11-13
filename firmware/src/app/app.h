@@ -11,7 +11,9 @@
 #define OM_VERSION "DEV"
 #endif
 #define PROJ_MAGIC 0x314E5244u           /* "DRN1" */
-#define PROJ_FORMAT 44u                  /* 44: the LFO's depth on X-Wave and the resonance, 100 their whole range
+#define PROJ_FORMAT 45u                  /* 45: reuse retired gesture slots for per-drone mute, Swell design and per-LFO levels.
+                                          * Previous project and bank formats migrate these slots to new defaults.
+                                          * 44: the LFO's depth on X-Wave and the resonance, 100 their whole range
                                           * (43's read, converted to the same range);
                                           * 43: the LFO rate 0..152, every second from 100 s to 10 s (41's and 42's
                                           * read, converted);

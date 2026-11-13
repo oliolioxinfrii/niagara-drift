@@ -108,7 +108,7 @@ enum {
                                      * the sound to its new setting: OCT, filter mode, pulse, partner, sub, the
                                      * links, the LFO routes */
     P_SCENE_T,                      /* 0..100 = 0.1 s .. 5 min (x^4: 1 s at 23): a scene's morph (the white keys) */
-    P_II_OUT,                       /* drone II faded out on its own (1; SEL + PLAY), a sound's (P12 Clean: one
+    P_II_OUT,                       /* drone II faded out on its own (1; SEL + OCT+), a sound's (P12 Clean: one
                                      * oscillator); was Tuning until 30, 0 since */
     P_SPEAKER,                      /* 0..100: a low cut for a small speaker, 0 off (headphones) .. 240 Hz */
     P_PLOCK,                        /* the pitches locked (1): the pitch knobs do nothing (a switch) */
@@ -156,6 +156,17 @@ enum {
                                      * tempo forgotten); a room setting (v0.3, Evan 2026-11-01, ledger item 5) */
     DR_NPARAMS
 };
+/* Reuse the eight retired gesture-depth/time slots in format 45: no parameter
+ * renumbering, additional saved-scene storage, or larger audio command queue. */
+#define P_I_OUT       P_GD_0
+#define P_SWELL_PHASE P_GD_1
+#define P_SWELL_WAVE  P_GD_2
+#define P_SWELL_SKEW  P_GD_3
+#define P_SWELL_EDGE  P_GR_0
+#define P_SWELL_WIDTH P_GR_1
+#define P_LFO_AMP1    P_GR_2
+#define P_LFO_AMP2    P_GR_3
+
 
 enum { DR_LP, DR_BP, DR_HP };
 enum { DR_SINE, DR_TRI, DR_SAW, DR_SQUARE };          /* the X-WAVE's four waves, in its order */
@@ -290,7 +301,8 @@ extern volatile float dr_pulse_ph;             /* the pulse's phase now, 0..2 (i
 float dr_lfo_wave(int tap, int shape, float ph);   /* a tap's shape (1..10; 0 off: flat) at ph, -1..1; for
                                                     * random, ph 0..1 the last cycle, 1..2 this one */
 float dr_lfo_rmod_k(float rm, int src, int w1, int w2);  /* rate mod's speed scale (the screen's picture) */
-float dr_pulse_wave(float ph);                 /* the pulse's gain at ph (0..2) as set now, 0..1 */
+float dr_pulse_wave(float ph);
+float dr_pulse_wave_for(int g, float ph);                 /* the pulse's gain at ph (0..2) as set now, 0..1 */
 float dr_time_s(int p, int v);                 /* Fade, Morph, Scene time at v, seconds (v0.3: a power curve, 1 s
                                                 * near a quarter of the dial; Evan, 2026-11-07) */
 float dr_pulse_hz(int v);                      /* breaths a second at Rate v, or now (-1: the Rate, or the clock's) */
@@ -308,4 +320,5 @@ float dr_age_now(float *ph);                   /* Age as heard now (its 20 s wea
  * renewed about 30 times a second */
 #define DR_SCOPE_N 104
 extern volatile float dr_scope[DR_NGROUPS][DR_SCOPE_N];
-extern volatile float dr_pitch[DR_NGROUPS];    /* each drone's pitch now (MIDI note, fractional while sliding) */
+extern volatile float dr_pitch[DR_NGROUPS];
+extern volatile float dr_pitch_live[DR_NGROUPS];    /* each drone's pitch now (MIDI note, fractional while sliding) */

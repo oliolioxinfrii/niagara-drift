@@ -43,8 +43,8 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     VOICE_PARAMS(5000, 67, DR_IV_UNISON, 30, 575, 84, DR_LFO_I, DR_LFO_I, 85),     /* I: D3, saw, partner in unison */
     VOICE_PARAMS(5700, 33, DR_IV_UNISON + 9, 15, 600, 68, DR_LFO_II, DR_LFO_II, -85),  /* II: A3, triangle, partner an octave up */
     {"Cross-mod", 0, DR_XMOD_OUT, 0}, {"X-mod amt", 0, 100, 40}, {"Hard sync", 0, 1, 0}, {"Pitch link", 0, 1, 0},
-    {"Link ofs", -2400, 2400, 700}, {"LFO rate", 0, 152, 74}, {"Wave I", 1, DR_LFO_NSHAPES - 1, 1},
-    {"Wave II", 1, DR_LFO_NSHAPES - 1, 8}, {"Pitch glide", 0, 100, 7}, {"Fade", 0, 100, 29}, {"Drift", 0, 100, 30},
+    {"Link ofs", -2400, 2400, 700}, {"LFO rate", 0, 152, 74}, {"Wave I", 0, DR_LFO_NSHAPES - 1, 1},
+    {"Wave II", 0, DR_LFO_NSHAPES - 1, 8}, {"Pitch glide", 0, 100, 7}, {"Fade", 0, 100, 29}, {"Drift", 0, 100, 30},
     {"Stereo", 0, 100, 60}, {"Tune", -130, 130, 0},
     {"Pulse", 0, 1, 1}, {"Rate", 0, 100, 6}, {"Depth", 0, 100, 40}, {"Shape", -100, 103, -25}, {"Swing", 0, 50, 0},
     {"Time", 0, DR_DLY_TMAX, 50}, {"Repeats", 0, 100, 50}, {"Dly mix", 0, 100, 25}, {"Rev mix", 0, 100, 35},

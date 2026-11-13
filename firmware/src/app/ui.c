@@ -151,6 +151,8 @@ static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(255, 176, 74), RGB(69, 227, 211
 static struct {
     uint8_t view;
     uint8_t playing;                   /* PLAY on: the drone faded in, or fading in */
+    uint32_t play_t;                   /* PLAY held since: a long hold while stopped generates a fresh sound */
+    uint8_t play_done;                 /* stop, SEL shortcut or randomization already consumed this press */
     uint32_t btn, keys, btn_used;
     uint32_t enc_t[NE];
     int8_t hold_btn;                   /* the page button held (B_*), or -1 */
@@ -199,6 +201,7 @@ static struct {
     uint8_t press_done;                /* ... pressed through: the scene is taken */
     int16_t undo[DR_NPARAMS];          /* UNDO (SEL + SAVE, v0.3): the sound before the last scene tap or blend */
     int8_t undo_ok, undo_at;           /* ... there is one; the scene it was (-1: a sound of its own) */
+    uint8_t undo_random;              /* random-start undo must restore pitch even when Pitch Lock is on */
     uint16_t tip_q;                    /* the one-time tips waiting for the screen (bit TIP_*) */
     char msg_next[24];                 /* a message's second part, shown after it (too long for one) */
     uint32_t press_t0, press_hi_t;     /* ... since; above the commit level since (0: not) */
@@ -1156,9 +1159,104 @@ static void undo_keep(void)
     memcpy(ui.undo, proj.par, sizeof ui.undo);
     ui.undo_ok = 1;
     ui.undo_at = ui.scene_at;
+    ui.undo_random = 0;
     if (ui.scene_at < 0)
         tip(TIP_UNDO);
 }
+/* ------------------------------------------------------- fresh start --- */
+/* The randomizer is an intentional blank-canvas action, not a performance modulation.
+ * No flash/scene slot is changed; room settings and the selected Tuning stay put.
+ * Generate a playable starting point with broad but bounded values, then edit as usual. */
+#define PLAY_RANDOM_MS 900u
+static uint32_t fresh_rng = 0x6d2b79f5u;
+static uint32_t fresh_next(void)
+{
+    fresh_rng ^= fresh_rng << 13;
+    fresh_rng ^= fresh_rng >> 17;
+    fresh_rng ^= fresh_rng << 5;
+    return fresh_rng;
+}
+static int fresh_between(int lo, int hi) { return lo + (int)(fresh_next() % (uint32_t)(hi - lo + 1)); }
+static void fresh_sound(void)
+{
+    static const struct { uint8_t p; int16_t lo, hi; } R[] = {
+        {P_XMOD_AMT, 5, 45}, {P_LFO_RATE, 36, 100}, {P_LFO_W1, 1, DR_LFO_NSHAPES - 1},
+        {P_LFO_W2, 1, DR_LFO_NSHAPES - 1}, {P_LFO_AMP1, 40, 100}, {P_LFO_AMP2, 40, 100},
+        {P_GLIDE, 0, 35}, {P_DRIFT, 0, 65}, {P_PULSE_RATE, 0, 45},
+        {P_PULSE_DEPTH, 15, 85}, {P_PULSE_SHAPE, -80, 80}, {P_PULSE_SWING, 0, 35},
+        {P_SWELL_PHASE, 0, 100}, {P_SWELL_WAVE, 0, 100}, {P_SWELL_SKEW, -80, 80},
+        {P_SWELL_EDGE, 0, 80}, {P_SWELL_WIDTH, 10, 90},
+        {P_DLY_TIME, 15, 95}, {P_DLY_REPEATS, 10, 75}, {P_DLY_MIX, 5, 55},
+        {P_REV_MIX, 15, 65}, {P_REV_TYPE, 0, DR_NREV - 1},
+        {P_DLY_LFO, DR_LFO_I, DR_LFO_BOTH}, {P_DLY_LFO_DEPTH, -40, 40},
+        {P_LFO_RMOD, -30, 30}, {P_LFO_RMOD_SRC, DR_LFO_I, DR_LFO_BOTH},
+        {P_MOVE, 40, 85}, {P_FEEDBACK, 0, 45}, {P_CHAR, 0, 70},
+        {P_WANDER, 0, 55}, {P_AGE, 0, 65}, {P_WSCALE, 0, DR_NWSCALE - 1},
+        {P_DLY_TYPE, 0, DR_NDLY - 1}, {P_REV_LEN, 25, 90}, {P_REV_DAMP, 10, 85},
+        {P_DLY_DRIVE, 0, 45}, {P_DLY_ROUTE, 0, DR_NROUTE - 1}
+    };
+    uint32_t i;
+    int g;
+    if (ui.loop != L_IDLE || ui.press >= 0 || ui.keys) {
+        say_c("STOP LOOP / RELEASE KEYS", "BEFORE RANDOM START", K_GOLD);
+        return;
+    }
+    fresh_rng ^= plat_ms() | 1u;       /* fresh each hold, even from a repeated preset */
+    fresh_rng |= 1u;
+    undo_keep();                       /* SEL+SAVE returns to the sound before this roll */
+    ui.undo_random = 1;
+    ui.morph = -1;                     /* an in-flight scene must not overwrite the roll */
+    ui.visit = -1;
+    ui.press = -1;
+    hands_clear();
+    for (i = 0; i < sizeof R / sizeof R[0]; i++)
+        param_set(R[i].p, fresh_between(R[i].lo, R[i].hi));
+    param_set(P_PULSE, fresh_between(0, 3) != 0);
+    param_set(P_LFO_LOCK, 0);
+    param_set(P_XMOD, fresh_between(0, 4) == 0 ? fresh_between(1, DR_XMOD_OUT) : 0);
+    param_set(P_PLINK, 0);
+    param_set(P_SYNC, fresh_between(0, 4) == 0);
+    param_set(P_I_OUT, 0);
+    param_set(P_II_OUT, 0);
+    param_set(P_SHIFT_MOVE, 2 * DR_SHIFT_MID);
+    for (i = 0; i < DR_NGEST; i++)
+        param_set(P_GL_0 + (int)i, 0);  /* no latched gestures from the previous session */
+    for (g = 0; g < DR_NGROUPS; g++) {
+        const int b = DR_GP(g, 0);
+        const int tuning = proj.par[P_TUNING];
+        const int guess = fresh_between(4100, 6800);
+        const int pitch = dr_grid_at(tuning, dr_grid_k(tuning, guess, 900), 900);
+        param_set(b + GP_PITCH, pitch);
+        param_set(b + GP_WAVE, fresh_between(0, 100));
+        param_set(b + GP_WIDTH, fresh_between(5, 90));
+        param_set(b + GP_INTERVAL, fresh_between(0, DR_NINTERVALS - 1));
+        param_set(b + GP_DETUNE, fresh_between(0, 65));
+        param_set(b + GP_MIX, fresh_between(0, 80));
+        param_set(b + GP_SUBOCT, fresh_between(1, 6));
+        param_set(b + GP_CUTOFF, fresh_between(250, 900));
+        param_set(b + GP_RESO, fresh_between(100, 720));
+        param_set(b + GP_MODE, fresh_between(DR_LP, DR_HP));
+        param_set(b + GP_DRIVE, fresh_between(0, 65));
+        param_set(b + GP_LEVEL, fresh_between(50, 90));
+        param_set(b + GP_PARTNER, fresh_between(0, 4) != 0);
+        param_set(b + GP_OLFO, fresh_between(DR_LFO_I, DR_LFO_BOTH));
+        param_set(b + GP_OLFO_DEPTH, fresh_between(0, 3) == 0 ? 0 : fresh_between(-65, 65));
+        param_set(b + GP_OLFO_DEST, fresh_between(DR_TO_PITCH, DR_TO_XWAVE));
+        param_set(b + GP_FLFO, fresh_between(DR_LFO_I, DR_LFO_BOTH));
+        param_set(b + GP_FLFO_DEPTH, (fresh_between(0, 1) ? 1 : -1) * fresh_between(25, 90));
+        param_set(b + GP_NOISE, fresh_between(0, 45));
+        param_set(b + GP_NCOLOR, fresh_between(0, 100));
+        param_set(g ? P_SUBW_1 : P_SUBW_0, fresh_between(0, DR_NSUBW - 1));
+    }
+    /* One filter always explores resonance, the other cutoff: both routes are audible. */
+    param_set(DR_GP(0, GP_FLFO_DEST), fresh_between(DR_TO_CUTOFF, DR_TO_RESO));
+    param_set(DR_GP(1, GP_FLFO_DEST), 1 - proj.par[DR_GP(0, GP_FLFO_DEST)]);
+    ui.scene_at = -1;
+    dr_lfo_reset();
+    mark_dirty();
+    say_c("RANDOM START", "TAP [PLAY] TO HEAR", K_GOLD);
+}
+
 static void scene_undo(void)
 {
     int k;
@@ -1257,7 +1355,8 @@ static void sound_blend(const int16_t *from, const int16_t *to, float x)
         if (dr_ext_spb > 0.0f && (k == P_PULSE || k == P_PULSE_DIV))
             continue;                                  /* on a MIDI clock the Swell's on / off and its division stay as
                                                         * they are (Evan, 2026-10-26: a scene switched it off mid-song) */
-        if (proj.par[P_PLOCK] && (k == DR_GP(0, GP_PITCH) || k == DR_GP(1, GP_PITCH) || k == P_PLINK_OFF ||
+        if (proj.par[P_PLOCK] && !(ui.morph == VISIT_BACK && ui.undo_random) &&
+            (k == DR_GP(0, GP_PITCH) || k == DR_GP(1, GP_PITCH) || k == P_PLINK_OFF ||
                                   k == P_GL_0 + DR_G_SHIFT))
             continue;                                  /* pitch lock: the drones keep their pitch (2026-10-17); Wander
                                                         * comes with the scene (Evan, 2026-11-08: a scene saved with
@@ -1937,25 +2036,44 @@ static void input(void)
                     oct_used[w] = 1;
                 }
             }
+            if (i == B_PLAY) {
+                ui.play_t = plat_ms();
+                ui.play_done = 0;
+            }
             if (i == B_PLAY && (btn >> B_SEL & 1u)) {  /* SEL + PLAY: drone II alone, out / in */
+                ui.play_done = 1;
                 ui.btn_used |= 1u << B_SEL;
                 param_set(P_II_OUT, !proj.par[P_II_OUT]);   /* a sound's: scenes keep it */
                 say_c("DRONE II", proj.par[P_II_OUT] ? "OUT" : "IN", K_DRONE[1]);
-            } else if (i == B_PLAY) {                  /* PLAY on the press */
-                static uint8_t seeded;
-                if (!seeded) {                         /* the random ones from when the hand first pressed
-                                                        * PLAY: a new wander each time it's switched on */
-                    seeded = 1;
-                    dr_seed(plat_ms());
-                }
-                ui.playing = (uint8_t)!ui.playing;
-                dr_play(ui.playing);
+            } else if (i == B_PLAY && ui.playing) {   /* stop on the press; a long hold cannot randomize playing audio */
+                ui.play_done = 1;
+                ui.playing = 0;
+                dr_play(0);
             }
         } else if (i == B_OCTDN || i == B_OCTUP) {
             const int w = i == B_OCTUP;
             if (!oct_used[w]) wave_step(w, 1);
-        } else if (!(ui.btn_used & m) && i != B_PLAY) {
+        } else if (i == B_PLAY) {
+            if (!ui.play_done && !(ui.btn_used & m)) {   /* a short tap starts on release */
+                static uint8_t seeded;
+                if (!seeded) {
+                    seeded = 1;
+                    dr_seed(plat_ms());
+                }
+                ui.playing = 1;
+                dr_play(1);
+            }
+        } else if (!(ui.btn_used & m)) {
             button((int)i);
+        }
+    }
+    /* Only an unmodified long PLAY while stopped rolls a new sound. */
+    if (btn >> B_PLAY & 1u) {
+        if ((btn & ~(1u << B_PLAY)) || keys)
+            ui.play_done = 1;
+        if (!ui.play_done && !ui.playing && plat_ms() - ui.play_t >= PLAY_RANDOM_MS) {
+            ui.play_done = 1;
+            fresh_sound();
         }
     }
     for (i = 0; i < 2; i++) {

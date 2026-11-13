@@ -73,6 +73,8 @@ How fast they all move: left slower, right faster.
 - **For a long one,** tap the key: it comes in on its own.
 - **The header** shows the last one played and how far in ("WASH 40%"), or "latched". Scenes remember which are
   latched.
+- **The gesture keys' lights** follow their active effect levels, including motion-loop playback: dark at 0%,
+  fully bright at 100%.
 - **The LFO steps aside** from what a gesture moves, so Movement doesn't wobble it.
 - **Pairs on the panel:** each key of 9–12 pairs with the key four to its right: Tick and Weight the low end, Chord and
   Shift pitch, Snarl adds the dirt Clean takes out, Stutter and Wash time.

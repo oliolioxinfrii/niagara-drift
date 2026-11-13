@@ -44,9 +44,7 @@ Low-pass (LP), band-pass (BP) or high-pass (HP), on a black key: [[A#3]] for dro
 
 ### Pitch link
 
-[[C#5]] links drone II to drone I: drone II's pitch knob then sets the interval between them.
-
-<img src="../../img/black-keys-link.png" width="560" alt="The black keys with the pitch link key picked out: C#5">
+[[D#4]] links drone II to drone I outside the LFO pages: drone II's pitch knob then sets the interval between them. On LFO pages, [[D#4]] switches drone II's filter-LFO destination instead.
 
 ## Good to know
 

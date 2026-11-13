@@ -13,11 +13,11 @@ Every combination of keys, and every hold and tap, in one place.
 
 | Do | What it does |
 |---|---|
-| [[SEL]] + [[PLAY]] | drone II alone fades out, or back in |
+| [[SEL]] + [[PLAY]] | generate a fresh randomized working sound immediately; no scene slots overwritten, current Tuning and room settings preserved. Undo with [[SEL]] + [[SAVE]] |
 | [[SEL]] + [[SAVE]] | back to the sound before your last scene tap or blend; again, forward. Keep SEL down until you've let go of SAVE |
 | [[SEL]] + a gesture key | picks the bank the scene keys play: [[G4]] A, [[A4]] B, [[B4]] C, [[C5]] D, [[D5]] E, [[E5]] F, [[F5]] Presets P1–P8, [[G5]] P9–P16 |
 | [[SEL]] + [[OCT−]] or [[OCT+]] | toggle drone I or drone II in/out (the previous LFO waveform remains selected) |
-| [[SEL]] held, a knob | fine steps: a pitch knob a cent at a time, cutoff and resonance in tenths, Shift's move a cent |
+| [[SEL]] held, a knob | fine steps: a pitch knob a cent at a time, cutoff and resonance in tenths (whole-number readouts), Shift's move a cent |
 | [[SEL]] held, a black key touched | the screen names it and its setting, without switching it |
 | [[SEL]] held | the black keys' map on the screen, the banks lit on the gesture keys |
 | [[SEL]] + KNOB 1 or 3 on Sub · Drive | each drone's sub wave |

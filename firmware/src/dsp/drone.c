@@ -43,8 +43,8 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     VOICE_PARAMS(5000, 67, DR_IV_UNISON, 30, 575, 84, DR_LFO_I, DR_LFO_I, 85),     /* I: D3, saw, partner in unison */
     VOICE_PARAMS(5700, 33, DR_IV_UNISON + 9, 15, 600, 68, DR_LFO_II, DR_LFO_II, -85),  /* II: A3, triangle, partner an octave up */
     {"Cross-mod", 0, DR_XMOD_OUT, 0}, {"X-mod amt", 0, 100, 40}, {"Hard sync", 0, 1, 0}, {"Pitch link", 0, 1, 0},
-    {"Link ofs", -2400, 2400, 700}, {"LFO rate", 0, 152, 74}, {"Wave I", 0, DR_LFO_NSHAPES - 1, 1},
-    {"Wave II", 0, DR_LFO_NSHAPES - 1, 8}, {"Pitch glide", 0, 100, 7}, {"Fade", 0, 100, 29}, {"Drift", 0, 100, 30},
+    {"Link ofs", -2400, 2400, 700}, {"LFO rate", 0, 152, 74}, {"Wave I", 1, DR_LFO_NSHAPES - 1, 1},
+    {"Wave II", 1, DR_LFO_NSHAPES - 1, 8}, {"Pitch glide", 0, 100, 7}, {"Fade", 0, 100, 29}, {"Drift", 0, 100, 30},
     {"Stereo", 0, 100, 60}, {"Tune", -130, 130, 0},
     {"Pulse", 0, 1, 1}, {"Rate", 0, 100, 6}, {"Depth", 0, 100, 40}, {"Shape", -100, 103, -25}, {"Swing", 0, 50, 0},
     {"Time", 0, DR_DLY_TMAX, 50}, {"Repeats", 0, 100, 50}, {"Dly mix", 0, 100, 25}, {"Rev mix", 0, 100, 35},
@@ -53,8 +53,8 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     {"Morph", 0, 100, 34}, {"Scene time", 0, 100, 40}, {"II out", 0, 1, 0}, {"Speaker", 0, 100, 0},
     {"Pitch lock", 0, 1, 1}, {"Movement", 0, 100, 50}, {"Feedback", 0, 100, 0}, {"Character", 0, 100, 0},
     {"Wander", 0, 100, 0}, {"Age", 0, 100, 0}, {"Shift move", 0, 2 * DR_SHIFT_MID, 2 * DR_SHIFT_MID}, {"Scale", 0, DR_NWSCALE - 1, 0},
-    {"D5 depth", 0, 100, 70}, {"E5 depth", 0, 100, 100}, {"F5 depth", 0, 100, 100}, {"G5 depth", 0, 100, 70},
-    {"D5 time", 0, 100, 30}, {"E5 time", 0, 100, 40}, {"F5 time", 0, 100, 35}, {"G5 time", 0, 100, 35},
+    {"I out", 0, 1, 0}, {"Phase", 0, 100, 0}, {"Wave", 0, 100, 0}, {"Skew", -100, 100, 0},
+    {"Edge", 0, 100, 0}, {"Width", 0, 100, 50}, {"Level I", -101, 100, 100}, {"Level II", -101, 100, 100},
     {"D5 latch", 0, 100, 0}, {"E5 latch", 0, 100, 0}, {"F5 latch", 0, 100, 0}, {"G5 latch", 0, 100, 0},
     {"Type", 0, DR_NDLY - 1, DR_DLY_TAPE}, {"Length", 0, 100, 60}, {"Damp", 0, 100, 40}, {"Pressure", 0, 100, 50},
     {"Drive", 0, 100, 0}, {"Into rev", 0, DR_NROUTE - 1, 0}, {"Division", 0, DR_NDIV - 1, 2},
@@ -614,8 +614,14 @@ void dr_param_text(int i, int v, char *b)
         while (*b)
             b++;
         copy_s(b, "%");
-    } else if (i == P_II_OUT)
+    } else if (i == P_II_OUT || i == P_I_OUT)
         copy_s(b, v ? "Out" : "In");
+    else if (i == P_LFO_AMP1 || i == P_LFO_AMP2) {
+        if (v < 0) copy_s(b, "Off");
+        else { itoa_s(v, b); while (*b) b++; copy_s(b, "%"); }
+    } else if (i == P_SWELL_WAVE) {
+        copy_s(b, v == 0 ? "Original" : v == 33 ? "Double" : v == 67 ? "Steps" : v == 100 ? "Hold" : "Blend");
+    }
     else if (i == P_SPEAKER) {                   /* "off", "120Hz" */
         if (!v)
             copy_s(b, "Off");
@@ -669,6 +675,7 @@ volatile float dr_duck_level = 1.0f;
 volatile float dr_tail;
 static float duck = 1.0f, duck_to = 1.0f;     /* the dip around a save while playing (ui.c) */
 volatile float dr_pitch[DR_NGROUPS];
+volatile float dr_pitch_live[DR_NGROUPS];
 
 /* NOISE's colour: white noise through six gentle shelves (a one-pole low-pass at 10, 40, 160, 640, 2560, 10240
  * Hz, two octaves apart, each with g of its input added back: y = lp + g (x - lp)). The highs of each shelf
@@ -862,7 +869,7 @@ volatile float dr_xw[DR_NGROUPS], dr_reso[DR_NGROUPS];
 volatile float dr_fb, dr_snarl;
 volatile float dr_scope[DR_NGROUPS][DR_SCOPE_N];
 static float sc_buf[DR_NGROUPS][DR_SCOPE_N];
-static float pulse_ph, pulse_g = 1.0f;           /* the pulse: phase over two beats (0..2), its gain */
+static float pulse_ph, pulse_g = 1.0f, pulse_g2 = 1.0f;
 static float pulse_a;                            /* the pulse coming in / going out (Morph), 0..1 */
 static uint8_t dly_rt, dly_rp;                   /* the delay LFO's route: now, the one before (Morph) */
 static float dly_rw;
@@ -916,7 +923,7 @@ void dr_init(void)
         *v = (grp_t){0};
         v->pitch = v->ps1 = v->ps2 = v->st = (float)par[DR_GP(g, GP_PITCH)] * 0.01f;
         v->cut = 4.32192809f + (float)par[DR_GP(g, GP_CUTOFF)] * 0.00981378f;
-        v->gf = v->gtarget = g == 1 && par[P_II_OUT] ? 0.0f : 1.0f;   /* drone II out on its own: out */
+        v->gf = v->gtarget = (g ? par[P_II_OUT] : par[P_I_OUT]) ? 0.0f : 1.0f;   /* drone II out on its own: out */
         v->lv = (float)(par[DR_GP(g, GP_LEVEL)] * par[DR_GP(g, GP_LEVEL)]) * 0.0001f * 0.4f;
         v->ph = 0.25f * (float)g;                  /* not all edges together */
         v->pph = 0.5f + 0.13f * (float)g;
@@ -940,7 +947,7 @@ void dr_init(void)
     lfo_rnd[1] = rnd_next();
     lfo_rnd[2] = rnd_next();
     pulse_ph = 0.0f;
-    pulse_g = 1.0f;
+    pulse_g = pulse_g2 = 1.0f;
     pulse_a = 0.0f;
     dly_rt = dly_rp = (uint8_t)par[P_DLY_LFO];
     dly_rw = 1.0f;
@@ -1387,8 +1394,8 @@ static void drain(void)
             if (a < DR_NPARAMS) {
                 base[a] = (int16_t)(b < PARAMS[a].lo ? PARAMS[a].lo : b > PARAMS[a].hi ? PARAMS[a].hi : b);
                 par[a] = (int16_t)heard(a);    /* with the macros' offset on it, if any */
-                if (a == P_II_OUT)             /* drone II out on its own: it fades as a voice does */
-                    grp[1].gtarget = b ? 0.0f : 1.0f;
+                if (a == P_I_OUT || a == P_II_OUT)
+                    grp[a == P_II_OUT].gtarget = b ? 0.0f : 1.0f;
                 if (a >= P_WANDER && a <= P_GD_3)
                     mac_dirty = 1;             /* an amount or a depth: the offsets again */
                 {   /* its glide: a step a sample, to arrive over the time asked for (or 25 ms) */
@@ -1559,6 +1566,7 @@ static float note_inc(float n)                    /* phase increment (turns per 
 
 #define FRAMES_PER_DRIFT 8192u                    /* a new drift target every ~0.19 s */
 static float mixl[BLK], mixr[BLK];
+static float pgain[DR_NGROUPS][BLK];
 
 /* ------------------------------------------------------------ the LFO --- */
 static float lfo_tick[2][BLK / CR + 1];          /* each tap's value at each control tick of the block */
@@ -1669,7 +1677,9 @@ static float depth_amtf(float d) { float x = d * 0.01f; return x * fm_fabsf(x); 
 /* the LFO's taps now, for its own rate: Wave I, II or both (summed, then clamped by the caller) */
 static inline float lfo_at_now(int src)
 {
-    return src == DR_LFO_BOTH ? lfo_s[0] + lfo_s[1] : src == DR_LFO_II ? lfo_s[1] : lfo_s[0];
+    const float a = lfo_s[0] * fm_clampf(pfs[P_LFO_AMP1] * 0.01f, 0.0f, 1.0f);
+    const float b = lfo_s[1] * fm_clampf(pfs[P_LFO_AMP2] * 0.01f, 0.0f, 1.0f);
+    return src == DR_LFO_BOTH ? a + b : src == DR_LFO_II ? b : a;
 }
 
 /* RATE MOD's scale: the mean over a cycle of the time each bit takes, 2^(-rm * wave), so the modded cycle
@@ -1680,8 +1690,8 @@ static float rmod_k(float rm, int src, const int *w, int pub)
     int i;
     for (i = 0; i < 32; i++) {
         float ph = ((float)i + 0.5f) * (1.0f / 32.0f);
-        float a = pub ? dr_lfo_wave(0, w[0], ph) : lfo_shape(0, w[0], ph);
-        float b = pub ? dr_lfo_wave(1, w[1], ph) : lfo_shape(1, w[1], ph);
+        float a = (pub ? dr_lfo_wave(0, w[0], ph) : lfo_shape(0, w[0], ph)) * fm_clampf((float)par[P_LFO_AMP1] * 0.01f, 0.0f, 1.0f);
+        float b = (pub ? dr_lfo_wave(1, w[1], ph) : lfo_shape(1, w[1], ph)) * fm_clampf((float)par[P_LFO_AMP2] * 0.01f, 0.0f, 1.0f);
         float v = src == DR_LFO_BOTH ? fm_clampf(a + b, -1.0f, 1.0f) : src == DR_LFO_II ? b : a;
         k += fm_exp2f(-rm * v);
     }
@@ -1733,7 +1743,7 @@ static void lfo_run(uint32_t n)
             if (lfo_rk > 0.0f)
                 a += lfo_rj[i] * lfo_rk * lfo_rk * (3.0f - 2.0f * lfo_rk);
             lfo_s[i] += (a - lfo_s[i]) * 0.5f;
-            lfo_tick[i][t] = lfo_s[i];
+            lfo_tick[i][t] = lfo_s[i] * fm_clampf(pfs[P_LFO_AMP1 + i] * 0.01f, 0.0f, 1.0f);
         }
         if (lfo_rnew)
             lfo_rnew = 0;
@@ -1757,8 +1767,8 @@ static void lfo_run(uint32_t n)
         lfo_q += (uint32_t)(int32_t)(0.005f * e * 4294967296.0f);
         lfo_ph = (float)(lfo_q >> 8) * (1.0f / 16777216.0f);
     }
-    dr_lfo[0] = lfo_s[0];
-    dr_lfo[1] = lfo_s[1];
+    dr_lfo[0] = lfo_s[0] * fm_clampf(pfs[P_LFO_AMP1] * 0.01f, 0.0f, 1.0f);
+    dr_lfo[1] = lfo_s[1] * fm_clampf(pfs[P_LFO_AMP2] * 0.01f, 0.0f, 1.0f);
     dr_lfo_ph = lfo_ph;
 }
 
@@ -1895,7 +1905,12 @@ static void morph_tick(int g, float step)        /* one control tick of the swit
 /* a route's widest swing in its waves: twice for BOTH (I + II summed), during a switch's crossfade too */
 static inline float route_n(const grp_t *v, int i)
 {
-    return v->rt[i] == DR_LFO_BOTH || v->rp[i] == DR_LFO_BOTH ? 2.0f : 1.0f;
+    const float a = fm_clampf(pfs[P_LFO_AMP1] * 0.01f, 0.0f, 1.0f);
+    const float b = fm_clampf(pfs[P_LFO_AMP2] * 0.01f, 0.0f, 1.0f);
+    const int r = v->rt[i], p = v->rp[i];
+    const float n = r == DR_LFO_BOTH ? a+b : r == DR_LFO_I ? a : r == DR_LFO_II ? b : 0.0f;
+    const float m = p == DR_LFO_BOTH ? a+b : p == DR_LFO_I ? a : p == DR_LFO_II ? b : 0.0f;
+    return fm_maxf(n,m);
 }
 /* An LFO on a setting with hard ends (X-WAVE, the resonance: 0..1): b the knob, o the LFO's move now, s its widest.
  * Centered on the knob while the swing fits; where it would run past an end it slides away from it (the knob near
@@ -2144,6 +2159,7 @@ static void render_group(int g, uint32_t n)
         wh = v->wm[DR_HP] * wb;
         wb *= v->wm[DR_BP];
         pmod = (1.0f - v->dw[0]) * 24.0f * om;
+        dr_pitch_live[g] = v->ps2 + tune + pmod + mac_p[g];
         xw = fm_clampf(lfo_fit(xw0, 0.5f * v->dw[0] * om, v->dw[0] * fm_fabsf(xwamt) * route_n(v, 0)) + dw * 0.12f * v->wn[1],
                        0.0f, 1.0f) * 3.0f;
         dr_xw[g] = xw * (100.0f / 3.0f);          /* as it sounds, with the LFO and Wander (the screen) */
@@ -2351,8 +2367,8 @@ static void render_group(int g, uint32_t n)
             y *= a;
             gl += pdl;
             gr += pdr;
-            mixl[j] += y * gl;
-            mixr[j] += y * gr;
+            mixl[j] += y * gl * pgain[g][j];
+            mixr[j] += y * gr * pgain[g][j];
             peak = fm_maxf(peak * 0.99995f, fm_fabsf(y));
             if (v->sc_n < DR_SCOPE_N) {         /* the scope: a point every sc_dec samples, from a cycle's start */
                 if (++v->sc_cnt >= v->sc_dec) {
@@ -2423,7 +2439,6 @@ static void render_group(int g, uint32_t n)
  * and flat at the top and bottom, a gate only at 100 (and even then ~15 ms edges at the default rate, and a
  * 3 ms slew: no tick). It was a swell mixed with a square gate, so any Shape over 0 stepped twice a beat.
  * Depth: how far it dips, in dB (0 .. -30 dB at 99; 100: silence) */
-static float pgain[BLK];
 static float pulse_depth(int v)
 {
     return v >= 100 ? 1.0f : 1.0f - fm_exp2f((float)v * (-30.0f / 99.0f * 0.166096405f));
@@ -2638,6 +2653,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             xbuf[j] = 0.0f;
             sbuf[j] = 0;
         }
+        pulse_run(k);
         if (fade > 0.0f || fade_target > 0.0f) {
             for (g = 0; g < DR_NGROUPS; g++)
                 render_group(g, k);
@@ -2662,11 +2678,10 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                 v->slide = v->lslide = 0.0f;
             }
         }
-        pulse_run(k);
-        for (j = 0; j < k; j++) {                /* the PLAY fade and the pulse, then the effects */
+        for (j = 0; j < k; j++) {                /* PLAY fade after the individual swells */
             float a;
             fade = fade_target > fade ? fm_minf(fade + frate, fade_target) : fm_maxf(fade - frate, fade_target);
-            a = fade * fade * pgain[j];
+            a = fade * fade;
             mixl[j] *= a;
             mixr[j] *= a;
         }
@@ -2766,6 +2781,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
     for (int g = 0; g < DR_NGROUPS; g++) {
         dr_level[g] = grp[g].peak;
         dr_pitch[g] = grp[g].ps2;
+        if (fade <= 0.0f) dr_pitch_live[g] = grp[g].ps2;
     }
     dr_fade = fade;
     dr_duck_level = duck;

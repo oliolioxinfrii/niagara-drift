@@ -2473,9 +2473,18 @@ static float swell_pattern(float f, float shape)
 /* The original continuous Shape range (-100..100) uses its unchanged pulse/gate
  * or ramp formula. Values 101..103 select fixed swell envelopes; b1 still
  * sets the length of the first of two breaths, and depth sets the floor. */
-static float pulse_gain(float ph, float depth, float shape, float b1, float hz)
+static float pulse_gain(float ph, float depth, float shape, float b1, float hz, float phase)
 {
-    float f = ph < b1 ? ph / b1 : (ph - b1) / (2.0f - b1), o;
+    float f = ph < b1 ? ph / b1 : (ph - b1) / (2.0f - b1), o, orig;
+    const float wave = fm_clampf(pfs[P_SWELL_WAVE] * 0.01f, 0.0f, 1.0f);
+    const float skew = fm_clampf(0.5f + pfs[P_SWELL_SKEW] * 0.004f, 0.1f, 0.9f);
+    const float edge = fm_clampf(pfs[P_SWELL_EDGE] * 0.01f, 0.0f, 1.0f);
+    const float width = fm_clampf(pfs[P_SWELL_WIDTH] * 0.01f, 0.0f, 1.0f);
+    f -= phase;
+    f -= fm_floorf(f);
+    if (skew != 0.5f)
+        f = f < skew ? 0.5f * f / skew : 0.5f + 0.5f * (f - skew) / (1.0f - skew);
+    orig = f;
     if (shape > 1.005f) {
         o = swell_pattern(f, shape);
     } else {
@@ -2489,6 +2498,26 @@ static float pulse_gain(float ph, float depth, float shape, float b1, float hz)
         }
         o = fm_clampf(0.5f * fm_sinf(FM_TWO_PI * f) / (1.0f + 0.98f * shape) + 0.5f, 0.0f, 1.0f);
     }
+    if (wave > 0.0f) {
+        float a, b, t;
+        if (wave <= 0.33f) {
+            a = o; b = swell_pattern(orig, 1.01f); t = wave * (1.0f / 0.33f);
+        } else if (wave <= 0.67f) {
+            a = swell_pattern(orig, 1.01f); b = swell_pattern(orig, 1.02f);
+            t = (wave - 0.33f) * (1.0f / 0.34f);
+        } else {
+            a = swell_pattern(orig, 1.02f); b = swell_pattern(orig, 1.03f);
+            t = (wave - 0.67f) * (1.0f / 0.33f);
+        }
+        o = a + (b - a) * fm_clampf(t, 0.0f, 1.0f);
+    }
+    if (edge > 0.0f) {
+        const float sm = o * o * (3.0f - 2.0f * o);
+        const float gate = fm_clampf((o - 0.5f) * 5.0f + 0.5f, 0.0f, 1.0f);
+        o = edge < 0.5f ? o + (sm - o) * (2.0f * edge) :
+                           sm + (gate - sm) * (2.0f * edge - 1.0f);
+    }
+    o = fm_clampf(o + (width - 0.5f) * 1.8f * o * (1.0f - o), 0.0f, 1.0f);
     return 1.0f - depth * (1.0f - o);
 }
 /* THE TIME KNOBS (Setup 1): a power of the dial over each one's range, so most of it is for slow changes, a drone's
@@ -2503,12 +2532,14 @@ float dr_time_s(int p, int v)
         return 0.02f + 29.98f * x2 * fm_sqrtf(x);
     return 0.1f + 299.9f * x2 * x2;
 }
-float dr_pulse_wave(float ph)
+float dr_pulse_wave_for(int g, float ph)
 {
     ph -= 2.0f * fm_floorf(ph * 0.5f);
     return pulse_gain(ph, pulse_depth(par[P_PULSE_DEPTH]), (float)par[P_PULSE_SHAPE] * 0.01f,
-                      1.0f + (float)par[P_PULSE_SWING] * 0.01f, pulse_hz(par[P_PULSE_RATE]));
+                      1.0f + (float)par[P_PULSE_SWING] * 0.01f, pulse_hz(par[P_PULSE_RATE]),
+                      g ? (float)par[P_SWELL_PHASE] * 0.01f : 0.0f);
 }
+float dr_pulse_wave(float ph) { return dr_pulse_wave_for(0, ph); }
 float dr_pulse_hz(int v)                       /* the screen's: as pulse_run's rate */
 {
     const float dbeats = DIV_BEATS[(unsigned)par[P_PULSE_DIV] < DR_NDIV ? par[P_PULSE_DIV] : 2];
@@ -2538,7 +2569,8 @@ static void pulse_run(uint32_t n)
     const float floorg = fm_maxf(1.0f - depth, 0.0316f), lf = fm_log2f(floorg), dn = depth / (1.0f - floorg + 1e-9f);
     float pa = pulse_a;
     const float shape = (float)par[P_PULSE_SHAPE] * 0.01f, b1 = 1.0f + (float)par[P_PULSE_SWING] * 0.01f;
-    float ph = pulse_ph, g = pulse_g, pt = 1.0f;
+    float ph = pulse_ph, g = pulse_g, g2 = pulse_g2, pt = 1.0f, pt2 = 1.0f;
+    const float phase = (float)par[P_SWELL_PHASE] * 0.01f;
     uint32_t j;
     if (ext) {                                   /* steered by the clock: at its place when it starts (or a Start), else
                                                   * a fiftieth of the way a block */
@@ -2560,9 +2592,11 @@ static void pulse_run(uint32_t n)
         if (on ? pa > 0.997f : pa < 0.003f)
             pa = on ? 1.0f : 0.0f;
         if (pa > 0.0f) {
-            if (!(j & 3u))                       /* its curve every 4th sample, held (the 3 ms glide below rounds it):
-                                                  * a sine and a division a sample were 2 % of the FM-1 */
-                pt = pulse_gain(ph, pa >= 1.0f ? depth : dn * (1.0f - fm_exp2f(lf * pa)), shape, b1, hz);
+            if (!(j & 3u)) {                     /* each drone's offset envelope, evaluated every fourth sample */
+                const float d = pa >= 1.0f ? depth : dn * (1.0f - fm_exp2f(lf * pa));
+                pt = pulse_gain(ph, d, shape, b1, hz, 0.0f);
+                pt2 = phase > 0.0f ? pulse_gain(ph, d, shape, b1, hz, phase) : pt;
+            }
             t = pt;
             ph += step;
             if (ph >= 2.0f) {
@@ -2572,12 +2606,15 @@ static void pulse_run(uint32_t n)
             }
         }
         g += (t - g) * 0.00753f;                 /* 1 - exp(-1 / (3 ms * SR)) */
-        pgain[j] = g;
+        g2 += ((pa > 0.0f ? pt2 : 1.0f) - g2) * 0.00753f;
+        pgain[0][j] = g;
+        pgain[1][j] = g2;
     }
     pulse_ph = pa > 0.0f || ext ? ph : 0.0f;     /* off (and out): the next one starts on a beat (on a clock, where it is) */
     pulse_a = pa;
     dr_pulse_ph = pulse_ph;
     pulse_g = g;
+    pulse_g2 = g2;
     dr_pulse = g;
 }
 

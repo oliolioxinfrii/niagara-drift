@@ -488,6 +488,10 @@ static int expect(const char *what, const char *val)
         int g = atoi(what + 3);
         got = g >= 0 && g < DR_NGEST ? (int)(ui.g_amt[g] * 100.0f + 0.5f) : -1;
     }
+    else if (!strncmp(what, "led", 3)) {         /* ledwN / ledbN: raw key LED brightness, 0..255 */
+        int k = key_of(what + 3);
+        got = k >= 0 && k < NKEYS ? lvl_keys[k] : -1;
+    }
     else if (!strcmp(what, "swerr")) {            /* the Swell against the true beat (clock command): |error| in
                                                     * thousandths of a breath */
         static const double DIVB[DR_NDIV] = {128, 64, 32, 16, 8, 4, 2, 1};   /* drone.c's DIV_BEATS */

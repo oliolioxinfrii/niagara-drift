@@ -850,7 +850,11 @@ static void lk_pic_drones2(void)
         const int32_t ke = lk_key(cv_text(x1, base - LK_B(LK_F_SMALL), &LK_F_SMALL, MODE[(unsigned)m < 3u ? m : 0],
                                           LK_DRONE[g]) + 5, base, LK_BKEY[g ? 7 : 2]);
         const felucca_font_t *f;
-        dr_param_text(DR_GP(g, GP_PITCH), lk_drone_pitch(g), t);
+        {   /* The Home page note follows the sounding LFO pitch; the knob retains its base value. */
+            const float now = dr_pitch_live[g] * 100.0f;
+            const int cents = dr_fade > 0.0f ? (int)(now + (now >= 0.0f ? 0.5f : -0.5f)) : lk_drone_pitch(g);
+            dr_param_text(DR_GP(g, GP_PITCH), cents, t);
+        }
         for (q = t; *q && *q != ' '; q++)      /* the note; its cents are the Pitch page's */
             ;
         *q = 0;
@@ -1568,8 +1572,10 @@ static void lk_pic_lfo_waves(void)
         cv_text(x0, 2, &LK_F_DRONE, w ? "II" : "I", ink);
         for (i = 0; i <= 50; i++) {
             const float ph = (float)i / 50.0f;
+            const int level = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1];
+            const float mag = fm_clampf((float)(level < 0 ? -level - 1 : level) * 0.01f, 0.0f, 1.0f);
             const float v = dr_lfo_wave(w, shape, ph);
-            y[i] = (int16_t)(mid - (int32_t)(v * (float)amp));
+            y[i] = (int16_t)(mid - (int32_t)(v * mag * (float)amp));
         }
         lk_plot(x0, y, 51, ink);
         if (!active) cv_text(x0 + 27, 2, &LK_F_SMALL, "off", LK_UNLIT);
@@ -2564,6 +2570,8 @@ cents:
         scopy(t2, m == DR_XMOD_CUT ? ">cutoff" : m == DR_XMOD_FM ? ">pitch" : m ? ">snarl" : "off");
         return 2;
     }
+    if (p == P_PULSE_SHAPE && v >= 101)
+        return 0;   /* show the named legacy special shapes instead of "ramp 100" */
     if (p == P_PULSE_SHAPE) {                  /* the number large, its word small under it as a label ("96" over
                                                 * "ramp"; gate is 100, even 0): the picture shows the shape (Evan,
                                                 * 2026-11-03) */

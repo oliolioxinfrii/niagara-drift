@@ -94,7 +94,7 @@ expect par90 0
 # gesture key held, ALGORITHM is still the Movement and PRESETS Gesture time (3.9 s)
 tap SEQ
 tap SEQ
-expect view 9
+expect view 10
 spin K1 -12
 expect par80 200
 tap HOME

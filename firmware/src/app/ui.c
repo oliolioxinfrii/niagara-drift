@@ -9,7 +9,8 @@
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
  *   SELECT         LFO rate      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
  *   PRESETS        GESTURE TIME: every gesture's speed, x0.1 .. x10 (v0.2)
- *   PLAY           the drone fades in / out      MASTER   volume      SAVE   saves
+ *   PLAY           the drone fades in / out; SEL + PLAY randomizes the working sound (no scene overwritten)
+ *   MASTER         volume      SAVE   saves
  * One button away (tap: the knobs stay on its page, pressed again its second page; hold: they switch
  * only while it's held, and the page you were on comes back when it's let go):
  *   HOME Drones (Level, Cutoff), Pitch (Pitch, Reso) · ENV Life (Feedback, Drift, Character, Age), Tone (Noise, Colour: white
@@ -151,8 +152,6 @@ static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(255, 176, 74), RGB(69, 227, 211
 static struct {
     uint8_t view;
     uint8_t playing;                   /* PLAY on: the drone faded in, or fading in */
-    uint32_t play_t;                   /* PLAY held since: a long hold while stopped generates a fresh sound */
-    uint8_t play_done;                 /* stop, SEL shortcut or randomization already consumed this press */
     uint32_t btn, keys, btn_used;
     uint32_t enc_t[NE];
     int8_t hold_btn;                   /* the page button held (B_*), or -1 */
@@ -1167,7 +1166,6 @@ static void undo_keep(void)
 /* The randomizer is an intentional blank-canvas action, not a performance modulation.
  * No flash/scene slot is changed; room settings and the selected Tuning stay put.
  * Generate a playable starting point with broad but bounded values, then edit as usual. */
-#define PLAY_RANDOM_MS 900u
 static uint32_t fresh_rng = 0x6d2b79f5u;
 static uint32_t fresh_next(void)
 {
@@ -1201,7 +1199,7 @@ static void fresh_sound(void)
         say_c("STOP LOOP / RELEASE KEYS", "BEFORE RANDOM START", K_GOLD);
         return;
     }
-    fresh_rng ^= plat_ms() | 1u;       /* fresh each hold, even from a repeated preset */
+    fresh_rng ^= plat_ms() | 1u;       /* vary the sequence with each invocation */
     fresh_rng |= 1u;
     undo_keep();                       /* SEL+SAVE returns to the sound before this roll */
     ui.undo_random = 1;
@@ -1254,7 +1252,7 @@ static void fresh_sound(void)
     ui.scene_at = -1;
     dr_lfo_reset();
     mark_dirty();
-    say_c("RANDOM START", "TAP [PLAY] TO HEAR", K_GOLD);
+    say_c("RANDOM START", ui.playing ? "NEW SOUND" : "TAP [PLAY] TO HEAR", K_GOLD);
 }
 
 static void scene_undo(void)
@@ -2036,44 +2034,24 @@ static void input(void)
                     oct_used[w] = 1;
                 }
             }
-            if (i == B_PLAY) {
-                ui.play_t = plat_ms();
-                ui.play_done = 0;
-            }
-            if (i == B_PLAY && (btn >> B_SEL & 1u)) {  /* SEL + PLAY: drone II alone, out / in */
-                ui.play_done = 1;
+            if (i == B_PLAY && (btn >> B_SEL & 1u)) {
+                /* An explicit new beginning: do not toggle playback or any drone mute. */
                 ui.btn_used |= 1u << B_SEL;
-                param_set(P_II_OUT, !proj.par[P_II_OUT]);   /* a sound's: scenes keep it */
-                say_c("DRONE II", proj.par[P_II_OUT] ? "OUT" : "IN", K_DRONE[1]);
-            } else if (i == B_PLAY && ui.playing) {   /* stop on the press; a long hold cannot randomize playing audio */
-                ui.play_done = 1;
-                ui.playing = 0;
-                dr_play(0);
-            }
-        } else if (i == B_OCTDN || i == B_OCTUP) {
-            const int w = i == B_OCTUP;
-            if (!oct_used[w]) wave_step(w, 1);
-        } else if (i == B_PLAY) {
-            if (!ui.play_done && !(ui.btn_used & m)) {   /* a short tap starts on release */
+                fresh_sound();
+            } else if (i == B_PLAY) {                  /* PLAY responds immediately, as before */
                 static uint8_t seeded;
                 if (!seeded) {
                     seeded = 1;
                     dr_seed(plat_ms());
                 }
-                ui.playing = 1;
-                dr_play(1);
+                ui.playing = (uint8_t)!ui.playing;
+                dr_play(ui.playing);
             }
-        } else if (!(ui.btn_used & m)) {
+        } else if (i == B_OCTDN || i == B_OCTUP) {
+            const int w = i == B_OCTUP;
+            if (!oct_used[w]) wave_step(w, 1);
+        } else if (!(ui.btn_used & m) && i != B_PLAY) {
             button((int)i);
-        }
-    }
-    /* Only an unmodified long PLAY while stopped rolls a new sound. */
-    if (btn >> B_PLAY & 1u) {
-        if ((btn & ~(1u << B_PLAY)) || keys)
-            ui.play_done = 1;
-        if (!ui.play_done && !ui.playing && plat_ms() - ui.play_t >= PLAY_RANDOM_MS) {
-            ui.play_done = 1;
-            fresh_sound();
         }
     }
     for (i = 0; i < 2; i++) {

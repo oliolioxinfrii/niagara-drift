@@ -602,15 +602,8 @@ void dr_param_text(int i, int v, char *b)
     else if (gp == GP_CUTOFF) {               /* display only: round 0..1000 tenths to integer 0..100 */
         itoa_s((v + 5) / 10, b);
     }
-    else if (gp == GP_RESO) {                 /* retain 0.1 precision for resonance */
-        itoa_s(v / 10, b);
-        if (v % 10) {
-            while (*b)
-                b++;
-            *b++ = '.';
-            *b++ = (char)('0' + v % 10);
-            *b = 0;
-        }
+    else if (gp == GP_RESO) {                 /* whole-number display, unchanged 0.1 control precision */
+        itoa_s((v + 5) / 10, b);
     }
     else if (i == P_MOVE) {                      /* "100%": the depths as set */
         itoa_s(v * 2, b);

@@ -2549,8 +2549,10 @@ static void leds(void)
         k[WHITE_K[ui.scene_at]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
     else if (ui.flash_t && ui.press >= 0 && now - ui.flash_t < 480u)
         k[WHITE_K[ui.press]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
-    for (i = 0; i < DR_NGEST; i++)                   /* the gestures: a dim glow, lit as far as each is in */
-        k[gkey((int)i)] = (uint8_t)(40.0f + 215.0f * ui.g_amt[i]);
+    for (i = 0; i < DR_NGEST; i++) {                 /* gestures: actual amount, no minimum light when off */
+        const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
+        k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
+    }
     if (keymap_on())                                   /* SEL held, the map on screen: the eight gesture keys are
                                                         * the banks, the one playing lit (as the map draws them) */
         for (i = 0; i < 8u; i++)

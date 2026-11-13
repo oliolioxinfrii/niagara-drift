@@ -12,7 +12,7 @@ tapkey w1
 tap PLAY
 wait 3000
 tap ARP
-expect view 12
+expect view 13
 clock 80
 wait 3000
 turn K1 40 80

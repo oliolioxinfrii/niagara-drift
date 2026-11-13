@@ -1,18 +1,36 @@
-# A stopped long PLAY creates a new starting sound without starting audio.
-# Ordinary short PLAY and SEL+PLAY retain their meanings.
+# Random start is SEL+PLAY, independently of ordinary PLAY and drone mute.
+# The parameter format remains unchanged; no scene slot is overwritten.
 notips
+set 71 0
 expect playing 0
+expect par51 29
 expect par53 0
 expect par54 60
-expect par51 29
 expect par74 1
 expect par110 0
+expect scenes 0
+# A long PLAY should be an ordinary start, not a randomize gesture.
 press PLAY
+expect playing 1
 wait 1100
+expect par7 575
+expect par8 250
+release PLAY
+expect playing 1
+tap PLAY
 expect playing 0
+# Randomization is immediate on the combined press.
+press SEL
+tap PLAY
+release SEL
+expect playing 0
+expect dirty 1
+expect scene_at -1
+expect scenes 0
+expect par51 29
 expect par53 0
 expect par54 60
-expect par51 29
+expect par71 0
 expect par74 1
 expect par110 0
 expect par7 >249
@@ -22,30 +40,38 @@ expect par8 <721
 expect par17 >-91
 expect par17 <91
 expect par16 >0
-expect par37 >0
-expect par77 >-1
-expect par77 <101
-release PLAY
-expect playing 0
-# Starting audio still requires a short tap; long hold must not start it.
-tap PLAY
-expect playing 1
-wait 500
-tap PLAY
-expect playing 0
-# Repeated long holds generate new starting points while stopped.
-press PLAY
-wait 1100
-release PLAY
-expect playing 0
-# Undo restores the earlier randomized sound, not the starting preset.
+expect par37 >-91
+expect par37 <91
+# Undo returns to the old sound even though Pitch Lock is on.
 press SEL
 tap SAVE
 release SEL
 wait 300
+expect par0 5000
+expect par7 575
+expect par8 250
+expect par18 0
+expect par39 0
 expect playing 0
-# The old SEL+PLAY shortcut still operates independently of randomization.
+# SEL+PLAY also works while playing and does not toggle the play state.
+tap PLAY
+expect playing 1
 press SEL
 tap PLAY
 release SEL
+expect playing 1
+expect scene_at -1
+expect par7 >249
+expect par8 >99
+# The drone II fade is still SEL+OCT+, not SEL+PLAY.
+press SEL
+tap OCT+
+release SEL
+expect par72 1
+expect playing 1
+press SEL
+tap OCT+
+release SEL
+expect par72 0
+tap PLAY
 expect playing 0

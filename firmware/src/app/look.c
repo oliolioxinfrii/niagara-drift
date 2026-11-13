@@ -2644,10 +2644,14 @@ static void lk_values(void)
         h = hash(h, (p < 0 ? 0xFFFFu : (uint32_t)(uint16_t)proj.par[p]) | (uint32_t)lit((int)i) << 16);
         if (p >= 0 && !lit((int)i) &&
             ((ui.view == V_PLAY && p % GP_N == GP_CUTOFF && p < P_XMOD) ||
-             (ui.view == V_PLAY2 && p % GP_N == GP_PITCH && p < P_XMOD))) {
-            const float x = p % GP_N == GP_CUTOFF ? dr_cut[p / GP_N] * 10.0f : dr_pitch_live[p / GP_N] * 100.0f;
+             (ui.view == V_PLAY2 && ((p < P_XMOD && (p % GP_N == GP_PITCH || p % GP_N == GP_RESO)) ||
+                                     p == P_PLINK_OFF)))) {
+            const float x = p == P_PLINK_OFF ? (dr_pitch_live[1] - dr_pitch_live[0]) * 100.0f
+                          : p < P_XMOD && p % GP_N == GP_CUTOFF ? dr_cut[p / GP_N] * 10.0f
+                          : p < P_XMOD && p % GP_N == GP_RESO ? dr_reso[p / GP_N]
+                          : dr_pitch_live[p / GP_N] * 100.0f;
             const int v = (int)(x + (x >= 0.0f ? 0.5f : -0.5f));
-            h = hash(h, (uint32_t)(v / (p % GP_N == GP_CUTOFF ? 10 : 5)));
+            h = hash(h, (uint32_t)(v / (p < P_XMOD && (p % GP_N == GP_CUTOFF || p % GP_N == GP_RESO) ? 10 : 5)));
         }
         if (VIEW_KNOB[ui.view][i].g < G)       /* a drone's knob may follow another of its settings (PW the wave,
                                                 * a send its key) */
@@ -2673,7 +2677,7 @@ static void lk_values(void)
                               ui.view == V_LFO_WAVES ? lk_mix(0x07060Bu, LK_LFO_TINT[i >= 2], 1.0f) : LK_DRONE[g];   /* the Swell's in its coral */
         const int32_t x = 8 + 56 * (int32_t)i, cx = x + 28;
         const char *why = second ? 0 : lk_unheard(p), *name;
-        int on = lit((int)i), v, lo, hi;
+        int on = lit((int)i), v, lo, hi, live_pitch = 0;
         const felucca_font_t *fb, *fs, *fn;
         char t[16], t2[16], *sp;
         int pre, mode;
@@ -2686,12 +2690,21 @@ static void lk_values(void)
             v = (int)(c + (c >= 0.0f ? 0.5f : -0.5f));
             v = v < 0 ? 0 : v > 1000 ? 1000 : v;
         }
-        if (!on && is_pitch && p != P_PLINK_OFF && ui.view == V_PLAY2) {
-            const float c = dr_pitch_live[kn.g] * 100.0f;
-            v = (int)(c + (c >= 0.0f ? 0.5f : -0.5f));
+        if (!on && ui.view == V_PLAY2 && dr_fade > 0.0f) {
+            if (kn.g < G && kn.p == GP_RESO) {
+                const float r = dr_reso[kn.g];      /* effective resonance, including LFO */
+                v = (int)(r + 0.5f);
+                v = v < 0 ? 0 : v > 1000 ? 1000 : v;
+            } else if (is_pitch) {
+                const float c = (p == P_PLINK_OFF ?
+                                 dr_pitch_live[1] - dr_pitch_live[0] : dr_pitch_live[kn.g]) * 100.0f;
+                v = (int)(c + (c >= 0.0f ? 0.5f : -0.5f));
+                live_pitch = 1;
+            }
         }
         if (is_pitch && (p == P_PLINK_OFF ? sh[1] != sh[0] : sh[g] != 0)) {
-            v += p == P_PLINK_OFF ? sh[1] - sh[0] : sh[g];   /* Shift moving it: the pitch as heard, lit */
+            if (!live_pitch)                /* Shift is already included in the live value */
+                v += p == P_PLINK_OFF ? sh[1] - sh[0] : sh[g];
             on = 1;
         }
         lo = dr_param_info(p)->lo;

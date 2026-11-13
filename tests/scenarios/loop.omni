@@ -7,6 +7,7 @@ set 74 0
 # drone I's filter LFO and the Drift at 0 (the default breathes and wanders), so the cutoff probe sees the
 # knob alone
 tap LFO
+tap LFO
 spin K2 -25
 expect par17 0
 tap ENV
@@ -69,16 +70,16 @@ tap REC
 expect loop 2
 tap REC
 expect loop 0
-# SEL + PLAY: drone II alone fades out (drone I plays on), and back in
+# SEL + OCT+: drone II alone fades out (drone I plays on), and back in
 press SEL
-tap PLAY
+tap OCT+
 release SEL
 expect playing 1
 wait 2500
 expect level1 0
 expect level0 >3
 press SEL
-tap PLAY
+tap OCT+
 release SEL
 wait 2500
 expect level1 >3

@@ -5,7 +5,7 @@ notips
 wait 300
 listen
 wait 100
-said Drones_page._Drone_1:_Level_84,_Cutoff_57.5,_low-pass_filter,_A#3_for_band-pass
+said Drones_page._Drone_1:_Level_84,_Cutoff_58,_low-pass_filter,_A#3_for_band-pass
 tap PLAY
 wait 300
 said Play

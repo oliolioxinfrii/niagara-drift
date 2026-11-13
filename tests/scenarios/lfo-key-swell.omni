@@ -33,13 +33,19 @@ tapkey b8
 expect par67 0
 tap HOME
 expect view 0
-# Outside the LFO pages, b4 is the same lock/reset command,
-# whereas b8 is still pitch link.
-tapkey b4
+# Outside LFO pages, C#5 (b8) still locks/frees the LFO to Swell,
+# and a long hold resets phase without toggling the lock. D#4 (b4) is now Pitch Link.
+tapkey b8
 expect par67 1
-key b4 down
+expect par45 0
+key b8 down
 wait 700
-key b4 up
+key b8 up
 expect par67 1
 tapkey b8
+expect par67 0
+tapkey b4
 expect par45 1
+expect par67 0
+tapkey b4
+expect par45 0

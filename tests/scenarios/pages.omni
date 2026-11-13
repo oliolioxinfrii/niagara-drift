@@ -116,14 +116,15 @@ shot setup2.png
 spin K2 -6
 spin K3 -30
 spin K4 -20
-# Swell (hold ARP to peek at its page): some swing
+# Swell: tap ARP to open its page. Holding ARP toggles Swell instead of peeking.
 expect par55 1
-press ARP
+tap ARP
 expect view 13
 spin K4 30
 wait 2500
 shot pulse.png
-release ARP
+tap HOME
+expect view 0
 # Delay: Wide (SEL + KNOB 4, its second job), its echoes left and right, a little drive after it
 tap FX
 expect view 15

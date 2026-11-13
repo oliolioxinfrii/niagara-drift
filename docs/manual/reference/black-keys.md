@@ -8,7 +8,7 @@ intro: Switches, and the LFO's routing on the LFO pages
 ## Black keys
 
 The 11 black keys are switches, with two sets of jobs: one for the drones, on every page but the LFO pages, and one
-for the LFO, while an LFO page is open. LFO reset ([[D#4]]) and cross-mod ([[F#5]]) do the same in both.
+for the LFO, while an LFO page is open. The LFO lock/reset key is [[D#4]] on non-LFO pages and [[C#5]] on LFO pages; cross-mod ([[F#5]]) is the same on both.
 
 ## Drone keys
 
@@ -22,7 +22,7 @@ On every other page, each drone has three keys, and five more set the links betw
 | [[G#3]] · [[G#4]] | the sub: −1 oct, −2 oct, ⅓, ⅕, −3 oct, −4 oct |
 | [[A#3]] · [[A#4]] | the filter: low-, band- or high-pass |
 | [[C#4]] | pitch lock: scenes and Presets keep the drones' pitches (on to start) |
-| [[D#4]] | LFO reset |
+| [[D#4]] | tap to lock/free the LFO to Swell; hold 500 ms to reset its phase |
 | [[C#5]] | pitch link: drone II follows drone I |
 | [[D#5]] | hard sync: drone II to drone I |
 | [[F#5]] | cross-mod: off, I moves II's cutoff, bend each other, Snarl |
@@ -31,14 +31,15 @@ On every other page, each drone has three keys, and five more set the links betw
 
 On the [LFO pages](lfo-pages.md), each drone's four keys set its two sends.
 
-<img src="../../img/black-keys-lfo.png" width="720" alt="The black keys on the LFO pages: F#3 Pitch LFO, G#3 Pitch to X-Wave, A#3 Cutoff LFO, C#4 Cutoff to reso for drone I; D#4 LFO reset; F#4, G#4, A#4, C#5 the same for drone II; D#5 Delay LFO; F#5 X-mod">
+<img src="../../img/black-keys-lfo.png" width="720" alt="On LFO pages C#4 switches drone I's cutoff to resonance, D#4 switches drone II's; C#5 is LFO Swell lock/reset, D#5 is Delay LFO and F#5 is cross-mod">
 
 | Key | Switches |
 |---|---|
 | [[F#3]] · [[F#4]] | which LFO moves the pitch: I, II or both |
 | [[G#3]] · [[G#4]] | the pitch send moves X-Wave instead |
 | [[A#3]] · [[A#4]] | which LFO moves the cutoff: I, II or both |
-| [[C#4]] · [[C#5]] | the cutoff send moves resonance instead |
+| [[C#4]] · [[D#4]] | drone I's · drone II's cutoff send moves resonance instead |
+| [[C#5]] | tap to lock/free the LFO to Swell; hold 500 ms to reset its phase |
 | [[D#5]] | which LFO moves the delay's time: I, II or both |
 
 ## Finding a key while you play
@@ -62,5 +63,5 @@ While SEL is held, the screen names the key and its setting, without switching i
 - **An LFO key:** LFO I (dim), II (lit), both (winking). The screen says what now moves what ("LFO II → I PITCH").
 - **Pitch lock:** the pitch knobs still tune.
 - **Pitch link:** KNOB 3 on Pitch sets the gap ("+7 st").
-- **LFO reset:** hold half a second to lock the LFO to the Swell; hold again to free it.
+- **LFO lock/reset:** a short tap toggles Swell synchronization; a half-second hold restarts the LFO without changing synchronization.
 - **A key the screen names in a box** ("needs [F#3]") blinks while the message shows.

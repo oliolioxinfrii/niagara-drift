@@ -30,7 +30,8 @@ The first page displays the two LFO waveforms, not the two drone oscillator wave
 The center of each send's knob is zero. Positive and negative settings select modulation depth and direction.
 
 - **Pitch/X-Wave:** each drone's oscillator LFO route. [[G#3]] and [[G#4]] select the destination.
-- **Cutoff/resonance:** each drone's filter route. [[C#4]] and [[C#5]] select the destination.
+- **Cutoff/resonance:** each drone's filter route. [[C#4]] and [[D#4]] select the destination, side by side.
+- **LFO lock/reset:** [[C#5]] immediately precedes [[D#5]] (delay LFO). Tap [[C#5]] to lock/free the LFO to Swell; hold it for 500 ms to reset LFO phase.
 - The drone's corresponding black keys select LFO I, II, or both, independently of the two global LFO waveforms.
 
 ### Mods

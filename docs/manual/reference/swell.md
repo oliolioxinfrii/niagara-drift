@@ -28,6 +28,7 @@ A volume envelope applied independently to the two drones. The drones share one 
 - **Depth** sets how far the level dips, from no modulation to silence.
 - **Phase** offsets drone II relative to drone I from 0% (together) through 50% (alternating) to 100% (together again).
 - **Swing** makes every other breath longer, up to 3:1.
+- The display shows **both** envelopes over two bars: drone I in orange, drone II in cyan. Each has a matching moving phase dot. At 0% phase they coincide; at 50% they alternate.
 
 ### Swell shape (2/2)
 
@@ -43,5 +44,5 @@ Each drone uses the same Wave/Skew/Edge/Width, but its phase is evaluated separa
 
 - The starting sound is a slow, gentle breath. The long ARP press bypasses it without losing the settings.
 - A phase offset of 0% preserves the common-envelope behavior of earlier Niagara Drift versions.
-- A locked LFO ([[D#4]], held) follows Swell's bar starts. The two drone envelopes do not have independent clocks.
+- Tap [[D#4]] on a non-LFO page, or [[C#5]] on an LFO page, to lock or free the LFO from Swell. Hold that key for 500 ms to reset the LFO phase without changing the lock state. The two drone envelopes do not have independent clocks.
 - At high Swell rates, the 3 ms output glide rounds the steepest transitions.

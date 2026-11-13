@@ -1,0 +1,45 @@
+# Focused key-map and tap/hold regression for Swell/LFO controls.
+# There are 11 black keys, b0=F#3, b4=D#4, b8=C#5, b9=D#5.
+notips
+set 39 0
+set 67 0
+set 45 0
+tap LFO
+expect view 6
+# On all LFO pages b4=D#4 selects drone II's filter destination;
+# b8=C#5 now owns Swell lock/reset.
+tapkey b4
+expect par39 1
+expect par67 0
+tapkey b4
+expect par39 0
+tapkey b8
+expect par67 1
+# Holding C#5 should reset the LFO without changing the Swell lock.
+key b8 down
+wait 700
+key b8 up
+expect par67 1
+tapkey b8
+expect par67 0
+# The new waveform page and the old routing/mod pages keep their order.
+tap LFO
+expect view 7
+tapkey b8
+expect par67 1
+tap LFO
+expect view 8
+tapkey b8
+expect par67 0
+tap HOME
+expect view 0
+# Outside the LFO pages, b4 is the same lock/reset command,
+# whereas b8 is still pitch link.
+tapkey b4
+expect par67 1
+key b4 down
+wait 700
+key b4 up
+expect par67 1
+tapkey b8
+expect par45 1

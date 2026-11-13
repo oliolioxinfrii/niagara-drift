@@ -8,13 +8,11 @@ intro: Switches, and the LFO's routing on the LFO pages
 ## Black keys
 
 The 11 black keys are switches, with two sets of jobs: one for the drones, on every page but the LFO pages, and one
-for the LFO, while an LFO page is open. The LFO lock/reset key is [[D#4]] on non-LFO pages and [[C#5]] on LFO pages; cross-mod ([[F#5]]) is the same on both.
+for the LFO, while an LFO page is open. **[[C#5]] handles LFO lock/reset on every page.** Outside the LFO pages, [[D#4]] links drone II's pitch to drone I; on the LFO pages, it selects drone II's filter destination. Cross-mod ([[F#5]]) is the same in both layouts.
 
 ## Drone keys
 
 On every other page, each drone has three keys, and five more set the links between them.
-
-<img src="../../img/black-keys-drones.png" width="720" alt="The black keys for the drones: F#3 Partner, G#3 Sub, A#3 Filter for drone I; C#4 Pitch lock, D#4 LFO reset; F#4 Partner, G#4 Sub, A#4 Filter for drone II; C#5 Pitch link, D#5 Hard sync, F#5 X-mod">
 
 | Key | Switches |
 |---|---|
@@ -22,8 +20,8 @@ On every other page, each drone has three keys, and five more set the links betw
 | [[G#3]] · [[G#4]] | the sub: −1 oct, −2 oct, ⅓, ⅕, −3 oct, −4 oct |
 | [[A#3]] · [[A#4]] | the filter: low-, band- or high-pass |
 | [[C#4]] | pitch lock: scenes and Presets keep the drones' pitches (on to start) |
-| [[D#4]] | tap to lock/free the LFO to Swell; hold 500 ms to reset its phase |
-| [[C#5]] | pitch link: drone II follows drone I |
+| [[D#4]] | pitch link: drone II follows drone I |
+| [[C#5]] | tap to lock/free the LFO to Swell; hold 500 ms to reset its phase |
 | [[D#5]] | hard sync: drone II to drone I |
 | [[F#5]] | cross-mod: off, I moves II's cutoff, bend each other, Snarl |
 

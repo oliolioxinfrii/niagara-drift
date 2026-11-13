@@ -28,7 +28,7 @@
  * Black keys, lit when on (or on the second choice), following the page:
  *   F#3 G#3 A#3   C#4 D#4   F#4 G#4 A#4   C#5 D#5   F#5. Normally, by meaning: drone I (Partner, Sub
  *   (round: -1, -2 oct, 1/3, 1/5, -3, -4 oct), Filter (round: LP, BP, HP)) | global (Pitch lock, LFO reset) | drone II
- * *   (the same) | links (Pitch link, Hard sync) | Cross-mod (round: off, cutoff, pitch). On the LFO page: Osc wave, Osc LFO -> X-Wave, Filter LFO -> Reso | Filter wave,
+ * *   (the same) | LFO lock/reset, Hard sync | Cross-mod (round: off, cutoff, pitch). On the LFO page: Osc wave, Osc LFO -> X-Wave, Filter LFO -> Reso | Filter wave,
  *   LFO reset | Osc wave, Osc LFO -> X-Wave, Filter LFO -> Reso | Filter wave, Delay wave | Cross-mod. A
  *   wave key goes round I, II, I+II (lit for II, winking for both). LFO reset (either layer): a tap restarts
  *   the LFO; held half a second, it locks the LFO to the Pulse's bars (restarting each bar; lit while
@@ -128,10 +128,11 @@ enum { S_NONE, S_PARTNER, S_SUBOCT, S_HP, S_OTAP, S_ODEST, S_FTAP, S_FDEST, S_PL
 typedef struct {
     uint8_t s, g;
 } sw_t;
-/* normally, by meaning: drone I (partner, sub, filter) | the global two (pitch lock, LFO reset) | drone II |
- * the links (pitch link, hard sync) | cross-mod */
-static const sw_t SW_NORMAL[11] = {{S_PARTNER, 0}, {S_SUBOCT, 0}, {S_HP, 0}, {S_PLOCK, 0}, {S_LFORESET, 0},
-                                   {S_PARTNER, 1}, {S_SUBOCT, 1}, {S_HP, 1}, {S_PLINK, 1}, {S_SYNC, 1},
+/* Normal pages: D#4 is drone-II Pitch Link; C#5 is LFO lock/reset,
+ * at the same physical position and with the same tap/hold behavior as on LFO pages.
+ * C#4 remains the separate, global Pitch Lock. */
+static const sw_t SW_NORMAL[11] = {{S_PARTNER, 0}, {S_SUBOCT, 0}, {S_HP, 0}, {S_PLOCK, 0}, {S_PLINK, 1},
+                                   {S_PARTNER, 1}, {S_SUBOCT, 1}, {S_HP, 1}, {S_LFORESET, 0}, {S_SYNC, 1},
                                    {S_XMOD, 1}};
 /* the LFO pages: each drone's keys in one order, the pitch send's LFO and target, then the cutoff send's (Evan,
  * 2026-11-03) */

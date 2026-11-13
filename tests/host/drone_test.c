@@ -1002,8 +1002,12 @@ int main(void)
         run(secs(0.5f));
         capture(cap, 8192, 0);
         after = rms_of(cap, 8192);
-        check("drone I: dedicated toggle fades its output without changing cutoff",
-              before > 0.01f && after < before * 0.1f && dr_heard(P_I_OUT) == 1 &&
+        printf("    drone I mute: RMS %.4f -> %.4f, mute %d, cutoff %d -> %d\n",
+               (double)before, (double)after, dr_heard(P_I_OUT),
+               cutoff_before, dr_heard(DR_GP(0, GP_CUTOFF)));
+        check("drone I: dedicated toggle fades its output",
+              before > 0.01f && after < before * 0.1f && dr_heard(P_I_OUT) == 1);
+        check("drone I: mute leaves its cutoff unchanged",
               dr_heard(DR_GP(0, GP_CUTOFF)) == cutoff_before);
     }
 

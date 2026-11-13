@@ -134,8 +134,10 @@ static const sw_t SW_NORMAL[11] = {{S_PARTNER, 0}, {S_SUBOCT, 0}, {S_HP, 0}, {S_
                                    {S_XMOD, 1}};
 /* the LFO pages: each drone's keys in one order, the pitch send's LFO and target, then the cutoff send's (Evan,
  * 2026-11-03) */
-static const sw_t SW_LFO[11] = {{S_OTAP, 0}, {S_ODEST, 0}, {S_FTAP, 0}, {S_FDEST, 0}, {S_LFORESET, 0},
-                                {S_OTAP, 1}, {S_ODEST, 1}, {S_FTAP, 1}, {S_FDEST, 1}, {S_DTAP, 1},
+/* On LFO pages, D#4 follows C#4 as drone II's filter destination;
+ * C#5 takes the Swell lock / LFO reset beside D#5's delay LFO. */
+static const sw_t SW_LFO[11] = {{S_OTAP, 0}, {S_ODEST, 0}, {S_FTAP, 0}, {S_FDEST, 0}, {S_FDEST, 1},
+                                {S_OTAP, 1}, {S_ODEST, 1}, {S_FTAP, 1}, {S_LFORESET, 0}, {S_DTAP, 1},
                                 {S_XMOD, 1}};
 
 /* who a message is from, for its banner's color (lk_msg_col in look.c): the drones (K_DRONE), the LFO (K_LFO), the
@@ -166,8 +168,8 @@ static struct {
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
     uint8_t jack;                      /* the headphone jack as last read (1: in), and since when */
     uint32_t jack_t;
-    uint32_t rst_t;                    /* when the LFO reset key went down (a hold locks the LFO to the pulse) */
-    uint8_t rst_done;                  /* that hold has acted */
+    uint32_t rst_t;                    /* LFO key pressed: tap locks/free, long hold resets */
+    uint8_t rst_done;                  /* hold used or SEL key-map consumed the press */
     char msg[2][24];
     uint32_t msg_until;
     uint16_t msg_col;                  /* the banner's colour */
@@ -669,7 +671,15 @@ static void sw_flip(sw_t w)
             tip(TIP_XMOD);
         break;
     }
-    case S_LFORESET: dr_lfo_reset(); q = a; what = "LFO"; st = "RESET"; break;
+    case S_LFORESET: {                    /* short release: preserve phase, toggle lock to Swell */
+        const int locked = !proj.par[P_LFO_LOCK];
+        param_set(P_LFO_LOCK, locked);
+        if (locked && !proj.par[P_PULSE])
+            say_c("LFO LOCKED", "SWELL OFF", K_LFO);
+        else
+            say_c("LFO TO SWELL", locked ? "LOCKED" : "FREE", K_LFO);
+        return;
+    }
     case S_DTAP: param_set(tp, nx); q = a; what = "DELAY"; st = WAVES[nx]; break;
     default: return;
     }
@@ -1964,28 +1974,30 @@ static void input(void)
             if ((ch & keys) >> BLACK_K[i] & 1u) {
                 ui.km_key = (int8_t)i;
                 ui.btn_used |= 1u << B_SEL;
-                ui.rst_done = 1;                       /* LFO reset: no lock from this hold either */
+                ui.rst_done = 1;                       /* SEL is a key-map lookup, not a command */
             }
+            if (w.s == S_LFORESET && ((keys >> BLACK_K[i]) & 1u))
+                ui.rst_done = 1;                       /* pressing SEL mid-hold cancels the tap */
             continue;
         }
-        if ((ch & keys) >> BLACK_K[i] & 1u) {
-            sw_toggle(w);                              /* LFO reset: at once, on the press */
-            if (w.s != S_LFORESET)
-                ui.scene_at = -1;
+        if (((ch & keys) >> BLACK_K[i]) & 1u) {
             if (w.s == S_LFORESET) {
-                ui.rst_t = plat_ms();
+                ui.rst_t = plat_ms();                  /* defer tap until its release */
                 ui.rst_done = 0;
+            } else {
+                sw_toggle(w);
+                ui.scene_at = -1;
             }
-        } else if (w.s == S_LFORESET && (keys >> BLACK_K[i] & 1u) && !ui.rst_done &&
+        } else if (w.s == S_LFORESET && !ui.rst_done &&
+                   ((((keys >> BLACK_K[i]) & 1u) || (((ch & ~keys) >> BLACK_K[i]) & 1u))) &&
                    plat_ms() - ui.rst_t >= HOLD_MS + 100u) {
-            int on = !proj.par[P_LFO_LOCK];            /* held: the LFO locked to the pulse's bars, or free */
-            hands_on(P_LFO_LOCK);
-            param_set(P_LFO_LOCK, on);
+            dr_lfo_reset();                           /* long hold: one reset, lock unchanged */
+            say_c("LFO", "RESET", K_LFO);
+            ui.rst_done = 1;
+        } else if (w.s == S_LFORESET && !ui.rst_done &&
+                   (((ch & ~keys) >> BLACK_K[i]) & 1u)) {
+            sw_toggle(w);                             /* short release: toggle lock only */
             ui.scene_at = -1;
-            if (on && !proj.par[P_PULSE])              /* (shorter: "LOCKED (SWELL OFF)" ran off the screen) */
-                say_c("LFO LOCKED", "SWELL OFF", K_LFO);
-            else
-                say_c("LFO TO SWELL", on ? "LOCKED" : "FREE", K_LFO);
             ui.rst_done = 1;
         }
     }
@@ -2281,7 +2293,7 @@ static void sw_text(sw_t w, const char **name, const char **st)
     case S_SUBOCT: *name = "Sub"; *st = SUB[(unsigned)p[GP_SUBOCT] < 7u ? p[GP_SUBOCT] : 1]; break;
     case S_HP: *name = "Filter"; *st = MODE[(unsigned)p[GP_MODE] < 3u ? p[GP_MODE] : 0]; break;
     case S_PLOCK: *name = "Pitch lock"; break;
-    case S_LFORESET: *name = "LFO reset"; *st = proj.par[P_LFO_LOCK] ? "locked" : "tap"; break;
+    case S_LFORESET: *name = "LFO to Swell"; *st = proj.par[P_LFO_LOCK] ? "locked" : "free"; break;
     case S_PLINK: *name = "Pitch link"; break;
     case S_SYNC: *name = "Hard sync"; break;
     case S_XMOD: *name = "X-mod"; *st = proj.par[P_XMOD] == DR_XMOD_OUT ? "snarl" : proj.par[P_XMOD] == DR_XMOD_FM ? "pitch" : on ? "cutoff" : "off"; break;
@@ -2837,7 +2849,8 @@ static void sp_does_k(int k, int key)
     case S_ODEST: sp_cat(on ? " for pitch" : " for x-wave"); break;
     case S_FDEST: sp_cat(on ? " for cutoff" : " for reso"); break;
     case S_XMOD: sp_cat(" for "); sp_cat(XM[(proj.par[P_XMOD] + 1) % (DR_XMOD_OUT + 1)]); break;
-    case S_LFORESET: sp_cat(" restarts the LFO"); break;
+    case S_LFORESET: sp_cat(proj.par[P_LFO_LOCK] ? " for free, hold to reset LFO" :
+                                                " for lock to Swell, hold to reset LFO"); break;
     default: break;
     }
 }
@@ -2892,7 +2905,7 @@ static int sp_hints(int g)
                                                                                                         : ", no LFO, ");
             sp_does(g * 5 + (d ? 2 : 0));
             sp_cat(", ");
-            sp_does(g * 5 + (d ? 3 : 1));
+            sp_does(g == 1 && d ? 4 : g * 5 + (d ? 3 : 1));
         }
     } else if (g == G && v == V_LFO2) {
         static const char *const DOES[4] = {"off", "drone 1 moves drone 2's cutoff", "the drones bend each other",

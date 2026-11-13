@@ -1620,7 +1620,7 @@ static void lk_pic_lfo(void)
         cv_rect(xa, ay, 9, 1, lc);             /* a thin arrow, its head 3 px */
         cv_line(xa + 6, ay - 3, xa + 9, ay, lc);
         cv_line(xa + 6, ay + 3, xa + 9, ay, lc);
-        const int32_t x = lk_key(xa + 12, base, LK_BKEY[g * 5 + (osc ? 1 : 3)]) + 3;
+        const int32_t x = lk_key(xa + 12, base, LK_BKEY[g == 1 && !osc ? 4 : g * 5 + (osc ? 1 : 3)]) + 3;
         cv_text(x, ny, &LK_F_SMALL, osc ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "x-wave" : "pitch")
                                         : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff"),
                 heard ? LK_INK : LK_LABEL);
@@ -1633,7 +1633,7 @@ static void lk_pic_lfo(void)
     {   /* the LFOs, I over II: "I  Tri", its cycle, the rate at the right; "II  Rnd", its cycle, the Swell lock's state
          * (Evan, 2026-11-03: "hold what?"). Two rows: on one, the longest names and "cycle 32 bars" ran into each other.
          * The waves in one column (after the widest name, "2x Saw"), 13 px tall and 54 long, to x 127, short of the
-         * widest rate ("cycle 32 bars") and lock ("[D#4] on Swell"); Evan, 2026-11-07: on top, taller, longer */
+         * widest rate ("cycle 32 bars") and lock ("[C#5] on Swell"); moved on LFO pages */
         const int32_t xw = 8 + text_w(&LK_F_SMALL, "II") + 3 + text_w(&LK_F_SMALL, "2x Saw") + 4;
         for (w = 0; w < 2; w++) {
             const int sh = proj.par[w ? P_LFO_W2 : P_LFO_W1];
@@ -1655,7 +1655,7 @@ static void lk_pic_lfo(void)
     }
     {
         /* locked with the Swell off, it waits for it: "on Swell" dimmed ("waits Swell" ran into the waves) */
-        const char *lt = lock ? "[D#4] on Swell" : "[D#4] free";
+        const char *lt = lock ? "[C#5] on Swell" : "[C#5] free";
         lk_ktext(232 - lk_ktext_w(&LK_F_SMALL, lt), by + 17, &LK_F_SMALL, lt,
                  !lock ? LK_LABEL : proj.par[P_PULSE] ? LK_CORAL : lk_mix(0x07060Bu, 0xFF8F73u, 0.55f));
     }
@@ -1962,54 +1962,56 @@ static void lk_pic_setup2(void)
 }
 
 /* ------------------------------------------------------ the Swell's picture --- */
-/* two bars of the Swell, four breaths, as the engine shapes them (dr_pulse_wave: the first longer with Swing), the level
- * down the picture in dB (the top full, the bottom -30 dB or silence: the dip is the Depth). Five 2 px strands in the
- * Swell's coral ramp: the breath just before and after the dot, meeting at the dot and fanning out with distance from
- * it, the fan 0.045 / (1 + 2.2 Hz) of a bar (wide when slow, nearly one line when fast, so it doesn't blur); a white dot
- * where the Swell is now. Off: one gray line, still, no dot (the spec, 2026-10-31; the board, ARP 262:4) */
-#define LK_SW_N 109                            /* 2 px a point: x 12 .. 228, two bars (54 px a breath) */
-#define LK_SW_S 5                              /* strands, 2 px as on every page (Evan, 2026-11-07: they were 1 px,
-                                                * thinner and rougher than the rest; five, as Drones) */
-static int16_t lk_swell_y(float ph, int32_t top, int32_t h)
+/* Two bars (four breaths) of each drone's shared Swell waveform. Both
+ * envelopes have one clock; drone II is evaluated at its own phase offset.
+ * Plot drone II cyan first, then drone I amber. The cyan trace is drawn a
+ * pixel taller so both colors remain identifiable when phase is zero.
+ * Colored phase dots follow the same point in time; if aligned the orange
+ * dot sits inside the larger cyan dot. With Swell off, both traces are gray. */
+#define LK_SW_N 109                            /* 2 px per sample, x 12 .. 228 */
+static int16_t lk_swell_y(int g, float ph, int32_t top, int32_t h)
 {
-    const float g = fm_maxf(dr_pulse_wave(ph), 1e-4f), db = fm_log2f(g) * 6.0206f;
+    const float gain = fm_maxf(dr_pulse_wave_for(g, ph), 1e-4f);
+    const float db = fm_log2f(gain) * 6.0206f;
     return (int16_t)(top + (int32_t)(fm_clampf(-db * (1.0f / 30.0f), 0.0f, 1.0f) * (float)h + 0.5f));
 }
 static void lk_pic_swell(void)
 {
     const int on = proj.par[P_PULSE] != 0;
-    static float last;                         /* two bars across (Evan, 2026-11-07): which one the dot is in, the
-                                                * screen's own count, flipped as the phase starts over */
+    static float last;
     static int bar;
-    const float ph = dr_pulse_ph, fan = 0.09f / (1.0f + 2.2f * dr_pulse_hz(-1));   /* in phase: a bar is 2 */
+    const float ph = dr_pulse_ph;
     float dot;
     const int32_t x0 = 12, h = 100;
     int32_t top, lo = 9999, hi = -9999;
     int16_t y[LK_SW_N];
-    int s, i;
-    for (i = 0; i < LK_SW_N; i++) {            /* centered up and down (Evan, 2026-11-07: it sat at the top): the
-                                                * breaths' highest and lowest, the middle of the picture between */
-        const int32_t yi = lk_swell_y(4.0f * (float)i / (float)(LK_SW_N - 1), 0, h);
-        lo = yi < lo ? yi : lo;
-        hi = yi > hi ? yi : hi;
-    }
+    int g, i;
+    for (g = 0; g < 2; g++)
+        for (i = 0; i < LK_SW_N; i++) {
+            const int32_t yi = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), 0, h);
+            lo = yi < lo ? yi : lo;
+            hi = yi > hi ? yi : hi;
+        }
     top = LK_PIC_H / 2 - (lo + hi) / 2;
     if (ph < last - 1.0f)
         bar ^= 1;
     last = ph;
     dot = ph + 2.0f * (float)bar;
-    for (s = on ? 0 : LK_SW_S - 1; s < LK_SW_S; s++) {   /* the coral one at the back, the cream one in front */
-        const float o = ((float)s - 0.5f * (LK_SW_S - 1)) * (2.0f / (LK_SW_S - 1));
-        const uint16_t c = on ? lk_mix(0xFF8F73u, 0xFFF0E6u, (float)s / (float)(LK_SW_S - 1)) : LK_UNLIT;
-        for (i = 0; i < LK_SW_N; i++) {
-            const float p = 4.0f * (float)i / (float)(LK_SW_N - 1);
-            y[i] = lk_swell_y(on ? p + o * fan * fm_fabsf(p - dot) * 0.5f : p, top, h);
-        }
+    for (g = 1; g >= 0; g--) {
+        const uint16_t c = on ? LK_DRONE[g] : LK_UNLIT;
+        for (i = 0; i < LK_SW_N; i++)
+            y[i] = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), top, h);
+        if (on && g == 1)                    /* a cyan edge stays visible where both traces align */
+            for (i = 1; i < LK_SW_N; i++)
+                cv_line(x0 + 2 * (i - 1), y[i - 1] - 1, x0 + 2 * i, y[i] - 1, c);
         lk_plot(x0, y, LK_SW_N, c);
     }
     if (on) {
-        const int32_t px = x0 + (int32_t)(dot * 0.5f * (float)(LK_SW_N - 1) + 0.5f), py = lk_swell_y(dot, top, h);
-        cv_round(px - 3, py - 3, 7, 7, 3, LK_INK);
+        const int32_t px = x0 + (int32_t)(dot * 0.5f * (float)(LK_SW_N - 1) + 0.5f);
+        const int32_t y2 = lk_swell_y(1, dot, top, h);
+        const int32_t y1 = lk_swell_y(0, dot, top, h);
+        cv_round(px - 4, y2 - 4, 9, 9, 4, LK_DRONE[1]);
+        cv_round(px - 3, y1 - 3, 7, 7, 3, LK_DRONE[0]);
     }
 }
 
@@ -2643,7 +2645,7 @@ static void lk_values(void)
         if (p >= 0 && !lit((int)i) &&
             ((ui.view == V_PLAY && p % GP_N == GP_CUTOFF && p < P_XMOD) ||
              (ui.view == V_PLAY2 && p % GP_N == GP_PITCH && p < P_XMOD))) {
-            const float x = p % GP_N == GP_CUTOFF ? dr_cut[p / GP_N] : dr_pitch_live[p / GP_N] * 100.0f;
+            const float x = p % GP_N == GP_CUTOFF ? dr_cut[p / GP_N] * 10.0f : dr_pitch_live[p / GP_N] * 100.0f;
             const int v = (int)(x + (x >= 0.0f ? 0.5f : -0.5f));
             h = hash(h, (uint32_t)(v / (p % GP_N == GP_CUTOFF ? 10 : 5)));
         }
@@ -2680,7 +2682,7 @@ static void lk_values(void)
             continue;
         v = proj.par[p];
         if (!on && kn.g < G && ui.view == V_PLAY && kn.p == GP_CUTOFF) {
-            float c = dr_cut[kn.g];
+            float c = dr_cut[kn.g] * 10.0f;    /* GP_CUTOFF stores tenths, dr_cut reports percent */
             v = (int)(c + (c >= 0.0f ? 0.5f : -0.5f));
             v = v < 0 ? 0 : v > 1000 ? 1000 : v;
         }
@@ -2852,7 +2854,7 @@ typedef struct {
 } lk_kgroup_t;
 static const lk_kgroup_t LK_KG[2][4] = {
     {{0, 3, "I", 0xFF9A1Fu}, {3, 2, "global", 0xE8E4F0u}, {5, 3, "II", 0x1FC8FFu}, {8, 3, "links", 0x7FE0A8u}},
-    {{0, 4, "I", 0xFF9A1Fu}, {4, 1, "both", 0xE8E4F0u}, {5, 4, "II", 0x1FC8FFu}, {9, 2, "mods", 0xC9A6FFu}}};
+    {{0, 4, "I", 0xFF9A1Fu}, {4, 4, "II", 0x1FC8FFu}, {8, 2, "LFO", 0xE8E4F0u}, {10, 1, "X-mod", 0xC9A6FFu}}};
 static const uint8_t LK_KX[11] = {11, 26, 41, 71, 86, 116, 131, 146, 176, 191, 221};   /* each black key's left */
 #define LK_KEY_Y 20                          /* the keys' top in the picture (the board's y 96) */
 #define LK_KEY_BH 62                         /* a black key's height (124) */

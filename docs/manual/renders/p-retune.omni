@@ -13,9 +13,9 @@ expect view 0
 wav p-retune.wav
 # @ P8 Sibyl; Fade at 3 s
 wait 1500
-# @ SEL + PLAY: drone II fades out
+# @ SEL + OCT+: drone II fades out
 press SEL
-tap PLAY
+tap OCT+
 release SEL
 wait 3500
 # @ drone II retuned in the silence (Pitch, KNOB 3)
@@ -24,9 +24,9 @@ expect view 1
 turn K3 -8 150
 wait 800
 shot p-retune-0.png
-# @ SEL + PLAY: back in on the new chord
+# @ SEL + OCT+: back in on the new chord
 press SEL
-tap PLAY
+tap OCT+
 release SEL
 wait 4500
 shot p-retune-1.png

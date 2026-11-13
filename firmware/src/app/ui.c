@@ -47,10 +47,10 @@
 
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
-enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
-       V_PULSE, V_FX, V_FX2, NVIEWS };
-static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO sends",
-                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Space", "Details"};
+enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO_WAVES, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
+       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, NVIEWS };
+static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO waves", "LFO sends",
+                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details"};
 /* what each knob moves on each page: a drone's parameter (g 0 or 1, GP_*), a global one (g G, P_*), or
  * nothing (g NONE) */
 #define G 2
@@ -67,6 +67,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{0, GP_NOISE}, {0, GP_NCOLOR}, {1, GP_NOISE}, {1, GP_NCOLOR}},
     {{0, GP_WAVE}, {0, GP_WIDTH}, {1, GP_WAVE}, {1, GP_WIDTH}},
     {{0, GP_MIX}, {0, GP_DRIVE}, {1, GP_MIX}, {1, GP_DRIVE}},
+    {{G, P_LFO_W1}, {G, P_LFO_AMP1}, {G, P_LFO_W2}, {G, P_LFO_AMP2}},
     {{0, GP_OLFO_DEPTH}, {0, GP_FLFO_DEPTH}, {1, GP_OLFO_DEPTH}, {1, GP_FLFO_DEPTH}},
     {{G, P_LFO_RMOD}, {G, P_LFO_RMOD_SRC}, {G, P_DLY_LFO_DEPTH}, {G, P_XMOD_AMT}},   /* the LFO's three, then cross-mod */
     {{0, GP_INTERVAL}, {0, GP_DETUNE}, {1, GP_INTERVAL}, {1, GP_DETUNE}},
@@ -74,7 +75,8 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     /* GLO: the room's settings only, none in a sound (Evan, 2026-10-18): the times, then the unit and the room */
     {{G, P_FADE}, {G, P_MORPH}, {G, P_SCENE_T}, {G, P_CLK_SYNC}},   /* Sync on KNOB 4 (v0.3) */
     {{G, P_TUNING}, {G, P_TUNE}, {G, P_WIDTH}, {G, P_PRESS_SENS}},   /* Tuning and Tune side by side (2026-11-01) */
-    {{G, P_PULSE_RATE}, {G, P_PULSE_DEPTH}, {G, P_PULSE_SHAPE}, {G, P_PULSE_SWING}},
+    {{G, P_PULSE_RATE}, {G, P_PULSE_DEPTH}, {G, P_SWELL_PHASE}, {G, P_PULSE_SWING}},
+    {{G, P_SWELL_WAVE}, {G, P_SWELL_SKEW}, {G, P_SWELL_EDGE}, {G, P_SWELL_WIDTH}},
     /* FX (v0.3, Evan, 2026-11-08): Space, the amounts played (the delay's repeats and mix, the reverb's length and
      * mix), the page FX opens; Details, what's set before (the delay's drive and time, the reverb's damp and type), with
      * SEL the delay's type over Time and what goes into the reverb over Type (sel_job) */
@@ -90,16 +92,18 @@ static int sel_job(int v, int i)
         return i == 1 ? P_DLY_TYPE : P_DLY_ROUTE;
     if (v == V_SOURCE && (i == 0 || i == 2))
         return i ? P_SUBW_1 : P_SUBW_0;
+    if (v == V_SWELL_SHAPE && i == 0)
+        return P_PULSE_SHAPE;
     return -1;
 }
 static int page_jobs(int v) { return sel_job(v, 0) >= 0 || sel_job(v, 1) >= 0 || sel_job(v, 3) >= 0; }
-static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p == P_DLY_TYPE ? "Type" : "Wave"; }
+static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p == P_DLY_TYPE ? "Type" : p == P_PULSE_SHAPE ? "Original" : "Wave"; }
 /* the page buttons: each shows its first page, pressed again the next */
 static const struct {
     uint8_t btn, first, n;
-} PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO, 2},
+} PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
                 {B_SEQ, V_PARTNER, 2}, {B_GLO, V_SETUP, 2}, {B_FX, V_FX, 2},
-                {B_ARP, V_PULSE, 1}};                                    /* ARP: on its page, a tap toggles */
+                {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
 
@@ -496,7 +500,7 @@ static void depth_hint(int p)
  * like a pitch, has ends). A new knob of choices goes here */
 static int knob_list(int p)
 {
-    return p == P_DLY_TYPE || p == P_REV_TYPE || p == P_DLY_ROUTE || p == P_WSCALE || p == P_SUBW_0 || p == P_SUBW_1 ||
+    return p == P_DLY_TYPE || p == P_REV_TYPE || p == P_DLY_ROUTE || p == P_WSCALE || p == P_SUBW_0 || p == P_SUBW_1 || p == P_LFO_W1 || p == P_LFO_W2 ||
            p == P_TUNING || p == P_LFO_RMOD_SRC ||   /* Mods' Source: I, II, I+II, I again (Evan, 2026-11-03) */
            p == P_CLK_SYNC;                    /* Sync: On, Off, On */
 }
@@ -531,6 +535,11 @@ static void knob_turn(int i, int32_t e)
         loop_note(p, proj.par[p], 0);
         if (p == P_TUNING)
             tun_keep_t = -1;                           /* the hand chose it: nothing kept comes back */
+    } else if ((p == P_LFO_AMP1 || p == P_LFO_AMP2) && proj.par[p] < 0) {
+        int v = -proj.par[p] - 1 + accel(EN_K1 + i, e, 100);
+        v = v < 0 ? 0 : v > 100 ? 100 : v;
+        param_set(p, -v - 1);   /* retain bypass while changing amplitude */
+        loop_note(p, proj.par[p], 0);
     } else {
         param_set(p, proj.par[p] + accel(EN_K1 + i, e, dr_param_info(p)->hi - dr_param_info(p)->lo));
         loop_note(p, proj.par[p], 0);
@@ -739,6 +748,8 @@ static void page_down(int b)
     ui.hold_turned = 0;
     ui.hold_from = ui.view;
     ui.hold_cycle = (uint8_t)on_pages(i);
+    if (b == B_ARP)
+        return;   /* a hold must not briefly open the Swell pages */
     if (!ui.hold_cycle)
         set_view(PAGE_BTN[i].first + (b == B_HOME || b == B_FX ? 0 : ui.page_last[i]));   /* HOME and FX: the page played */
 }
@@ -749,11 +760,16 @@ static void page_up(int b)
     if (ui.hold_btn != b)
         return;
     peek = ui.hold_turned || plat_ms() - ui.hold_t >= HOLD_MS;
-    if (b == B_ARP && !peek && ui.hold_cycle) {        /* ARP, as the other page buttons (Evan, 2026-10-24): a tap
-                                                        * opens the Swell page (landing never switches it), a tap
-                                                        * on it is the Swell on / off, a hold peeks */
-        param_set(P_PULSE, !proj.par[P_PULSE]);
-        say("SWELL", proj.par[P_PULSE] ? "ON" : "OFF");
+    if (b == B_ARP) {
+        if (plat_ms() - ui.hold_t >= HOLD_MS) {
+            param_set(P_PULSE, !proj.par[P_PULSE]);
+            say("SWELL", proj.par[P_PULSE] ? "ON" : "OFF");
+        } else if (ui.hold_cycle)
+            set_view(PAGE_BTN[i].first + (ui.view - PAGE_BTN[i].first + 1) % PAGE_BTN[i].n);
+        else
+            set_view(V_PULSE);
+        ui.hold_btn = -1;
+        return;
     }
     if (peek) {
         if (!ui.hold_cycle)
@@ -773,11 +789,22 @@ static void hands_on(int p) { ui.hands[p / 64] |= (uint64_t)1 << (p % 64); }
 static int hands_has(int p) { return (int)(ui.hands[p / 64] >> (p % 64) & 1u); }
 static void hands_clear(void) { memset(ui.hands, 0, sizeof ui.hands); }
 
+static uint32_t oct_down_t[2];
+static uint8_t oct_used[2];
+static void lfo_toggle(int w)
+{
+    const int p = w ? P_LFO_AMP2 : P_LFO_AMP1;
+    const int v = -proj.par[p] - 1;
+    param_set(p, v);
+    hands_on(p);
+    loop_note(p, v, 0);
+    say(w ? "LFO II" : "LFO I", v < 0 ? "OFF" : "ON");
+}
 static void wave_step(int w, int dir)
 {
     char t[12];
     const int p = w ? P_LFO_W2 : P_LFO_W1, n = DR_LFO_NSHAPES;
-    int v = (proj.par[p] + dir + n) % n;
+    int v = 1 + (proj.par[p] - 1 + dir + 2 * (n - 1)) % (n - 1);
     hands_on(p);                               /* a scene on its way leaves it alone */
     param_set(p, v);
     ui.scene_at = -1;
@@ -1878,12 +1905,18 @@ static void input(void)
                 page_up((int)i);
         } else if (btn & m) {
             ui.btn_used &= ~m;
-            if (i == B_OCTDN || i == B_OCTUP) {        /* the LFO waves, on the press; SEL + OCT: back one */
-                int back = (int)(btn >> B_SEL & 1u);
+            if (i == B_OCTDN || i == B_OCTUP) {
+                const int w = i == B_OCTUP;
+                oct_down_t[w] = plat_ms();
+                oct_used[w] = 0;
                 ui.btn_used |= m;
-                if (back)
+                if (btn >> B_SEL & 1u) {
+                    const int p = w ? P_II_OUT : P_I_OUT;
+                    param_set(p, !proj.par[p]);
+                    say_c(w ? "DRONE II" : "DRONE I", proj.par[p] ? "OUT" : "IN", K_DRONE[w]);
                     ui.btn_used |= 1u << B_SEL;
-                wave_step(i == B_OCTUP, back ? -1 : 1);
+                    oct_used[w] = 1;
+                }
             }
             if (i == B_PLAY && (btn >> B_SEL & 1u)) {  /* SEL + PLAY: drone II alone, out / in */
                 ui.btn_used |= 1u << B_SEL;
@@ -1899,8 +1932,18 @@ static void input(void)
                 ui.playing = (uint8_t)!ui.playing;
                 dr_play(ui.playing);
             }
+        } else if (i == B_OCTDN || i == B_OCTUP) {
+            const int w = i == B_OCTUP;
+            if (!oct_used[w]) wave_step(w, 1);
         } else if (!(ui.btn_used & m) && i != B_PLAY) {
             button((int)i);
+        }
+    }
+    for (i = 0; i < 2; i++) {
+        const int b = i ? B_OCTUP : B_OCTDN;
+        if ((btn >> b & 1u) && !oct_used[i] && plat_ms() - oct_down_t[i] >= HOLD_MS) {
+            oct_used[i] = 1;
+            lfo_toggle((int)i);
         }
     }
     ch = keys ^ ui.keys;                               /* the black keys: switches, on the press */

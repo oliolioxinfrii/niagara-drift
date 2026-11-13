@@ -223,11 +223,11 @@ static void lk_bar(void)
     if (gest >= 0 && !(proj.par[gl_par(gest)] && !(ui.g_held >> gest & 1u)))
         gest_pct = (int)(ui.g_amt[gest] * 100.0f + 0.5f);   /* coming in or going: how far, in % (Evan, 2026-11-07:
                                                               * the number says more than four cells did) */
-    h = hash(hash(2166136261u ^ rec_s ^ (ui.view == V_PULSE ? (uint32_t)ui_clock_bpm() << 20 : 0u),
+    h = hash(hash(2166136261u ^ rec_s ^ ((ui.view == V_PULSE || ui.view == V_SWELL_SHAPE) ? (uint32_t)ui_clock_bpm() << 20 : 0u),
                   0x4C42u | ui.view << 16 | ui.playing << 21 | ui.loop << 22 | (uint32_t)proj.par[P_PULSE] << 24 |
                       (uint32_t)proj.par[P_II_OUT] << 25 | (uint32_t)peek << 26 | (uint32_t)lk_chg << 27),
              (uint32_t)fade_q() | (uint32_t)(glide + 2) << 8 | (uint32_t)(uint8_t)lk_at << 16 |
-                 (uint32_t)proj.bank << 24 | (uint32_t)(ui.view == V_PULSE && dr_ext_spb > 0.0f) << 28 |
+                 (uint32_t)proj.bank << 24 | (uint32_t)((ui.view == V_PULSE || ui.view == V_SWELL_SHAPE) && dr_ext_spb > 0.0f) << 28 |
                  (uint32_t)((ui.view == V_FX || ui.view == V_FX2) && proj.par[P_DLY_REPEATS] > 85) << 29 |
                  (uint32_t)((ui.view == V_FX || ui.view == V_FX2) && proj.par[P_REV_LEN] >= 100) << 30);
     h = hash(hash(h, (uint32_t)(gest + 1) | (uint32_t)ui.hold_from << 8 |
@@ -256,7 +256,7 @@ static void lk_bar(void)
         badge[nb] = ui.loop == L_REC ? rec : "LOOP";
         bcol[nb++] = LK_WHITE;
     }
-    if (proj.par[P_PULSE] && ui.view != V_PULSE) {
+    if (proj.par[P_PULSE] && ui.view != V_PULSE && ui.view != V_SWELL_SHAPE) {
         swell = nb;
         badge[nb] = "SWELL";
         bcol[nb++] = LK_CORAL;
@@ -286,6 +286,10 @@ static void lk_bar(void)
         badge[nb] = "runaway";
         bcol[nb++] = LK_RED;
     }
+    if (proj.par[P_I_OUT] && nb < 6) {
+        badge[nb] = "I OUT";
+        bcol[nb++] = LK_DRONE[0];
+    }
     if (proj.par[P_II_OUT] && nb < 6) {
         badge[nb] = "II OUT";
         bcol[nb++] = LK_DRONE[1];
@@ -310,7 +314,7 @@ static void lk_bar(void)
         chg = 0;
         key_col = LK_GOLD;
     }
-    if (ui.view == V_PULSE) {                  /* SWELL alone, in its coral; at the right whether it's on (the spec) */
+    if (ui.view == V_PULSE || ui.view == V_SWELL_SHAPE) {                  /* SWELL alone, in its coral; at the right whether it's on (the spec) */
         static char bpm[20];
         if (proj.par[P_PULSE] && dr_ext_spb > 0.0f) {
             char *q = scopy(bpm, "on \xC2\xB7 ");
@@ -319,7 +323,7 @@ static void lk_bar(void)
                 q++;
             scopy(q, " bpm");
         }
-        state = !proj.par[P_PULSE] ? "off \xC2\xB7 tap [ARP]" : dr_ext_spb > 0.0f ? bpm : "on";
+        state = !proj.par[P_PULSE] ? "off \xC2\xB7 hold [ARP]" : dr_ext_spb > 0.0f ? bpm : "on";
         st_short = proj.par[P_PULSE] ? "on" : "off";
         st_col = proj.par[P_PULSE] ? LK_SWELL : LK_LABEL;
         name_col = LK_CORAL;
@@ -1549,9 +1553,32 @@ static void lk_lfo_line(int tap, int32_t x0, int32_t yc, int32_t amp, int n, con
     cv_round(x0 + 2 * at - 3, y[at] - 3, 7, 7, 3, LK_WHITE);
 }
 
-static int lk_wave_on(int route, int w)        /* a route (DR_LFO_*) takes wave w, and it isn't Off */
+/* Both LFO taps share one clock, but each keeps its own waveform and level. */
+static void lk_pic_lfo_waves(void)
 {
-    return (route == w + 1 || route == DR_LFO_BOTH) && proj.par[w ? P_LFO_W2 : P_LFO_W1] != 0;
+    const int32_t mid = LK_PIC_H / 2, amp = LK_PIC_H / 3;
+    int w, i;
+    cv_rect(120, 3, 1, LK_PIC_H - 6, LK_RULE);
+    for (w = 0; w < 2; w++) {
+        const int shape = proj.par[w ? P_LFO_W2 : P_LFO_W1];
+        const int active = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1] >= 0;
+        const int32_t x0 = w ? 130 : 10;
+        const uint16_t ink = lk_mix(0x07060Bu, LK_LFO_TINT[w], active ? 1.0f : 0.3f);
+        int16_t y[51];
+        cv_text(x0, 2, &LK_F_DRONE, w ? "II" : "I", ink);
+        for (i = 0; i <= 50; i++) {
+            const float ph = (float)i / 50.0f;
+            const float v = dr_lfo_wave(w, shape, ph);
+            y[i] = (int16_t)(mid - (int32_t)(v * (float)amp));
+        }
+        lk_plot(x0, y, 51, ink);
+        if (!active) cv_text(x0 + 27, 2, &LK_F_SMALL, "off", LK_UNLIT);
+    }
+}
+
+static int lk_wave_on(int route, int w)
+{
+    return (route == w + 1 || route == DR_LFO_BOTH) && proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1] >= 0;
 }
 
 /* -------------------------------------------------- LFO sends' picture --- */
@@ -1980,6 +2007,25 @@ static void lk_pic_swell(void)
     }
 }
 
+/* The shape page enlarges one breath; two traces show the relative phase
+ * while both drones continue to use the same envelope-shaping parameters. */
+static void lk_pic_swell_shape(void)
+{
+    const int32_t x0 = 12, mid = LK_PIC_H / 2, amp = 48;
+    int g, i;
+    cv_rect(x0, mid, 216, 1, LK_RULE);
+    for (g = 0; g < 2; g++) {
+        int16_t y[LK_SW_N];
+        const uint16_t ink = g ? lk_mix(0x07060Bu, LK_LFO_TINT[1], 1.0f) : LK_SWELL;
+        for (i = 0; i < LK_SW_N; i++) {
+            const float ph = (float)i / (float)(LK_SW_N - 1);
+            const float gain = dr_pulse_wave_for(g, ph);
+            y[i] = (int16_t)(mid + amp - (int32_t)(gain * (float)(2 * amp)));
+        }
+        lk_plot(x0, y, LK_SW_N, proj.par[P_PULSE] ? ink : LK_UNLIT);
+    }
+}
+
 static uint32_t lk_mix888(uint32_t a, uint32_t b, float t)   /* 0xRRGGBB a -> b, as 0xRRGGBB */
 {
     uint32_t c = 0;
@@ -2142,9 +2188,11 @@ static void lk_pic(void)
     case V_SOURCE: lk_pic_source(); break;
     case V_PARTNER: lk_pic_partner(); break;
     case V_MOVES: lk_pic_moves(); break;
+    case V_LFO_WAVES: lk_pic_lfo_waves(); break;
     case V_LFO: lk_pic_lfo(); break;
     case V_LFO2: lk_pic_mods(); break;
     case V_PULSE: lk_pic_swell(); break;
+    case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
     case V_SETUP: lk_pic_setup1(); break;
     case V_SETUP2: lk_pic_setup2(); break;
     case V_FX:
@@ -2584,6 +2632,13 @@ static void lk_values(void)
     for (i = 0; i < 4; i++) {
         const int p = knob_param((int)i);
         h = hash(h, (p < 0 ? 0xFFFFu : (uint32_t)(uint16_t)proj.par[p]) | (uint32_t)lit((int)i) << 16);
+        if (p >= 0 && !lit((int)i) &&
+            ((ui.view == V_PLAY && p % GP_N == GP_CUTOFF && p < P_XMOD) ||
+             (ui.view == V_PLAY2 && p % GP_N == GP_PITCH && p < P_XMOD))) {
+            const float x = p % GP_N == GP_CUTOFF ? dr_cut[p / GP_N] : dr_pitch_live[p / GP_N] * 100.0f;
+            const int v = (int)(x + (x >= 0.0f ? 0.5f : -0.5f));
+            h = hash(h, (uint32_t)(v / (p % GP_N == GP_CUTOFF ? 10 : 5)));
+        }
         if (VIEW_KNOB[ui.view][i].g < G)       /* a drone's knob may follow another of its settings (PW the wave,
                                                 * a send its key) */
             h = hash(h, (uint32_t)gpar(VIEW_KNOB[ui.view][i].g, GP_WAVE) |
@@ -2598,13 +2653,14 @@ static void lk_values(void)
     ui.sig[2] = h;
     cv_begin(240, LK_VAL_H, LK_BG);
     cv_rect(8, 0, 224, 1, LK_RULE);
-    if (VIEW_KNOB[ui.view][0].g < G)
+    if (VIEW_KNOB[ui.view][0].g < G || ui.view == V_LFO_WAVES)
         cv_rect(119, 9, 1, 74, LK_RULE);       /* drone I | drone II (not on a global page) */
     for (i = 0; i < 4; i++) {
         const int p = knob_param((int)i), second = held && sel_job(ui.view, (int)i) >= 0;
         const knob_t kn = VIEW_KNOB[ui.view][i];
         const int g = kn.g < G ? kn.g : LK_G, is_pitch = kn.p == GP_PITCH && kn.g < G;   /* a global knob: neutral */
-        const uint16_t acc = ui.view == V_PULSE ? LK_SWELL : LK_DRONE[g];   /* the Swell's in its coral */
+        const uint16_t acc = ui.view == V_PULSE || ui.view == V_SWELL_SHAPE ? LK_SWELL :
+                              ui.view == V_LFO_WAVES ? lk_mix(0x07060Bu, LK_LFO_TINT[i >= 2], 1.0f) : LK_DRONE[g];   /* the Swell's in its coral */
         const int32_t x = 8 + 56 * (int32_t)i, cx = x + 28;
         const char *why = second ? 0 : lk_unheard(p), *name;
         int on = lit((int)i), v, lo, hi;
@@ -2615,6 +2671,15 @@ static void lk_values(void)
         if (p < 0)
             continue;
         v = proj.par[p];
+        if (!on && kn.g < G && ui.view == V_PLAY && kn.p == GP_CUTOFF) {
+            float c = dr_cut[kn.g];
+            v = (int)(c + (c >= 0.0f ? 0.5f : -0.5f));
+            v = v < 0 ? 0 : v > 1000 ? 1000 : v;
+        }
+        if (!on && is_pitch && p != P_PLINK_OFF && ui.view == V_PLAY2) {
+            const float c = dr_pitch_live[kn.g] * 100.0f;
+            v = (int)(c + (c >= 0.0f ? 0.5f : -0.5f));
+        }
         if (is_pitch && (p == P_PLINK_OFF ? sh[1] != sh[0] : sh[g] != 0)) {
             v += p == P_PLINK_OFF ? sh[1] - sh[0] : sh[g];   /* Shift moving it: the pitch as heard, lit */
             on = 1;
@@ -2638,7 +2703,7 @@ static void lk_values(void)
             const felucca_font_t *f2 = text_w(&FONT_N2, t) <= 58 && text_w(&FONT_N2, t2) <= 58 ? &FONT_N2 : &FONT_U1;
             text_c(cx, 27, f2, t, LK_WHITE);
             text_c(cx, 27 + (int32_t)f2->h - 4, f2, t2, LK_WHITE);
-            if (ui.view == V_PULSE)
+            if (ui.view == V_PULSE || ui.view == V_SWELL_SHAPE)
                 lk_pills(cx, 70, hi > lo ? (float)(v - lo) / (float)(hi - lo) : 0.0f, p == P_PULSE_SHAPE);
             else
                 lk_one_of_dots(cx, 72, dr_param_info(p)->hi - lo + 1, v - lo, g);
@@ -2740,7 +2805,7 @@ static void lk_values(void)
                 lk_cdots(cx, 70, frac);
             else if (p == P_WIDTH)             /* Stereo a slider, mono .. wide */
                 lk_xfader(cx, 70, frac, LK_G);
-            else if (ui.view == V_PULSE)       /* ARP's pills; Shape's from the middle */
+            else if (ui.view == V_PULSE || ui.view == V_SWELL_SHAPE)
                 lk_pills(cx, 70, frac, p == P_PULSE_SHAPE);
             else if (p == P_WSCALE)            /* Scale's dots, one-word names too (Evan: Dorian had a ruler) */
                 lk_one_of_dots(cx, 72, hi - lo + 1, v - lo, g);

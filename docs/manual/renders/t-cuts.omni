@@ -9,7 +9,7 @@ tapkey w0
 tap PLAY
 wait 2500
 tap GLO
-expect view 10
+expect view 11
 wav t-cuts.wav
 # @ P1 Niagara; Scene time at its fastest (Setup 1, KNOB 3 all the way left)
 wait 1500

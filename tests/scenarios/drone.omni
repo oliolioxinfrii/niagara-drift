@@ -229,9 +229,11 @@ expect par108 0
 expect par109 0
 tap EDIT
 expect view 4
-# LFO: the depths, and the keys switch to LFO routing
+# LFO: waveform/level page, then per-drone sends and routing
 tap LFO
 expect view 6
+tap LFO
+expect view 7
 spin K2 30
 expect par17 55
 tapkey b0
@@ -267,7 +269,7 @@ tapkey b8
 expect par67 0
 # LFO again: Mods, the rate mod (KNOB 1 its depth, KNOB 2 the wave that moves it); again: LFO
 tap LFO
-expect view 7
+expect view 8
 spin K1 50
 expect par68 50
 spin K2 1
@@ -282,7 +284,7 @@ spin K3 20
 expect par66 20
 spin K3 -20
 tap LFO
-expect view 6
+expect view 7
 # the normal keys (back on Play): partner, sub -2, HP, hard sync, cross-mod
 tap HOME
 expect view 0
@@ -356,15 +358,15 @@ expect par21 5617
 # ARP, as the other page buttons (2026-10-25): a tap opens the Swell page and leaves the Swell alone; a tap on the
 # page is the Swell on / off; held, a peek (its knobs turn, nothing switches)
 tap ARP
-expect view 12
+expect view 13
 expect par55 0
 tap ARP
 expect par55 1
-expect view 12
+expect view 13
 tap HOME
 expect view 0
 press ARP
-expect view 12
+expect view 13
 spin K1 10
 expect par56 55
 release ARP
@@ -373,7 +375,7 @@ expect par55 1
 wait 400
 shot pulse.png
 tap ARP
-expect view 12
+expect view 13
 expect par55 1
 tap ARP
 expect par55 0
@@ -413,19 +415,19 @@ expect par7 650
 # FX: Delay: drive, time, repeats, mix (SEL + KNOB 4: the delay's type); again: Reverb: length, damp, type, mix (SEL +
 # KNOB 4: what goes into it) (v0.3; the delay LFO depth is on Mods)
 tap FX
-page 13
-expect view 13
-page 14
+page 15
+expect view 15
+page 16
 spin K1 20
-page 13
+page 15
 expect par98 20
-page 14
+page 16
 spin K1 -20
-page 13
+page 15
 expect par98 0
-page 14
+page 16
 spin K2 -10
-page 13
+page 15
 expect par60 40
 spin K1 15
 expect par61 50
@@ -434,11 +436,11 @@ expect par62 30
 wait 100
 shot fx.png
 tap FX
-page 14
-expect view 14
-page 13
+page 16
+expect view 16
+page 15
 spin K3 10
-page 14
+page 16
 expect par95 70
 spin K3 -10
 expect par96 30
@@ -446,9 +448,9 @@ spin K4 1
 expect par64 3
 spin K4 -1
 expect par64 2
-page 13
+page 15
 spin K4 10
-page 14
+page 16
 expect par63 35
 wait 100
 shot fx2.png
@@ -456,15 +458,15 @@ spin K4 -1
 expect par64 1
 # SEL + KNOB 4 on Delay: the delay's type (its Mix stays)
 tap FX
-page 13
-expect view 13
+page 15
+expect view 15
 press SEL
-page 14
+page 16
 spin K2 -1
-page 13
-page 14
+page 15
+page 16
 spin K2 -1
-page 13
+page 15
 expect par94 1
 expect par62 30
 release SEL
@@ -478,53 +480,53 @@ tap HOME
 expect view 0
 # SEQ: Partner, again: Pitch moves; GLO: Setup
 tap SEQ
-expect view 8
-tap SEQ
 expect view 9
-tap GLO
+tap SEQ
 expect view 10
+tap GLO
+expect view 11
 spin K1 7
 expect par51 32
 wait 100
 shot setup.png
 # GLO again: Setup 2, the room's: Tune, Stereo, Pressure (KNOB 4 nothing: the speaker's cut is automatic); again: Setup 1
 tap GLO
-expect view 11
+expect view 12
 spin K4 -10
 expect par97 40
 spin K4 10
 expect par97 50
 tap GLO
-expect view 10
+expect view 11
 # a page button opens the page last shown there: Reverb, then home, then FX held (a peek) shows Reverb; HOME is
 # always Drones
 tap HOME
 expect view 0
 tap FX
-page 13
+page 15
 tap FX
-page 14
-expect view 14
+page 16
+expect view 16
 tap HOME
 expect view 0
 press FX
-page 14
+page 16
 wait 500
-expect view 14
+expect view 16
 release FX
 page 0
 expect view 0
 tap HOME
 expect view 1
 tap FX
-page 14
+page 16
 tap HOME
 expect view 0
 tap FX
-page 14
+page 16
 tap FX
-page 13
-expect view 13
+page 15
+expect view 15
 tap HOME
 # SELECT: the LFO rate; PRESETS: nothing yet (the macro to come), the waves stay
 spin SELECT 10
@@ -597,7 +599,7 @@ expect par7 850
 # a scene doesn't carry the room's settings: the stereo width set after storing stays when it's recalled
 tap GLO
 tap GLO
-expect view 11
+expect view 12
 spin K3 30
 expect par53 90
 tap HOME
@@ -754,30 +756,30 @@ set 71 24
 # the types go round both ways: the delay's (SEL + KNOB 4 on Delay) from Wide (1) to Clean, Self, Clean, Wide; the
 # reverb's (KNOB 3 on Reverb) from the hall (1) to the room, Shimmer (the last, v0.3), the room, the hall
 tap FX
-page 13
-expect view 13
+page 15
+expect view 15
 press SEL
 expect par94 1
-page 14
+page 16
 spin K2 -1
-page 13
+page 15
 expect par94 0
-page 14
+page 16
 spin K2 -1
-page 13
+page 15
 expect par94 5
-page 14
+page 16
 spin K2 1
-page 13
+page 15
 expect par94 0
-page 14
+page 16
 spin K2 1
-page 13
+page 15
 expect par94 1
 release SEL
 # on a page with a SEL job (Details since v0.3) SEL's key map waits 1.5 s, not 0.4 (a quick SEL + knob never meets
 # it), and once a SEL job has turned it stays away until SEL is let go (Evan, 2026-10-28)
-page 14
+page 16
 press SEL
 wait 600
 expect keymap 0
@@ -790,11 +792,11 @@ wait 3000
 expect keymap 0
 spin K2 -1
 release SEL
-page 13
+page 15
 expect par94 1
 tap FX
-page 14
-expect view 14
+page 16
+expect view 16
 expect par64 1
 spin K4 -1
 spin K4 -1
@@ -813,19 +815,19 @@ spin K4 1
 expect par99 0
 release SEL
 expect par63 40
-page 13
+page 15
 spin K4 1
-page 14
+page 16
 expect par63 41
 expect par99 0
-page 13
+page 15
 spin K4 -1
-page 14
+page 16
 tap HOME
 # Wander's scale (Pitch moves, KNOB 4) goes round too: before the first (minor pentatonic) comes just intonation
 tap SEQ
 tap SEQ
-expect view 9
+expect view 10
 expect par81 0
 spin K4 -1
 expect par81 5

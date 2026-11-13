@@ -112,31 +112,45 @@ wait 100
 shot play2.png
 tap HOME
 expect view 0
-# OCT- / OCT+: the LFO's waves (v0.2): a tap is the next shape, round and round; SEL + OCT the one before
+# OCT- / OCT+ cycle the LFO waves on a tap. SEL + OCT-/OCT+ instead toggle
+# drone I/drone II output, leaving the LFO waves unchanged.
 expect par48 1
 expect par49 1
+expect par82 0
+expect par72 0
 tap OCT-
 expect par48 2
 tap OCT+
 expect par49 2
 press SEL
 tap OCT-
+release SEL
+expect par82 1
+expect par48 2
+press SEL
 tap OCT-
 release SEL
-expect par48 0
+expect par82 0
+expect par48 2
+press SEL
+tap OCT+
+release SEL
+expect par72 1
+expect par49 2
+press SEL
+tap OCT+
+release SEL
+expect par72 0
+expect par49 2
+# Unmodified OCT taps keep cycling, and wrap from the final shape to the first.
+tap OCT-
+expect par48 3
+tap OCT+
+expect par49 3
+set 48 10
 tap OCT-
 expect par48 1
-press SEL
-tap OCT+
-release SEL
-expect par49 1
-# ...back past Off: round and round
-press SEL
-tap OCT+
-tap OCT+
-release SEL
-expect par49 10
-tap OCT+
+set 49 10
 tap OCT+
 expect par49 1
 # ALGORITHM: the Movement (every LFO depth together, 50 = as set, 100 = twice)
@@ -355,29 +369,36 @@ expect pitch1 5617
 tapkey b4
 expect par45 0
 expect par21 5617
-# ARP, as the other page buttons (2026-10-25): a tap opens the Swell page and leaves the Swell alone; a tap on the
-# page is the Swell on / off; held, a peek (its knobs turn, nothing switches)
+# ARP: tap opens/cycles two Swell pages; holding for 400 ms toggles Swell
+# without entering a page. The knobs on Swell page 1 still edit Rate/Depth/Phase/Swing.
 tap ARP
 expect view 13
 expect par55 0
 tap ARP
-expect par55 1
-expect view 13
+expect view 14
+expect par55 0
 tap HOME
 expect view 0
 press ARP
-expect view 13
-spin K1 10
-expect par56 55
+wait 500
 release ARP
 expect view 0
 expect par55 1
+tap ARP
+expect view 13
+spin K1 10
+expect par56 55
+tap HOME
+expect view 0
 wait 400
 shot pulse.png
 tap ARP
 expect view 13
 expect par55 1
-tap ARP
+press ARP
+wait 500
+release ARP
+expect view 13
 expect par55 0
 tap HOME
 expect view 0
@@ -554,19 +575,19 @@ expect dirty 1
 wait 5000
 expect dirty 1
 expect store_writes 1
-# PLAY again: out over the fade (Fade is 32 now: 2.0 s), then the autosave, once the effects' tails are no longer
-# heard (a save's erase cut into them popped, Evan 2026-11-07), or 15 s after the last touch, with the dip
+# PLAY again: out over the fade (Fade is 32 now: 2.0 s). After at least
+# 4 s quiet and when effects tails have faded, autosave once (no further writes).
+# A separate autosave scenario tests deferred saving during long scene transitions.
 tap PLAY
 expect playing 0
 wait 2500
 expect fade 0
 wait 4500
-expect dirty 1
-expect store_writes 1
 wait 9000
 expect dirty 0
-# the knob came back where it was: the flash has this sound already; written once, for the tip seen since the save
-# (FX's first time, v0.3: the tips' seen flags go with the next save)
+# The only new write is the stopped working sound, not one per control change.
+expect store_writes 2
+wait 1000
 expect store_writes 2
 wavstop
 # everything comes back after a reboot

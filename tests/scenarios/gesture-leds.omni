@@ -1,0 +1,27 @@
+# Gesture key LEDs follow the actual effect amount, with no illumination at zero.
+# w9 = Chord, w10 = Snarl, w12 = Weight; ledwN is raw brightness (0..255).
+notips
+tap PLAY
+wait 100
+expect ledw9 0
+expect ledw10 0
+expect ledw12 0
+# A latched Chord rises all the way to full LED brightness.
+tapkey w9
+wait 15000
+expect gam5 100
+expect ledw9 255
+# Unlatching fades back to truly dark, without the former 40/255 floor.
+tapkey w9
+wait 15000
+expect gam5 0
+expect ledw9 0
+# The same zero/full behavior applies to Snarl.
+tapkey w10
+wait 15000
+expect gam6 100
+expect ledw10 255
+tapkey w10
+wait 15000
+expect gam6 0
+expect ledw10 0

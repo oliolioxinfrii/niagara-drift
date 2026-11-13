@@ -254,22 +254,16 @@ tapkey b7
 expect par37 3
 wait 100
 shot lfo.png
-# LFO reset (drone I's filter group, either layer): the LFO back to the start of its cycle (a triangle
-# starts at the bottom)
-tapkey b4
-wait 1000
-expect lfo0 >-40
-tapkey b4
-wait 30
-expect lfo0 <-80
-# held half a second, the reset key locks the LFO to the pulse's bars (the key stays lit); again: free
-key b4 down
-wait 700
-key b4 up
+# C#5 (b8) is always LFO lock/reset, including on LFO pages.
+# A tap changes synchronization; a long hold resets phase but leaves lock state unchanged.
+set 67 0
+tapkey b8
 expect par67 1
-key b4 down
+key b8 down
 wait 700
-key b4 up
+key b8 up
+expect par67 1
+tapkey b8
 expect par67 0
 # LFO again: Mods, the rate mod (KNOB 1 its depth, KNOB 2 the wave that moves it); again: LFO
 tap LFO

@@ -46,7 +46,7 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     {"Link ofs", -2400, 2400, 700}, {"LFO rate", 0, 152, 74}, {"Wave I", 0, DR_LFO_NSHAPES - 1, 1},
     {"Wave II", 0, DR_LFO_NSHAPES - 1, 8}, {"Pitch glide", 0, 100, 7}, {"Fade", 0, 100, 29}, {"Drift", 0, 100, 30},
     {"Stereo", 0, 100, 60}, {"Tune", -130, 130, 0},
-    {"Pulse", 0, 1, 1}, {"Rate", 0, 100, 6}, {"Depth", 0, 100, 40}, {"Shape", -100, 100, -25}, {"Swing", 0, 50, 0},
+    {"Pulse", 0, 1, 1}, {"Rate", 0, 100, 6}, {"Depth", 0, 100, 40}, {"Shape", -100, 103, -25}, {"Swing", 0, 50, 0},
     {"Time", 0, DR_DLY_TMAX, 50}, {"Repeats", 0, 100, 50}, {"Dly mix", 0, 100, 25}, {"Rev mix", 0, 100, 35},
     {"Type", 0, DR_NREV - 1, 2}, {"Dly LFO", DR_LFO_I, DR_LFO_BOTH, DR_LFO_I}, {"Delay mod", -100, 100, 20},
     {"LFO lock", 0, 1, 0}, {"Speed mod", -100, 100, 0}, {"Source", DR_LFO_I, DR_LFO_BOTH, DR_LFO_II},
@@ -492,12 +492,14 @@ void dr_param_text(int i, int v, char *b)
         copy_s(b, DR_NOTE_NAME[(unsigned)v < DR_NNOTE ? v : 5]);
     else if (i == P_SCENE_BARS)
         copy_s(b, DR_BARS_NAME[(unsigned)v < DR_NBARS ? v : 2]);
-    else if (i == P_PULSE_SHAPE) {               /* "gate", "pulse 50", "even", "ramp 40": named on both sides */
-        if (v == 0) {
+    else if (i == P_PULSE_SHAPE) {
+        if (v >= 101)
+            copy_s(b, v == 101 ? "double" : v == 102 ? "steps" : "hold");
+        else if (v == 0)
             copy_s(b, "even");
-        } else if (v <= -100) {
+        else if (v <= -100)
             copy_s(b, "gate");
-        } else if (v < 0) {
+        else if (v < 0) {
             copy_s(b, "pulse ");
             itoa_s(-v, b + 6);
         } else {
@@ -2426,21 +2428,52 @@ static float pulse_depth(int v)
 {
     return v >= 100 ? 1.0f : 1.0f - fm_exp2f((float)v * (-30.0f / 99.0f * 0.166096405f));
 }
-/* a breath's gain at ph (0..2 a bar, two breaths; swing b1 the first's length). SHAPE under 0 firms it up, toward a
- * gate; over 0 a ramp (Evan, 2026-10-30: turning right lengthens it, as it was turning left): the rise (trough to peak) takes up to 97 % of the breath, the fall the rest, but never under
- * 20 ms (hz: breaths a second): quicker, it clicked */
+/* Every pattern starts and ends at zero. Smoothstep joins stages with zero slope,
+ * including the unequal crests and plateaus. All coefficients are arithmetic
+ * constants; the audio path does not load envelope tables from flash. */
+static float swell_pattern(float f, float shape)
+{
+    float lo, hi, t;
+    if (shape < 1.015f) {                  /* double: rise, dip, second crest */
+        if (f < 0.20f) { lo = 0.0f; hi = 1.0f; t = 5.0f * f; }
+        else if (f < 0.42f) { lo = 1.0f; hi = 0.28f; t = (f - 0.20f) * (1.0f / 0.22f); }
+        else if (f < 0.67f) { lo = 0.28f; hi = 0.85f; t = (f - 0.42f) * 4.0f; }
+        else { lo = 0.85f; hi = 0.0f; t = (f - 0.67f) * (1.0f / 0.33f); }
+    } else if (shape < 1.025f) {           /* steps: three ascending plateaus, then release */
+        if (f < 0.12f) { lo = 0.0f; hi = 0.30f; t = f * (1.0f / 0.12f); }
+        else if (f < 0.25f) { lo = hi = 0.30f; t = 0.0f; }
+        else if (f < 0.35f) { lo = 0.30f; hi = 0.55f; t = (f - 0.25f) * 10.0f; }
+        else if (f < 0.48f) { lo = hi = 0.55f; t = 0.0f; }
+        else if (f < 0.58f) { lo = 0.55f; hi = 0.90f; t = (f - 0.48f) * 10.0f; }
+        else if (f < 0.80f) { lo = hi = 0.90f; t = 0.0f; }
+        else { lo = 0.90f; hi = 0.0f; t = (f - 0.80f) * 5.0f; }
+    } else {                              /* hold: rise, sustain, release */
+        if (f < 0.50f) { lo = 0.0f; hi = 1.0f; t = f * 2.0f; }
+        else if (f < 0.75f) { lo = hi = 1.0f; t = 0.0f; }
+        else { lo = 1.0f; hi = 0.0f; t = (f - 0.75f) * 4.0f; }
+    }
+    t = fm_clampf(t, 0.0f, 1.0f);
+    return lo + (hi - lo) * t * t * (3.0f - 2.0f * t);
+}
+/* The original continuous Shape range (-100..100) uses its unchanged pulse/gate
+ * or ramp formula. Values 101..103 select fixed swell envelopes; b1 still
+ * sets the length of the first of two breaths, and depth sets the floor. */
 static float pulse_gain(float ph, float depth, float shape, float b1, float hz)
 {
     float f = ph < b1 ? ph / b1 : (ph - b1) / (2.0f - b1), o;
-    if (shape > 0.0f) {
-        float r = fm_minf(0.5f + 0.47f * shape, 1.0f - 0.02f * hz), u = f + 0.25f;
-        u -= fm_floorf(u);
-        if (r > 0.5f)
-            u = u < r ? 0.5f * u / r : 0.5f + 0.5f * (u - r) / (1.0f - r);
-        f = u - 0.25f;
-        shape = 0.0f;
+    if (shape > 1.005f) {
+        o = swell_pattern(f, shape);
+    } else {
+        if (shape > 0.0f) {
+            float r = fm_minf(0.5f + 0.47f * shape, 1.0f - 0.02f * hz), u = f + 0.25f;
+            u -= fm_floorf(u);
+            if (r > 0.5f)
+                u = u < r ? 0.5f * u / r : 0.5f + 0.5f * (u - r) / (1.0f - r);
+            f = u - 0.25f;
+            shape = 0.0f;
+        }
+        o = fm_clampf(0.5f * fm_sinf(FM_TWO_PI * f) / (1.0f + 0.98f * shape) + 0.5f, 0.0f, 1.0f);
     }
-    o = fm_clampf(0.5f * fm_sinf(FM_TWO_PI * f) / (1.0f + 0.98f * shape) + 0.5f, 0.0f, 1.0f);
     return 1.0f - depth * (1.0f - o);
 }
 /* THE TIME KNOBS (Setup 1): a power of the dial over each one's range, so most of it is for slow changes, a drone's

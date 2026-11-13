@@ -27,12 +27,13 @@ On the page, tap [[ARP]] to start or stop it.
 |---|---|
 | **Rate** | how fast it breathes. On a MIDI clock it's **Division**: 32 bars to a quarter note |
 | **Depth** | how far it dips, down to −30 dB; all the way, silence |
-| **Shape** | **Even** (a smooth breath) in the middle; a **ramp** to the right; a **pulse**, then a hard **gate**, to the left |
+| **Shape** | **Even** (a smooth breath) in the middle; a **ramp** to the right; a **pulse**, then a hard **gate**, to the left. Past **ramp 100**: **double**, **steps**, **hold** |
 | **Swing** | every other breath longer, up to 3 to 1 |
 
 ## Good to know
 
 - **The starting sound** has it on: a slow breath, 40 deep. The header says **on**, or **off · tap ARP**.
 - **"ramp 100":** the rise takes 97% of each breath.
+- **Double** rises to a first crest, dips, then swells again. **Steps** rises through three terraces before falling. **Hold** rises to a sustained plateau, then releases. Turn KNOB 3 past **ramp 100** to choose them; Rate, Depth and Swing work as before, and the display shows their envelope shapes.
 - **An LFO locked to the Swell** ([[D#4]], held) restarts on its bars, so it follows a clock too.
 - **The picture:** two bars, four breaths, as strands meeting at a dot where the Swell is now.

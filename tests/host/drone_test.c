@@ -885,6 +885,45 @@ int main(void)
         check("pulse off: open again", dr_pulse > 0.999f && finite_ok);
     }
 
+    {   /* Swell pattern gains are finite and continuous through both breath boundaries. */
+        const int shapes[3] = {101, 102, 103};
+        int s, i, good = 1;
+        char label[24];
+        for (s = 0; s < 3; s++) {
+            dry_init();
+            dr_set(P_PULSE_DEPTH, 100);
+            dr_set(P_PULSE_SWING, 0);
+            dr_set(P_PULSE_SHAPE, shapes[s]);
+            run(1);
+            if (fabsf(dr_pulse_wave(0.0f) - dr_pulse_wave(1.0f)) > 1e-5f)
+                good = 0;
+            for (i = 0; i <= 1024; i++) {
+                float v = dr_pulse_wave((float)i / 1024.0f);
+                if (!isfinite(v) || v < -0.0001f || v > 1.0001f)
+                    good = 0;
+            }
+        }
+        check("swell patterns: bounded, finite, continuous between breaths", good);
+        dr_param_text(P_PULSE_SHAPE, 101, label);
+        check("swell double: named and has two unequal peaks",
+              !strcmp(label, "double") && dr_pulse_wave(0.2f) > 0.9f);
+        dr_set(P_PULSE_SHAPE, 101);
+        run(1);
+        check("swell double: dip between two crests",
+              dr_pulse_wave(0.20f) > 0.99f && dr_pulse_wave(0.42f) < 0.30f &&
+              dr_pulse_wave(0.67f) > 0.84f);
+        dr_set(P_PULSE_SHAPE, 102);
+        run(1);
+        check("swell steps: constant plateaus at ascending levels",
+              fabsf(dr_pulse_wave(0.18f) - dr_pulse_wave(0.23f)) < 1e-5f &&
+              fabsf(dr_pulse_wave(0.62f) - dr_pulse_wave(0.75f)) < 1e-5f &&
+              dr_pulse_wave(0.70f) > dr_pulse_wave(0.20f));
+        dr_set(P_PULSE_SHAPE, 103);
+        run(1);
+        check("swell hold: open throughout the plateau",
+              dr_pulse_wave(0.60f) > 0.999f && dr_pulse_wave(0.70f) > 0.999f);
+    }
+
     {   /* GLIDE follows a knob's slide: with Glide up, a pitch knob's turn (dr_slide, as the UI sends it) glides
          * there (the slide replaced the Glide: knob turns arrived at once at any Glide) */
         float p0, early, late;

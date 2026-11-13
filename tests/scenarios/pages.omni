@@ -56,6 +56,9 @@ shot source.png
 # LFO: Wave I a triangle, Wave II an exp saw; some depth on each drone's filter
 tap LFO
 expect view 6
+# Wave/level page precedes the original sends page.
+tap LFO
+expect view 7
 tap OCT+
 tap OCT+
 spin SELECT -20
@@ -70,7 +73,7 @@ wait 2500
 shot lfo.png
 # Mods: the rate mod, cross-mod's amount, the delay LFO's depth
 tap LFO
-expect view 7
+expect view 8
 spin K1 40
 spin K4 20
 spin K3 50
@@ -78,14 +81,14 @@ wait 300
 shot lfo2.png
 # Partner: drone I detuned (beating), drone II an octave up and a fifth
 tap SEQ
-expect view 8
+expect view 9
 spin K2 40
 spin K3 3
 wait 300
 shot partner.png
 # Pitch moves: Shift latched (E5) a fifth up; Wander up on a major pentatonic, drone II on its way somewhere
 tap SEQ
-expect view 9
+expect view 10
 tapkey w13
 spin K3 60
 spin K4 1
@@ -97,14 +100,14 @@ spin K4 -1
 wait 15000
 # Setup 1: the times: a longer Morph and Scene switch
 tap GLO
-expect view 10
+expect view 11
 spin K2 20
 spin K3 20
 wait 300
 shot setup.png
 # Setup 2: tuned a little sharp, wider, the keys a little more sensitive (then back)
 tap GLO
-expect view 11
+expect view 12
 spin K2 6
 spin K3 30
 spin K4 20
@@ -116,23 +119,23 @@ spin K4 -20
 # Swell (hold ARP to peek at its page): some swing
 expect par55 1
 press ARP
-expect view 12
+expect view 13
 spin K4 30
 wait 2500
 shot pulse.png
 release ARP
 # Delay: Wide (SEL + KNOB 4, its second job), its echoes left and right, a little drive after it
 tap FX
-expect view 13
+expect view 15
 # Space: the delay set to Ping-pong first (SEL + KNOB 2 on Details), then the repeats, both mixes and the reverb's
 # length; the readout names a Mix while it turns, so the picture waits for it to go
-page 14
+page 16
 press SEL
 spin K2 -1
 spin K2 -1
 expect par94 1
 release SEL
-page 13
+page 15
 wait 1500
 spin K1 20
 spin K2 20
@@ -142,7 +145,7 @@ wait 1800
 shot fx.png
 # Details, SEL held, KNOB 2 turned: the delay's type over Time (Wide to Ping-pong and back)
 tap FX
-expect view 14
+expect view 16
 spin K1 15
 wait 1500
 press SEL

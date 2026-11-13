@@ -1,39 +1,47 @@
 ---
 title: Swell
-intro: ARP: both drones breathing in time
+intro: ARP: two drones breathing at one rate, with an adjustable phase offset
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 ## Swell
 
-A tremolo on both drones, from a slow breath to a hard gate, on its own or in time with a clock.
+A volume envelope applied independently to the two drones. The drones share one rate, shape and depth, but drone II can be shifted relative to drone I.
+
+## Buttons and pages
+
+- **Tap [[ARP]]** to open the Swell page; tap again for Swell shape. Further taps alternate the two pages.
+- **Hold [[ARP]]** (at least 400 ms, then release) to turn Swell on or off from any page.
+- The two pages keep the same Swell on/off state.
 
 ## Knobs
 
-[[ARP]] opens the Swell page.
-
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|---|
-| Swell | rate (on a MIDI clock: division) | depth | shape | swing |
+| Swell (1/2) | Rate (on a MIDI clock: Division) | Depth | Phase | Swing |
+| Swell shape (2/2) | Wave | Skew | Edge | Width |
 
-## Controls
+### Swell (1/2)
 
-<img class="shot" src="../../img/screen-pulse.png" width="240" alt="The Swell page: two bars of the Swell, four breaths, as strands meeting at a dot">
+- **Rate** sets the duration of each breath, or its musical division when following MIDI clock.
+- **Depth** sets how far the level dips, from no modulation to silence.
+- **Phase** offsets drone II relative to drone I from 0% (together) through 50% (alternating) to 100% (together again).
+- **Swing** makes every other breath longer, up to 3:1.
 
-On the page, tap [[ARP]] to start or stop it.
+### Swell shape (2/2)
 
-| Knob | What it does |
-|---|---|
-| **Rate** | how fast it breathes. On a MIDI clock it's **Division**: 32 bars to a quarter note |
-| **Depth** | how far it dips, down to −30 dB; all the way, silence |
-| **Shape** | **Even** (a smooth breath) in the middle; a **ramp** to the right; a **pulse**, then a hard **gate**, to the left. Past **ramp 100**: **double**, **steps**, **hold** |
-| **Swing** | every other breath longer, up to 3 to 1 |
+- **Wave** morphs continuously from the saved original Shape through **Double**, **Steps**, and **Hold**.
+- **Skew** moves the envelope's rise and release timing earlier or later.
+- **Edge** rounds or sharpens transitions toward a hard gate.
+- **Width** narrows or broadens the elevated part of the envelope.
+- **Hold [[SEL]] and turn KNOB 1** to edit the previous Shape parameter (gate, even, ramp, or the three original special shapes). Existing scene values are retained.
+
+Each drone uses the same Wave/Skew/Edge/Width, but its phase is evaluated separately. The Shape page shows both waveforms at their relative phases.
 
 ## Good to know
 
-- **The starting sound** has it on: a slow breath, 40 deep. The header says **on**, or **off · tap ARP**.
-- **"ramp 100":** the rise takes 97% of each breath.
-- **Double** rises to a first crest, dips, then swells again. **Steps** rises through three terraces before falling. **Hold** rises to a sustained plateau, then releases. Turn KNOB 3 past **ramp 100** to choose them; Rate, Depth and Swing work as before, and the display shows their envelope shapes.
-- **An LFO locked to the Swell** ([[D#4]], held) restarts on its bars, so it follows a clock too.
-- **The picture:** two bars, four breaths, as strands meeting at a dot where the Swell is now.
+- The starting sound is a slow, gentle breath. The long ARP press bypasses it without losing the settings.
+- A phase offset of 0% preserves the common-envelope behavior of earlier Niagara Drift versions.
+- A locked LFO ([[D#4]], held) follows Swell's bar starts. The two drone envelopes do not have independent clocks.
+- At high Swell rates, the 3 ms output glide rounds the steepest transitions.

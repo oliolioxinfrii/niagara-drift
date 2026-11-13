@@ -1,37 +1,28 @@
 ---
 title: LFO
-intro: One clock, two waves, and Movement
+intro: One clock, two waves, each with a shape, level and bypass
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 ## LFO
 
-One clock with two waves, LFO I and LFO II, and Movement, which sets how much of them you hear.
+Niagara Drift has two LFO waveforms (I and II) on a shared clock. Either waveform can be routed to either drone's pitch, X-Wave, cutoff or resonance.
 
 ## Controls
 
-<img class="shot" src="../../img/panel-left.png" width="200" alt="The FM-1's left knobs: SELECT is the LFO rate, ALGORITHM Movement, PRESETS Gesture time; OCT− and OCT+ pick LFO I's and II's waves">
+- **SELECT** sets the shared LFO rate (or cycle division when following MIDI clock).
+- **ALGORITHM** controls Movement, which scales the LFO sends together from 0% to 200%.
+- **Tap [[OCT-]]** or [[OCT+]] to advance LFO I or II to the next waveform. The Off entry is no longer part of the rotation.
+- **Hold [[OCT-]]** or [[OCT+]] for at least 400 ms to bypass or restore LFO I or II, preserving the shape and level.
+- **[[SEL]] + [[OCT-]]** toggles drone I in/out, and **[[SEL]] + [[OCT+]]** toggles drone II in/out. These act on the drone fade, not its filter cutoff.
 
-Where the waves go is on the [LFO pages](lfo-pages.md).
+The first [[LFO]] page lets you select either waveform directly using KNOB 1 or 3, and set the corresponding level using KNOB 2 or 4. The LFO's routing is on the next page.
 
-### Rate (SELECT)
-
-One cycle in 100 s to 70 Hz.
-
-### Movement (ALGORITHM)
-
-Every LFO depth together, from still (0%) to double (200%).
-
-### Shapes (OCT− and OCT+)
-
-LFO I's and LFO II's wave: tap for the next.
-
-## Shapes
+## Waveforms
 
 | LFO I | LFO II |
 |---|---|
-| Off | Off |
 | Triangle | Tri 90 |
 | Square | Square 90 |
 | Saw | Exp saw |
@@ -43,20 +34,9 @@ LFO I's and LFO II's wave: tap for the next.
 | AND 3 | AND 5 |
 | OR 3 | OR 5 |
 
-## Movement
-
-| Movement scales | Movement leaves alone |
-|---|---|
-| **LFO sends:** all four | **Mods: Speed mod** |
-| **Mods: Delay mod** (the delay's wobble) | **Mods: Cross-mod** (that's sound, not the LFO) |
-| | the rate, the shapes, and where the waves go |
-
 ## Good to know
 
-- **Rate:** most of the turn is 100 s to 10 s, a second a click. Slow rates show a cycle's length ("21s", "1m40").
-- **Shapes:** [[SEL]] + OCT steps back; each light pulses with its wave.
-- **AND and OR** are two square waves together, one 3 times as fast (LFO I) or 5 times (LFO II). AND steps between 2
-  levels, OR 4: on a drone's pitch, a pattern of 2 or 4 notes.
-- **Movement** only scales depths you've set: at 0% nothing moves, at 100% (the middle) the depths are as set.
-- **A depth that can't be heard** says why on the screen (Movement at 0%, or its wave off).
-- **PRESETS,** the other left knob, is Gesture time: see [Gestures](gestures.md).
+- Bypassing an LFO retains its waveform and volume even when a scene is saved.
+- The levels on the Waves page multiply the existing per-route depths; the four sends retain their balance.
+- Movement scales the sends and delay-time modulation, not the separate Cross-mod circuit.
+- At 0% Movement no LFO is heard on the routed destinations, regardless of the waveform's level.

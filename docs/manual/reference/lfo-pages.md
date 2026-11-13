@@ -1,61 +1,49 @@
 ---
-title: LFO sends and Mods
-intro: LFO: where the LFO goes, and what else it moves
+title: LFO waves, Sends and Mods
+intro: LFO: waves first, then their destinations and additional modulation
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-## LFO sends and Mods
+## LFO pages
 
-Where the LFO goes, and what else it moves.
-
-## Knobs
-
-[[LFO]] opens LFO sends; [[LFO]] again, Mods. The LFO's rate and shapes are on the left knobs: see [LFO](lfo.md).
+Tap [[LFO]] repeatedly to cycle through three pages:
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|---|
-| LFO sends | I pitch (or X-Wave) | I cutoff (or resonance) | II pitch (or X-Wave) | II cutoff (or resonance) |
-| Mods | speed mod | source (LFO) | delay mod | cross-mod |
+| LFO waves (1/3) | LFO I waveform | LFO I level | LFO II waveform | LFO II level |
+| LFO sends (2/3) | I pitch / X-Wave | I cutoff / resonance | II pitch / X-Wave | II cutoff / resonance |
+| Mods (3/3) | Speed mod | Source | Delay mod | Cross-mod |
 
-## LFO sends
+The first page displays the two LFO waveforms, not the two drone oscillator waveforms. Either LFO can modulate either drone, according to the routing on page 2.
 
-<img class="shot" src="../../img/screen-lfo.png" width="240" alt="The LFO sends page: the two LFOs, and each drone's sends as sentences with their keys">
+### LFO waves
 
-The middle of each knob is none.
+- Turn KNOB 1 or 3 to select a named waveform, wrapping from the last waveform to the first.
+- Turn KNOB 2 or 4 to adjust that LFO's amplitude, up to 100%.
+- Hold [[OCT-]] to bypass LFO I or [[OCT+]] to bypass LFO II; the selected waveform and amplitude are retained.
 
-| Knob | What it does |
-|---|---|
-| **Pitch send** | how far the LFO moves the drone's pitch, or its X-Wave instead ([[G#3]], [[G#4]] on the LFO pages) |
-| **Cutoff send** | how far the LFO moves the drone's cutoff, or its resonance instead ([[C#4]], [[C#5]] on the LFO pages) |
+### LFO sends
 
-### Which LFO, and what it moves
+<img class="shot" src="../../img/screen-lfo.png" width="240" alt="The LFO sends page: the two LFOs and each drone's modulation routes">
 
-On the LFO pages, each drone's four black keys pick the LFO for each send and what it moves.
+The center of each send's knob is zero. Positive and negative settings select modulation depth and direction.
 
-<img src="../../img/black-keys-sends.png" width="560" alt="The black keys on the LFO pages with each drone's four send keys picked out: F#3 to C#4 for drone I, F#4 to C#5 for drone II">
+- **Pitch/X-Wave:** each drone's oscillator LFO route. [[G#3]] and [[G#4]] select the destination.
+- **Cutoff/resonance:** each drone's filter route. [[C#4]] and [[C#5]] select the destination.
+- The drone's corresponding black keys select LFO I, II, or both, independently of the two global LFO waveforms.
 
-## Mods
+### Mods
 
-<img class="shot" src="../../img/screen-lfo2.png" width="240" alt="The Mods page: the LFO's clock feeding LFO I and II, the delay's wobble, and cross-mod's mode">
+<img class="shot" src="../../img/screen-lfo2.png" width="240" alt="The Mods page: LFO speed modulation, delay modulation and cross-modulation">
 
-| Knob | What it does |
-|---|---|
-| **Speed mod** | the LFO speeds up and slows down on one of its own waves, up to 3 octaves either way |
-| **Source** | which LFO moves the speed: I, II or both |
-| **Delay mod** | how far the LFO wobbles the delay's time, up to ±25% |
-| **Cross-mod** | how deep cross-mod goes, in the mode [[F#5]] picks: I moves II's cutoff, bend each other (cross-FM) or Snarl |
+- **Speed mod:** one waveform speeds and slows the common LFO clock.
+- **Source:** LFO I, LFO II or both.
+- **Delay mod:** modulates the delay time.
+- **Cross-mod:** audio-rate interaction between the drones; it is not part of the LFO.
 
 ## Good to know
 
-- **Every black key on the LFO pages:** see [Black keys](black-keys.md#lfo-keys).
-- **Under each send's value,** how far it swings as heard ("±12c", "±3.6 oct"), Movement included.
-- **On X-Wave and resonance,** 100 sweeps the whole range, turning at the ends so it keeps moving.
-- **Movement** (ALGORITHM) scales the sends and Delay mod, not Speed mod or Cross-mod.
-- **Delay mod** is heard only with some delay mix; its wave is picked by [[D#5]] on the LFO pages.
-- **Cross-mod's modes:** *I moves II's cutoff* (drone I's sound moves drone II's filter); *bend each other*
-  (each drone bends the other's pitch, from rough to metallic); *Snarl* (the finished sound bends both: a growl).
-- **Cross-mod** bends around the pitches you set; they stay where they are.
-- **"mvmt 0%"** in the rate's place: Movement is at 0, so nothing moves.
-- **The pictures:** on LFO sends, each drone's sends as a sentence with its keys ("[F#3] LFO II → [G#3] x-wave"), the
-  two LFOs above. On Mods, the LFO's clock feeding LFO I and II, and cross-mod's mode with its key.
+- The shared Rate is controlled by SELECT; global Movement is controlled by ALGORITHM.
+- Long OCT bypass affects whichever LFO is selected, not a particular drone.
+- [[SEL]] + [[OCT-]] and [[SEL]] + [[OCT+]] fade out the individual drones; these are separate from bypassing LFO I or II.

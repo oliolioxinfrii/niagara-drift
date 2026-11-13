@@ -30,7 +30,7 @@ The FM-1's knobs and buttons, and the header at the top of the screen.
 | Button | What it does |
 |---|---|
 | [[HOME]] [[FX]] [[ENV]] [[LFO]] [[EDIT]] [[SEQ]] [[GLO]] [[ARP]] | open a page; tap again for its next |
-| [[PLAY]] | fades the drones in or out |
+| [[PLAY]] | tap to fade the drones in or out; **hold for 0.9 s while stopped** to generate a fresh random sound without starting playback |
 | [[SAVE]] | saves the sound |
 | [[SEL]] | hold for fine steps, and with other controls for their second job |
 | [[REC]] | records your moves, then loops them |
@@ -48,7 +48,7 @@ The FM-1's knobs and buttons, and the header at the top of the screen.
 - **Hold a page button to peek:** turn a knob, let go, and you're back ("let go: DRONES").
 - **HOME and FX** always open Drones and Space; the other buttons open the page you last used there.
 - **The drone pages:** Drones, Tone, Osc, Sub · Drive, Partner, LFO sends; their knob names underlined amber and teal.
-- **SEL + PLAY** fades drone II alone. Stopped, PLAY breathes slowly, and nothing else on the panel moves.
+- **SEL + PLAY** fades drone II alone. Stopped, PLAY breathes slowly. Holding PLAY for 0.9 seconds while stopped rolls a fresh sound (without playing it); tap PLAY afterward to hear it. The current Tuning, global settings and stored scenes are preserved; SEL + SAVE undoes the random start. A long PLAY hold during playback stops the sound but does not randomize it.
 - **SAVE** saves at once (the sound dips for about 50 ms while playing), and glows dimly while something isn't saved.
 - **SEL** gives a pitch knob single cents, cutoff and resonance tenths. It glows when it can keep what you're holding.
 - **REC:** tap to record, tap to loop, tap to stop; up to 5 minutes, the time in the header. See

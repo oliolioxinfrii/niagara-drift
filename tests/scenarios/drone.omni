@@ -682,7 +682,7 @@ tapkey w7
 release SAVE
 wait 300
 expect bscenes 255
-# P16 (Bare): one oscillator, drone II out on its own; SEL + PLAY brings it in, and out again (playing). P9-P16 are
+# P16 (Bare): one oscillator, drone II out on its own; SEL + OCT+ brings it in, and out again (playing). P9-P16 are
 # the Presets' second bank (SEL + G5), keys 1-8
 tap PLAY
 wait 1600
@@ -695,7 +695,7 @@ wait 2500
 expect par72 1
 expect level1 <2
 press SEL
-tap PLAY
+tap OCT+
 release SEL
 wait 2500
 expect par72 0
@@ -705,7 +705,7 @@ press SEL
 tapkey w14
 release SEL
 press SEL
-tap PLAY
+tap OCT+
 release SEL
 wait 2500
 expect par72 1

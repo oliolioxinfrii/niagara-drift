@@ -10,7 +10,7 @@ tapkey w2
 tap PLAY
 wait 2500
 tap GLO
-expect view 10
+expect view 11
 expect par9 1
 wav t-morph.wav
 # @ P3 Vespers; Morph at its fastest (Setup 1, KNOB 2 all the way left)

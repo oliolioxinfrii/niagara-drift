@@ -42,7 +42,7 @@ Hold [[SEL]] and tap [[G5]] for this bank, then tap white keys 1–8.
 | P13 | **Telegraph** | a stepped figure on drone II's pitch and filter over a low D; every 20 seconds or so the whole figure moves to a new note |
 | P14 | **Tape** | worn: D and F, a wide square and a saw, Age and lots of Character, tape wow, a tape delay, hiss |
 | P15 | **Falling** | on the LMY Tuning: sines on E4 and G3, the filters opening slowly, a falling, gliding top, feedback, the bass wandering slowly |
-| P16 | **Bare** (locked) | one oscillator, everything else off: a plain saw to build from. Drone II is out: SEL + PLAY brings it in |
+| P16 | **Bare** (locked) | one oscillator, everything else off: a plain saw to build from. Drone II is out: SEL + OCT+ brings it in |
 
 ## Good to know
 

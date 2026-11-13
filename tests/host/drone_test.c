@@ -988,6 +988,7 @@ int main(void)
     {   /* The individual voice fade leaves the other drone unchanged. */
         static float cap[8192];
         float before, after;
+        int cutoff_before;
         dry_init();
         dr_set(P_FADE, 0);
         dr_set(P_PULSE, 0);
@@ -996,13 +997,14 @@ int main(void)
         run(secs(0.5f));
         capture(cap, 8192, 0);
         before = rms_of(cap, 8192);
+        cutoff_before = dr_heard(DR_GP(0, GP_CUTOFF));
         dr_set(P_I_OUT, 1);
         run(secs(0.5f));
         capture(cap, 8192, 0);
         after = rms_of(cap, 8192);
         check("drone I: dedicated toggle fades its output without changing cutoff",
               before > 0.01f && after < before * 0.1f && dr_heard(P_I_OUT) == 1 &&
-              dr_heard(DR_GP(0, GP_CUTOFF)) == dr_param_info(DR_GP(0, GP_CUTOFF))->def);
+              dr_heard(DR_GP(0, GP_CUTOFF)) == cutoff_before);
     }
 
     {   /* GLIDE follows a knob's slide: with Glide up, a pitch knob's turn (dr_slide, as the UI sends it) glides

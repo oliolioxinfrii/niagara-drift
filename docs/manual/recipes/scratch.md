@@ -18,7 +18,7 @@ drone, its interval, the sub, the LFO, the space.
 1. Press [[SEL]] + [[G5]], tap white key 8 (**P16 Bare**), then [[PLAY]]: one saw, drone I, through an open filter.
    Wait for the gold line under the header to fill: Bare glides in over the Scene time.
 2. Turn KNOB 2 on **Drones**, where you start: drone I's cutoff, down until the saw darkens.
-3. Press [[SEL]] + [[PLAY]]: drone II comes in, a fifth above. Press [[HOME]] for **Pitch**, and turn KNOB 3 to tune
+3. Press [[SEL]] + [[OCT+]]: drone II comes in, a fifth above. Press [[HOME]] for **Pitch**, and turn KNOB 3 to tune
    it; the screen names the interval.
 4. Press [[EDIT]] twice for **Sub · Drive**, and turn KNOB 1 to blend drone I toward its sub, an octave down.
 5. Turn [[ALGORITHM]], **Movement**, up from 0%. It sets how much every LFO moves the sound; on Bare it starts at 0%,

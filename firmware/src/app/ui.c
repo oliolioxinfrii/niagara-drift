@@ -25,14 +25,16 @@
  *   it); hold (a visit): there while held, back to where it was when let go (a knob turned: it stays);
  *   hold SAVE and tap: store. Lit: the slot holds a scene; blinking slowly: the sound is that scene (stored or
  *   recalled, and no knob, switch or LFO control touched since).
- * Black keys, lit when on (or on the second choice), following the page:
- *   F#3 G#3 A#3   C#4 D#4   F#4 G#4 A#4   C#5 D#5   F#5. Normally, by meaning: drone I (Partner, Sub
- *   (round: -1, -2 oct, 1/3, 1/5, -3, -4 oct), Filter (round: LP, BP, HP)) | global (Pitch lock, LFO reset) | drone II
- * *   (the same) | LFO lock/reset, Hard sync | Cross-mod (round: off, cutoff, pitch). On the LFO page: Osc wave, Osc LFO -> X-Wave, Filter LFO -> Reso | Filter wave,
- *   LFO reset | Osc wave, Osc LFO -> X-Wave, Filter LFO -> Reso | Filter wave, Delay wave | Cross-mod. A
- *   wave key goes round I, II, I+II (lit for II, winking for both). LFO reset (either layer): a tap restarts
- *   the LFO; held half a second, it locks the LFO to the Pulse's bars (restarting each bar; lit while
- *   locked), held again, free.
+ * Black keys F#3 G#3 A#3 C#4 D#4 F#4 G#4 A#4 C#5 D#5 F#5:
+ *   Normal pages: drone I (Partner, Sub, Filter), global Pitch Lock, drone-II Pitch Link,
+ *   drone II (Partner, Sub, Filter), LFO lock/reset, Hard Sync, Cross-mod.
+ *   LFO pages: drone I's oscillator tap/destination and filter tap/destination,
+ *   drone II's filter destination, drone II's oscillator tap/destination and filter tap,
+ *   LFO lock/reset, Delay LFO tap, Cross-mod.
+ *   C#5 always controls LFO lock/reset: tap locks/frees the LFO to the Swell,
+ *   hold at least 500 ms to reset its phase without changing the lock.
+ *   A routed LFO tap cycles Wave I, II and both; first, second and third choices light dim,
+ *   bright and blinking, respectively.
  * ARP            tap: the SWELL page; tapped on it, the Swell on / off (lit, in time); hold: a peek
  * REC            the MOTION LOOP: tap to record what the knobs, gestures and scenes do, tap again to loop it from the start,
  *                tap again to stop (everything stays where it is); up to 5 minutes (lit: blinking recording,

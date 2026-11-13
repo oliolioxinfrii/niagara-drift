@@ -1220,7 +1220,7 @@ static void fresh_sound(void)
     param_set(P_II_OUT, 0);
     param_set(P_SHIFT_MOVE, 2 * DR_SHIFT_MID);
     for (i = 0; i < DR_NGEST; i++)
-        param_set(P_GL_0 + (int)i, 0);  /* no latched gestures from the previous session */
+        param_set(i < 4 ? P_GL_0 + (int)i : P_GL_4 + (int)i - 4, 0);  /* clear eight latches */
     for (g = 0; g < DR_NGROUPS; g++) {
         const int b = DR_GP(g, 0);
         const int tuning = proj.par[P_TUNING];

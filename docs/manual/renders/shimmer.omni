@@ -12,7 +12,7 @@ tapkey w6
 tap PLAY
 wait 2500
 tap FX
-expect view 13
+expect view 15
 turn K1 15 40
 turn K2 25 40
 wait 1500
@@ -20,7 +20,7 @@ wav shimmer.wav
 # @ P15 Falling, sines in the middle (G3 and E4), with its echoes up
 wait 1500
 tap FX
-expect view 14
+expect view 16
 # @ the reverb's Type to Shimmer, Into Echoes (with SEL): over 8 seconds the echoes rise an octave into a halo
 turn K4 2 300
 press SEL

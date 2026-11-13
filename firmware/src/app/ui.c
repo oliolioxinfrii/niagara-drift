@@ -525,6 +525,12 @@ static void knob_turn(int i, int32_t e)
         say_c("II OFF", "turn on [SEL] + [PLAY]", K_DRONE[1]);   /* (Evan, 2026-11-02: say what to do) */
     if (k.p == GP_PITCH && k.g < G)
         pitch_turn(k.g, p, EN_K1 + i, e);
+    else if (p == P_LFO_W1 || p == P_LFO_W2) {
+        const int n = DR_LFO_NSHAPES - 1;
+        const int v = 1 + (proj.par[p] - 1 + (e > 0 ? 1 : -1) + 2 * n) % n;
+        param_set(p, v);                      /* the selector skips Off, which remains an internal setting */
+        loop_note(p, v, 0);
+    }
     else if (dr_param_info(p)->hi - dr_param_info(p)->lo > 24)
         cont_turn(p, EN_K1 + i, e);
     else if (knob_list(p)) {                           /* a list of choices goes round both ways, as the LFO waves

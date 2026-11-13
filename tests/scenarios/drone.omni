@@ -342,8 +342,8 @@ expect par42 1
 wait 100
 shot switches.png
 # pitch link: drone II keeps its pitch (offset = 4600 - 3917 = 683), KNOB 3 moves the offset, drone I
-# carries drone II (pitch link: the links pair's first key, key 9)
-tapkey b8
+# carries drone II (Pitch Link is D#4 outside the LFO pages)
+tapkey b4
 expect par45 1
 expect par46 683
 page 1
@@ -356,7 +356,7 @@ page 0
 expect par0 5017
 wait 400
 expect pitch1 5617
-tapkey b8
+tapkey b4
 expect par45 0
 expect par21 5617
 # ARP, as the other page buttons (2026-10-25): a tap opens the Swell page and leaves the Swell alone; a tap on the

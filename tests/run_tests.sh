@@ -32,7 +32,7 @@ run project sh -c "$CC -O2 -std=c99 -Wall -Wextra -Werror -DOM_HOST -o $OUT/proj
 run sense sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Wdouble-promotion -Werror \
     -o $OUT/sense_test tests/host/sense_test.c -lm && $OUT/sense_test"
 run drone sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DOM_HOST -Ifirmware/src/dsp \
-    -o $OUT/drone_test tests/host/drone_test.c firmware/src/dsp/drone.c && $OUT/drone_test"
+    -o $OUT/drone_test tests/host/drone_test.c firmware/src/dsp/drone.c -lm && $OUT/drone_test"
 # cross-FM keeps both drones' pitch (built with the engine: it counts the oscillators' phases)
 run xfm sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Werror -Wno-unused-function -DOM_HOST -Ifirmware/src/dsp \
     -o $OUT/xfm_test tests/host/xfm_test.c -lm && $OUT/xfm_test"
@@ -40,12 +40,12 @@ run xfm sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Werror -Wno-unu
 run tun-name sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Werror -Wno-unused-function -DOM_HOST -Ifirmware/src/dsp \
     -o $OUT/tun_name_test tests/host/tun_name_test.c -lm && $OUT/tun_name_test"
 # what the drone engine costs (host instructions a sample, macOS; a device estimate): fails over its budget
-run drone-cost sh -c "$CC -O2 -ffp-contract=off -std=c99 -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -DOM_HOST -Ifirmware/src/dsp \
-    -o $OUT/drone_cost tests/host/drone_cost.c firmware/src/dsp/drone.c && $OUT/drone_cost"
+run drone-cost sh -c "$CC -O2 -ffp-contract=off -std=c99 -D_POSIX_C_SOURCE=200809L -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -DOM_HOST -Ifirmware/src/dsp \
+    -o $OUT/drone_cost tests/host/drone_cost.c firmware/src/dsp/drone.c -lm && $OUT/drone_cost"
 # the drone engine's scenes, to listen to: build/drone/*.wav
 mkdir -p build/drone
 run drone-render sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-missing-field-initializers -Werror -DOM_HOST \
-    -Ifirmware/src/dsp -o $OUT/drone_render host/drone_render.c firmware/src/dsp/drone.c && $OUT/drone_render build/drone"
+    -Ifirmware/src/dsp -o $OUT/drone_render host/drone_render.c firmware/src/dsp/drone.c -lm && $OUT/drone_render build/drone"
 run storage sh -c "$CC -O2 -o $OUT/storage_test tests/storage_test.c && $OUT/storage_test"
 # the safe restore's flash core (fm1-base's) on that storage, the power cut after every erase and write
 run restore sh -c "$CC -O2 -Wall -Wextra -Wno-unused-function -o $OUT/restore_test tests/restore_test.c && $OUT/restore_test"

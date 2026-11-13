@@ -11,9 +11,9 @@ image: p-retune-1.png
 
 *Drone II out, a new note, back in*
 
-1. Hold [[SEL]] and tap [[PLAY]]: drone II fades out.
+1. Hold [[SEL]] and tap [[OCT+]]: drone II fades out.
 2. Press [[HOME]] for **Pitch**, and turn KNOB 3 to a new note.
-3. [[SEL]] + [[PLAY]] again: it fades back in on the new chord.
+3. [[SEL]] + [[OCT+]] again: it fades back in on the new chord.
 
 > **Good to know.** How fast it fades is **Fade** (Setup 1, KNOB 1).
 
@@ -23,9 +23,9 @@ image: p-retune-1.png
 **Listen** (`p-retune`)
 
 - 0:00 P8 Sibyl, Fade 3 s
-- 0:01 SEL + PLAY: drone II fades out
+- 0:01 SEL + OCT+: drone II fades out
 - 0:05 retuned in the silence
-- 0:07 SEL + PLAY: back in on a minor chord
+- 0:07 SEL + OCT+: back in on a minor chord
 
 ### Loop your moves {#loop}
 

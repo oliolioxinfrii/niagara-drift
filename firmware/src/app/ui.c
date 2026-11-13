@@ -478,7 +478,8 @@ static void cont_turn(int p, int role, int32_t s)
  * only then (Evan, 2026-10-17: nothing on the screen said why the depths did nothing) */
 static void depth_hint(int p)
 {
-    int tap = -1, w1 = proj.par[P_LFO_W1] != 0, w2 = proj.par[P_LFO_W2] != 0, g;
+    int tap = -1, w1 = proj.par[P_LFO_W1] != 0 && proj.par[P_LFO_AMP1] > 0,
+        w2 = proj.par[P_LFO_W2] != 0 && proj.par[P_LFO_AMP2] > 0, g;
     for (g = 0; g < DR_NGROUPS; g++) {
         if (p == DR_GP(g, GP_OLFO_DEPTH))
             tap = proj.par[DR_GP(g, GP_OLFO)];
@@ -522,7 +523,7 @@ static void knob_turn(int i, int32_t e)
         }               /* SEL let go: not a tap */
     }
     if (proj.par[P_II_OUT] && k.g == 1)        /* drone II out: say how it comes back, on any page (Evan, 2026-10-18) */
-        say_c("II OFF", "turn on [SEL] + [PLAY]", K_DRONE[1]);   /* (Evan, 2026-11-02: say what to do) */
+        say_c("II OFF", "[SEL] + [OCT+] to restore", K_DRONE[1]);   /* (Evan, 2026-11-02: say what to do) */
     if (k.p == GP_PITCH && k.g < G)
         pitch_turn(k.g, p, EN_K1 + i, e);
     else if (p == P_LFO_W1 || p == P_LFO_W2) {
@@ -530,6 +531,13 @@ static void knob_turn(int i, int32_t e)
         const int v = 1 + (proj.par[p] - 1 + (e > 0 ? 1 : -1) + 2 * n) % n;
         param_set(p, v);                      /* the selector skips Off, which remains an internal setting */
         loop_note(p, v, 0);
+    }
+    else if (p == P_LFO_AMP1 || p == P_LFO_AMP2) {
+        const int bypassed = proj.par[p] < 0;
+        int v = (bypassed ? -proj.par[p] - 1 : proj.par[p]) + accel(EN_K1 + i, e, 100);
+        v = v < 0 ? 0 : v > 100 ? 100 : v;
+        param_set(p, bypassed ? -v - 1 : v);
+        loop_note(p, proj.par[p], 0);
     }
     else if (dr_param_info(p)->hi - dr_param_info(p)->lo > 24)
         cont_turn(p, EN_K1 + i, e);
@@ -541,11 +549,6 @@ static void knob_turn(int i, int32_t e)
         loop_note(p, proj.par[p], 0);
         if (p == P_TUNING)
             tun_keep_t = -1;                           /* the hand chose it: nothing kept comes back */
-    } else if ((p == P_LFO_AMP1 || p == P_LFO_AMP2) && proj.par[p] < 0) {
-        int v = -proj.par[p] - 1 + accel(EN_K1 + i, e, 100);
-        v = v < 0 ? 0 : v > 100 ? 100 : v;
-        param_set(p, -v - 1);   /* retain bypass while changing amplitude */
-        loop_note(p, proj.par[p], 0);
     } else {
         param_set(p, proj.par[p] + accel(EN_K1 + i, e, dr_param_info(p)->hi - dr_param_info(p)->lo));
         loop_note(p, proj.par[p], 0);
@@ -555,7 +558,7 @@ static void knob_turn(int i, int32_t e)
 }
 
 /* ------------------------------------------------------------ switches --- */
-static const sw_t *sw_layer(void) { return ui.view == V_LFO || ui.view == V_LFO2 ? SW_LFO : SW_NORMAL; }
+static const sw_t *sw_layer(void) { return ui.view == V_LFO_WAVES || ui.view == V_LFO || ui.view == V_LFO2 ? SW_LFO : SW_NORMAL; }
 
 /* a route's wave as the key shows it: I 0 (dark), II 1 (lit), I+II 2 (lit, winking) */
 static int tap_lit(int v) { return v == DR_LFO_BOTH ? 2 : v == DR_LFO_II; }
@@ -2383,9 +2386,9 @@ static void leds(void)
         b[B_PLAY] = (uint8_t)(40.0f + 215.0f * (0.5f - 0.5f * fm_cosf(6.2831853f * (float)(now % 3600u) / 3600.0f)));
     if (ui.dirty)                                      /* SAVE: a dim glow while something isn't saved yet */
         b[B_SAVE] = 90;
-    if (proj.par[P_LFO_W1])                            /* OCT- / OCT+: each wave, pulsing with it; stopped, still */
+    if (proj.par[P_LFO_W1] && proj.par[P_LFO_AMP1] > 0)
         b[B_OCTDN] = still ? LED_DIM : wave_lvl(dr_lfo[0]);
-    if (proj.par[P_LFO_W2])
+    if (proj.par[P_LFO_W2] && proj.par[P_LFO_AMP2] > 0)
         b[B_OCTUP] = still ? LED_DIM : wave_lvl(dr_lfo[1]);
     if (proj.par[P_PULSE]) {                           /* ARP: breathing with the swell, a beat a breath; stopped,
                                                         * still */

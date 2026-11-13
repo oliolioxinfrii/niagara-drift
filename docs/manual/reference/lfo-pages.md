@@ -15,7 +15,7 @@ Tap [[LFO]] repeatedly to cycle through three pages:
 | LFO sends (2/3) | I pitch / X-Wave | I cutoff / resonance | II pitch / X-Wave | II cutoff / resonance |
 | Mods (3/3) | Speed mod | Source | Delay mod | Cross-mod |
 
-The first page displays the two LFO waveforms, not the two drone oscillator waveforms. Either LFO can modulate either drone, according to the routing on page 2.
+The first page displays the two LFO waveforms, not the two drone oscillator waveforms. A moving dot and a brighter trailing segment show each wave's position in the current cycle, including when Speed modulation changes the progression. Either LFO can modulate either drone, according to the routing on page 2.
 
 ### LFO waves
 
@@ -27,7 +27,7 @@ The first page displays the two LFO waveforms, not the two drone oscillator wave
 
 <img class="shot" src="../../img/screen-lfo.png" width="240" alt="The LFO sends page: the two LFOs and each drone's modulation routes">
 
-The center of each send's knob is zero. Positive and negative settings select modulation depth and direction.
+The four sends have larger routing labels and knob depth readouts; the wave progression is shown on LFO Waves instead of being repeated here. The center of each send's knob is zero. Positive and negative settings select modulation depth and direction.
 
 - **Pitch/X-Wave:** each drone's oscillator LFO route. [[G#3]] and [[G#4]] select the destination.
 - **Cutoff/resonance:** each drone's filter route. [[C#4]] selects drone I and [[D#4]] selects drone II. **Cutoff is the default**, so an LFO can visibly change pitch without changing resonance until its filter destination is switched to Reso. Use KNOB 2 for drone I or KNOB 4 for drone II on LFO sends to set filter modulation depth; also check that Movement (ALGORITHM), the selected LFO level, and the filter send are nonzero. On HOME → Pitch, resonance displays its changing effective value while playing and its stored setting while the knob is being turned.

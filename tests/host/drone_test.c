@@ -923,6 +923,71 @@ int main(void)
               dr_pulse_wave(0.60f) > 0.999f && dr_pulse_wave(0.70f) > 0.999f);
     }
 
+    {   /* Per-drone Swell phase: only drone II is shifted, the shared shape is unchanged. */
+        int i, bounded = 1, independent;
+        dry_init();
+        dr_set(P_PULSE_SHAPE, 0);
+        dr_set(P_PULSE_DEPTH, 100);
+        dr_set(P_SWELL_PHASE, 50);
+        run(secs(0.1f));
+        independent = dr_pulse_wave_for(0, 0.25f) > 0.95f &&
+                      dr_pulse_wave_for(1, 0.25f) < 0.05f;
+        check("Swell: half-cycle phase offset makes the drones alternate", independent);
+        dr_set(P_SWELL_WAVE, 50);
+        dr_set(P_SWELL_SKEW, 45);
+        dr_set(P_SWELL_EDGE, 70);
+        dr_set(P_SWELL_WIDTH, 80);
+        run(secs(0.1f));
+        for (i = 0; i <= 1024; i++) {
+            const float ph = (float)i / 1024.0f;
+            float a = dr_pulse_wave_for(0, ph), b = dr_pulse_wave_for(1, ph);
+            if (!isfinite(a) || !isfinite(b) || a < -0.0001f || b < -0.0001f ||
+                a > 1.0001f || b > 1.0001f) bounded = 0;
+        }
+        check("Swell: blended, skewed, sharpened and widened gains remain bounded", bounded);
+        dr_set(P_SWELL_PHASE, 0);
+        run(secs(0.1f));
+        check("Swell: zero phase produces identical envelopes",
+              fabsf(dr_pulse_wave_for(0, 0.31f) - dr_pulse_wave_for(1, 0.31f)) < 1e-6f);
+    }
+
+    {   /* The LFO bypass retains its chosen waveform and level (the UI's signed encoding). */
+        static int32_t small[2 * 32];
+        int i, off = 1;
+        dry_init();
+        dr_set(P_LFO_W1, 1);
+        dr_set(P_LFO_AMP1, -101);
+        for (i = 0; i < 500; i++) {
+            dr_render(small, 32, 3277);
+            if (fabsf(dr_lfo[0]) > 1e-5f) off = 0;
+        }
+        check("LFO I: bypassed waveform produces no modulation", off);
+        dr_set(P_LFO_AMP1, 100);
+        run(secs(0.1f));
+        check("LFO I: reactivation retains its waveform and level",
+              dr_heard(P_LFO_W1) == 1 && dr_heard(P_LFO_AMP1) == 100);
+    }
+
+    {   /* The individual voice fade leaves the other drone unchanged. */
+        static float cap[8192];
+        float before, after;
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(DR_GP(1, GP_LEVEL), 0);
+        dr_play(1);
+        run(secs(0.5f));
+        capture(cap, 8192, 0);
+        before = rms_of(cap, 8192);
+        dr_set(P_I_OUT, 1);
+        run(secs(0.5f));
+        capture(cap, 8192, 0);
+        after = rms_of(cap, 8192);
+        check("drone I: dedicated toggle fades its output without changing cutoff",
+              before > 0.01f && after < before * 0.1f && dr_heard(P_I_OUT) == 1 &&
+              dr_heard(DR_GP(0, GP_CUTOFF)) == dr_param_info(DR_GP(0, GP_CUTOFF))->def);
+    }
+
     {   /* GLIDE follows a knob's slide: with Glide up, a pitch knob's turn (dr_slide, as the UI sends it) glides
          * there (the slide replaced the Glide: knob turns arrived at once at any Glide) */
         float p0, early, late;

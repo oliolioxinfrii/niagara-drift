@@ -119,6 +119,11 @@ shot setup2.png
 spin K2 -6
 spin K3 -30
 spin K4 -20
+# GLO's third page: the existing USB audio device mode and pending host mode.
+tap GLO
+expect view 17
+wait 300
+shot usb.png
 # Swell: tap ARP to open its page. Holding ARP toggles Swell instead of peeking.
 expect par55 1
 tap ARP

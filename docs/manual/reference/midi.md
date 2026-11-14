@@ -7,7 +7,10 @@ intro: Notes, the clock and Sync
 
 ## MIDI
 
-Notes tune the drones and a clock puts them in time, over USB or the TRS jack.
+Notes tune the drones and a clock puts them in time, over USB or the TRS jack. MIDI carries
+performance and clock messages, not stereo audio. The separate USB Audio Class device stream
+can send the synthesizer's stereo output to a connected computer or phone; see [Setup and USB](setup.md).
+Direct USB audio to another FM-1 running JIANT is not yet available.
 
 ## MIDI in
 

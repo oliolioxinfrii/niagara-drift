@@ -331,8 +331,10 @@ static void param_set(int p, int v)
         return;
     proj.par[p] = (int16_t)v;
     dr_set(p, v);
-    if (p == P_SPEAKER)
+    if (p == P_SPEAKER) {
         plat_speaker_mute(v);                  /* only analog output, not the USB audio tap */
+        dr_phones = (uint8_t)(ui.jack || v);   /* disable the speaker-only bass cut for USB recording */
+    }
     if (p == P_TUNING)                                 /* a new Tuning, by the knob or with a sound: SEL's fine tuning
                                                         * let go, the knobs land on its own notes (Evan, 2026-11-07: an
                                                         * offset set against one Tuning's notes means nothing on
@@ -2026,8 +2028,8 @@ static void input(void)
         if (ph != ui.jack) {
             ui.jack = (uint8_t)ph;
             ui.jack_t = plat_ms();
-        } else if (ph != dr_phones && plat_ms() - ui.jack_t >= 150u) {
-            dr_phones = (uint8_t)ph;                   /* (no message: you hear which it is, Evan) */
+        } else if ((ph || proj.par[P_SPEAKER]) != dr_phones && plat_ms() - ui.jack_t >= 150u) {
+            dr_phones = (uint8_t)(ph || proj.par[P_SPEAKER]);    /* either phones or speaker mute bypasses bass cut */
         }
     }
     for (i = 0; i < NB; i++) {
@@ -2611,8 +2613,9 @@ void ui_init(void)
     ui.press = -1;
     ui.scene_at = -1;
     ui.km_key = -1;
-    ui.jack = dr_phones = (uint8_t)plat_headphones();
-    plat_speaker_mute(proj.par[P_SPEAKER] != 0);   /* restore user preference; default speaker ON */
+    ui.jack = (uint8_t)plat_headphones();
+    plat_speaker_mute(proj.par[P_SPEAKER] != 0);
+    dr_phones = (uint8_t)(ui.jack || plat_speaker_muted());   /* restore user preference; default speaker ON */
     ui.save_q = -2;
     ui.splash_t0 = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);

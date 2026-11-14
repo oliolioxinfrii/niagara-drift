@@ -2,10 +2,11 @@
 
 **A drone synth for the M-VAVE FM-1.**
 
-> **This is 0.3, in development** (what's on `main` now); its manual is in [docs/manual](docs/manual/index.md). For
-> the released 0.2.1, see
-> [the README of 0.2.1](https://github.com/evanyerburgh/niagara-drift/blob/v0.2.1/README.md); for 0.1 beta,
-> [the README of 0.1](https://github.com/evanyerburgh/niagara-drift/blob/v0.1-beta/README.md).
+> **Custom Niagara Drift fork (Swell / UI baseline).** This repository's `main` holds the tested custom
+> firmware, based on the creator's 0.3 development work. Its three LFO pages, expanded Swell
+> controls, keyboard gestures and LED fixes are described in the [local manual](docs/manual/index.md).
+> This is **not** an official Niagara Drift release; the original project is
+> [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift).
 
 Niagara Drift is open-source firmware that turns the M-VAVE
 FM-1 into a drone synthesizer: two always-on drones you tune, shape and move rather than play note by
@@ -17,11 +18,13 @@ note.
 teal drone II, lilac the LFO. The black keys are switches (lit = on; on the LFO pages they set the
 LFO's routing, and cross-mod lets drone I move drone II's filter, or the drones and their sound bend each other's pitch); white keys 1–8 hold scenes, in
 eight banks you pick with SEL and the gesture keys; keys 9–12 and the top four are gestures. The page buttons' pages, each tap the next: HOME
-Drones, Pitch · ENV Life, Tone · EDIT Osc, Sub · Drive · SEQ Partner, Pitch moves · LFO LFO sends, Mods · ARP Swell ·
-FX Space, Details · GLO Setup 1, 2.*
+Drones, Pitch · ENV Life, Tone · EDIT Osc, Sub · Drive · SEQ Partner, Pitch moves ·
+LFO Waves, Sends, Mods · ARP Swell, Swell shape · FX Space, Details · GLO Setup 1, 2.*
 
-**Status: 0.2.** It runs on the FM-1 (tested on one unit so far) and in the browser:
-[try it](https://evanyerburgh.github.io/niagara-drift/) without an FM-1, the same code with sound.
+**Status:** The custom branch has been compiled and its full automated test suite passed under WSL
+(November 2026); a custom build has also been installed on an FM-1. The [creator's online emulator](https://evanyerburgh.github.io/niagara-drift/)
+runs the upstream code, **not necessarily this fork**. For this exact firmware use the local web
+emulator (`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory build/emu`).
 
 ## What it does
 
@@ -54,16 +57,27 @@ FX Space, Details · GLO Setup 1, 2.*
 - **Drift**: the drones are never quite still; pitch, cutoff, timbre, level and detune slowly wander.
 - **Morph**: buttons and keys never jump: the sound moves to a new setting over a time you set.
 
-## Installing
+## Installing this custom build
 
-1. Open the [web installer](https://evanyerburgh.github.io/niagara-drift/install/) in **Chrome or Edge**
-   (they can talk to the FM-1 over USB; Safari and Firefox can't).
-2. Connect the FM-1 straight to the computer with a USB **data** cable (no hub) and switch it on.
-3. Press **Install** and allow MIDI when the browser asks. It takes about two minutes; don't touch the cable
-   or the FM-1 until it says Done. Then press PLAY.
+This fork's installer package is built locally; the original creator's website and GitHub releases
+serve **their** firmware, not this fork. To build the exact source on `main` or a feature branch,
+see [BUILDING.md](BUILDING.md):
 
-Or from a terminal, with the file from the [releases](https://github.com/evanyerburgh/niagara-drift/releases):
-`pip3 install mido python-rtmidi`, then `python3 tools/fm1_install.py niagara-drift-0.2.fwsc`.
+```sh
+./build.sh
+tests/run_tests.sh
+```
+
+The installable file is `build/omni.fwsc`. Keep a copy of a previously working package
+and a stock-firmware recovery route. You can use a compatible FM-1 installer such as
+[Slipway](https://discodave-glitch.github.io/slipway/app/) to select this local `.fwsc`
+package, or use the bundled CLI (`pip install mido python-rtmidi`):
+
+```sh
+python3 tools/fm1_install.py build/omni.fwsc
+```
+
+No custom firmware binary has been published as a release from this fork.
 
 **What it replaces:** Niagara Drift takes the place of M-VAVE's firmware, so the FM-1's own sounds and
 sequencer are gone until you go back (below).
@@ -76,21 +90,22 @@ kept, unless that version's notes in the [changelog](CHANGELOG.md) say otherwise
 
 ## Manual
 
-- [Start here](https://evanyerburgh.github.io/niagara-drift/#start-here): two ways in, from a Preset or from a bare saw,
-  on the site's front page
+- [Start here](docs/manual/index.md): the manual for the source in this fork
 - [Recipes](docs/manual/recipes/index.md): how to get a sound or a move, across the pages
 - [Reference](docs/manual/reference/index.md): every page, knob and key
 - [Shortcuts](docs/manual/reference/shortcuts.md): every key combination, hold and tap
 - [Help](docs/manual/help.md): installing, backing up, going back, problems
 
-On the [site](https://evanyerburgh.github.io/niagara-drift/) the manual's pages come with the emulator, and each recipe
-plays its sound (from 0.3).
+The [creator's site](https://evanyerburgh.github.io/niagara-drift/) provides the upstream
+emulator and manual, which may differ from this custom firmware. Build this repository's web
+emulator to inspect its current UI.
 
 ## Problems and ideas
 
-It's tested on one FM-1 so far. If something goes wrong, sounds wrong or could be better, please
-[open an issue](https://github.com/evanyerburgh/niagara-drift/issues): say what you did, what happened, and
-what the startup screen says the version is.
+For problems specific to the custom Swell/UI changes, use the
+[issues in this fork](https://github.com/oliolioxinfrii/niagara-drift/issues).
+For general upstream issues, consult the [original repository](https://github.com/evanyerburgh/niagara-drift).
+Include the commit or branch, the firmware identity, and the steps to reproduce.
 
 ## Building and testing
 

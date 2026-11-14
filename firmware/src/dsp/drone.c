@@ -2528,6 +2528,13 @@ float dr_pulse_wave_for(int g, float ph)
                       g ? (float)par[P_SWELL_PHASE] * 0.01f : 0.0f);
 }
 float dr_pulse_wave(float ph) { return dr_pulse_wave_for(0, ph); }
+/* Normalize the actual envelope, rather than using an unrelated cosine.
+ * Even a soft Swell can take its LED all the way to zero at the trough. */
+float dr_pulse_led_level(float ph)
+{
+    const float d = pulse_depth(par[P_PULSE_DEPTH]);
+    return d > 0.0f ? fm_clampf((dr_pulse_wave_for(0, ph) - (1.0f - d)) / d, 0.0f, 1.0f) : 0.0f;
+}
 float dr_pulse_hz(int v)                       /* the screen's: as pulse_run's rate */
 {
     const float dbeats = DIV_BEATS[(unsigned)par[P_PULSE_DIV] < DR_NDIV ? par[P_PULSE_DIV] : 2];

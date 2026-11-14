@@ -110,7 +110,7 @@ enum {
     P_SCENE_T,                      /* 0..100 = 0.1 s .. 5 min (x^4: 1 s at 23): a scene's morph (the white keys) */
     P_II_OUT,                       /* drone II faded out on its own (1; SEL + OCT+), a sound's (P12 Clean: one
                                      * oscillator); was Tuning until 30, 0 since */
-    P_SPEAKER,                      /* 0..100: a low cut for a small speaker, 0 off (headphones) .. 240 Hz */
+    P_SPEAKER,                      /* v1.1: 0 internal speaker on, 1 muted; global room setting, USB/headphones unaffected */
     P_PLOCK,                        /* the pitches locked (1): the pitch knobs do nothing (a switch) */
     P_MOVE,                         /* MOVEMENT, 0..100 = every LFO depth x 0 .. x 2 (50: as set) */
     P_FEEDBACK,                     /* 0..100: the finished sound (after the effects) fed back into both drones'

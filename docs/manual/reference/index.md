@@ -15,7 +15,7 @@ intro: What every page, knob and key does, in the order of the buttons
 <li><a href="lfo-pages.md"><img class="ic" src="../../../web/manual/icons/intersect.svg" alt=""><b>LFO Waves, Sends and Mods</b><span>LFO: shapes, levels, routing and modulation</span></a></li>
 <li><a href="swell.md"><img class="ic" src="../../../web/manual/icons/pulse.svg" alt=""><b>Swell</b><span>ARP: both drones breathing in time</span></a></li>
 <li><a href="space.md"><img class="ic" src="../../../web/manual/icons/broadcast.svg" alt=""><b>Space and Details</b><span>FX: the delay, the drive, the reverb</span></a></li>
-<li><a href="setup.md"><img class="ic" src="../../../web/manual/icons/gear-six.svg" alt=""><b>Setup</b><span>GLO: the room's settings, the Tuning</span></a></li>
+<li><a href="setup.md"><img class="ic" src="../../../web/manual/icons/gear-six.svg" alt=""><b>Setup and USB</b><span>GLO: settings, tuning and USB audio status</span></a></li>
 <li><a href="lfo.md"><img class="ic" src="../../../web/manual/icons/wave-sine.svg" alt=""><b>LFO</b><span>the rate, the waves, Movement</span></a></li>
 <li><a href="scenes.md"><img class="ic" src="../../../web/manual/icons/floppy-disk.svg" alt=""><b>Scenes and banks</b><span>the white keys</span></a></li>
 <li><a href="gestures.md"><img class="ic" src="../../../web/manual/icons/hand-pointing.svg" alt=""><b>Gestures</b><span>the 8 gesture keys</span></a></li>

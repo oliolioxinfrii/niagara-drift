@@ -1,5 +1,13 @@
 # Changelog
 
+## USB-audio-routing (experimental branch; not released)
+
+- Added the third GLO page, **USB (3/3)**, as a read-only status screen for the existing
+  USB Audio Class stereo device output (44.1 kHz / 16-bit).
+- Added navigation and documentation tests without renumbering the existing screen IDs.
+- **Not yet implemented:** FM-1 USB host audio output to JIANT. The USB page does not
+  enable it or offer a nonfunctional mode selector. Headphone output remains unchanged.
+
 ## Custom fork baseline (2026-11-13; not an upstream release)
 
 This fork's `main` includes the tested Swell/UI development work from `feature/swell-patterns`:

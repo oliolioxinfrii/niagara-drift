@@ -1,6 +1,6 @@
 ---
 title: Setup
-intro: GLO: the room's settings and the Tuning
+intro: GLO: performance setup, tuning, and USB audio status
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
@@ -11,13 +11,15 @@ Settings for the FM-1 itself, not for a sound: how long changes take, the clock,
 
 ## Knobs
 
-[[GLO]] opens Setup 1; [[GLO]] again, Setup 2. These belong to the FM-1, not to a sound: scenes don't change them,
-except the Tuning.
+[[GLO]] opens Setup 1, then Setup 2, then **USB** (3/3). Tap again to return to Setup 1.
+The first two pages belong to the FM-1, not to a sound: scenes don't change their settings, except the Tuning.
+The USB page is currently read-only.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|---|
 | Setup 1 | fade | morph | scene time | sync |
 | Setup 2 | tuning | tune | stereo | pressure |
+| USB (3/3) | — | — | — | — |
 
 ## Setup 1
 
@@ -40,6 +42,17 @@ except the Tuning.
 | **Tune** | A's pitch: 427 to 453 Hz (440 to start) |
 | **Stereo** | mono to drone I left, drone II right |
 | **Pressure** | how hard you press the scene keys: up for a light touch, down for a firm one |
+
+## USB (3/3)
+
+The experimental USB page shows what the firmware presently supports:
+
+- **Audio device output:** stereo, 16-bit PCM at 44.1 kHz, available to a connected computer or phone acting as USB host.
+- **Headphone/speaker output:** continues as normal; USB audio is a copy of the master output, not a replacement for the jack.
+- **USB audio host:** not yet available. Direct USB audio from this FM-1 to a second FM-1 running JIANT requires a USB host implementation.
+- **Controls:** none yet. There is no working Host/Audio/Off selection to change on this page.
+
+This is a status page and does not change USB drivers, routing, saved sounds or scenes.
 
 ## Tunings
 

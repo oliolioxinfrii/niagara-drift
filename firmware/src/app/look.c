@@ -1588,18 +1588,21 @@ static int lk_wave_on(int route, int w)
 }
 
 /* -------------------------------------------------- LFO sends' picture --- */
-/* LFO Waves shows the moving cycles; this page gives each drone's two routes
- * more room and larger text. The source key, LFO choice, destination key and
- * target are all visible, with unhearable sends dimmed. */
+/* Restore the 0.2-style signal-flow drawing without changing the three-page LFO
+ * layout or the four send knobs. The sources on the left are named, rather than
+ * drawn as waves (their animated cycles live on LFO Waves); the four drone
+ * targets and the delay on the right are connected by color-coded lines.
+ * The delay's controls remain on Mods: its route appears here for context. */
 static void lk_pic_lfo(void)
 {
-    static const int32_t RY[4] = {24, 48, 76, 100};
-    const felucca_font_t *const f = &FONT_T20;
+    static const int32_t SRC_Y[2] = {48, 102};
+    static const int32_t DST_Y[5] = {20, 41, 62, 83, 104};
+    const felucca_font_t *const f = &FONT_T18;
     const int clock = dr_ext_spb > 0.0f, lock = proj.par[P_LFO_LOCK] != 0;
-    const int32_t lb = LK_B(FONT_T20);
-    int d;
+    int d, w;
     char t[24], *q;
-    /* One compact status row replaces the animated traces. */
+
+    /* Preserve the current rate and Swell-lock indicators at the top. */
     if (!proj.par[P_MOVE]) {
         cv_text(8, 0, &FONT_U1, "mvmt 0%", LK_VIOLET);
     } else {
@@ -1612,34 +1615,57 @@ static void lk_pic_lfo(void)
         lk_ktext(232 - lk_ktext_w(&FONT_U1, lt), 0, &FONT_U1, lt,
                  !lock ? LK_LABEL : proj.par[P_PULSE] ? LK_CORAL : lk_mix(0x07060Bu, 0xFF8F73u, 0.55f));
     }
-    for (d = 0; d < 4; d++) {
-        const int g = d / 2, osc = d % 2 == 0;
-        const int route = gpar(g, osc ? GP_OLFO : GP_FLFO);
-        const int depth = gpar(g, osc ? GP_OLFO_DEPTH : GP_FLFO_DEPTH);
-        const int heard = depth && proj.par[P_MOVE] && (lk_wave_on(route, 0) || lk_wave_on(route, 1));
-        const int32_t ny = RY[d], base = ny + lb;
-        const uint16_t lc = !heard ? LK_LABEL : route == DR_LFO_BOTH ? LK_INK
-                          : lk_mix(0x07060Bu, LK_LFO_TINT[route == DR_LFO_II], 1.0f);
-        const int32_t ay = ny + (int32_t)f->h / 2;
-        const char *src = route == DR_LFO_BOTH ? "I+II" : route == DR_LFO_II ? "II"
-                        : route == DR_LFO_I ? "I" : "off";
-        const int32_t xl = lk_key(38, base, LK_BKEY[g * 5 + (osc ? 0 : 2)]) + 3;
-        const int32_t xa = xl + text_w(f, "I+II") + 3;
-        cv_text(xl, ny, f, src, lc);
-        cv_rect(xa, ay, 9, 1, lc);
-        cv_line(xa + 6, ay - 3, xa + 9, ay, lc);
-        cv_line(xa + 6, ay + 3, xa + 9, ay, lc);
-        {
-            const int32_t x = lk_key(xa + 12, base, LK_BKEY[g == 1 && !osc ? 4 : g * 5 + (osc ? 1 : 3)]) + 3;
-            cv_text(x, ny, f, osc ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "x-wave" : "pitch")
-                                 : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff"),
-                    heard ? LK_INK : LK_LABEL);
+
+    /* Draw connections first so the labels stay readable above crossing lines.
+     * The fifth (blue) route is Delay LFO, adjusted on the Mods page. */
+    for (d = 0; d < 5; d++) {
+        const int g = d / 2, osc = !(d & 1), delay = d == 4;
+        const int route = delay ? proj.par[P_DLY_LFO] : gpar(g, osc ? GP_OLFO : GP_FLFO);
+        const int depth = delay ? proj.par[P_DLY_LFO_DEPTH] : gpar(g, osc ? GP_OLFO_DEPTH : GP_FLFO_DEPTH);
+        const uint32_t tint = delay ? 0x78ADFFu : g ? 0x1FC8FFu : 0xFF9A1Fu;
+        const char *target = delay ? "delay" : osc
+                             ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "wave" : "pitch")
+                             : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff");
+        const int32_t cy = DST_Y[d] + (int32_t)f->h / 2;
+        const int32_t ax = 232 - text_w(f, delay ? "delay" : g ? "II cutoff" : "I cutoff") - 5;
+        int heard = 0;
+        for (w = 0; w < 2; w++) {
+            const int sh = proj.par[w ? P_LFO_W2 : P_LFO_W1];
+            const int amp = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1];
+            const int connected = route == w + 1 || route == DR_LFO_BOTH;
+            const int active = connected && sh != DR_LFO_OFF && amp > 0 && depth != 0 && proj.par[P_MOVE] != 0;
+            uint16_t line;
+            if (!connected)
+                continue;
+            heard |= active;
+            line = lk_mix(0x07060Bu, tint, active ? 1.0f : 0.30f);
+            if (active)                         /* the subtle glow on a heard send, as in 0.2 */
+                cv_line(98, SRC_Y[w] + 1, ax - 7, cy + 1, lk_mix(0x07060Bu, tint, 0.45f));
+            cv_line(98, SRC_Y[w], ax - 7, cy, line);
+            cv_round(ax - 9, cy - 2, 5, 5, 2, line);
         }
-        if (!osc) {
-            const int32_t y0 = RY[d - 1] + 3, y1 = ny + (int32_t)f->h - 3;
-            cv_text(8, (y0 + y1) / 2 - (int32_t)f->h / 2, f, g ? "II" : "I", LK_DRONE[g]);
-            cv_rect(33, y0, 1, y1 - y0, LK_DRONE[g]);
+        if (delay) {
+            cv_text(232 - text_w(f, target), DST_Y[d], f, target,
+                    heard ? LK_FX : LK_LABEL);
+        } else {
+            q = scopy(t, g ? "II " : "I ");
+            scopy(q, target);
+            cv_text(232 - text_w(f, t), DST_Y[d], f, t,
+                    heard ? LK_DRONE[g] : LK_LABEL);
         }
+    }
+
+    /* Named LFO sources replace the two plots. Their tinted I / II labels
+     * distinguish the inputs while leaving space for five crossing routes. */
+    for (w = 0; w < 2; w++) {
+        const int sh = proj.par[w ? P_LFO_W2 : P_LFO_W1];
+        const int active = sh != DR_LFO_OFF && proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1] > 0;
+        const int32_t y = SRC_Y[w] - 24;
+        const uint16_t ink = lk_mix(0x07060Bu, LK_LFO_TINT[w], active ? 1.0f : 0.40f);
+        cv_text(8, y, f, w ? "II" : "I", ink);
+        dr_param_text(w ? P_LFO_W2 : P_LFO_W1, sh, t);
+        cv_text(8 + text_w(f, "II") + 6, y, f, t, active ? LK_INK : LK_LABEL);
+        cv_round(96, SRC_Y[w] - 2, 5, 5, 2, ink);
     }
 }
 

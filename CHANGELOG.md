@@ -1,5 +1,17 @@
 # Changelog
 
+## Custom fork baseline (2026-11-13; not an upstream release)
+
+This fork's `main` includes the tested Swell/UI development work from `feature/swell-patterns`:
+
+- Three LFO pages: **Waves** (waveform and amplitude), **Sends** (the original 0.2-style connection diagram and four depth controls), and **Mods**.
+- Expanded two-drone Swell: independent phase offset, swing, and a separate Wave/Skew/Edge/Width page.
+- Additional LFO wave bypass/level controls, extended gesture-key behavior and screen updates.
+- Gesture-key LEDs follow the actual effect level from 0% (off) to 100% (full brightness).
+- Additional host and UI regression tests. The WSL test suite passed for this baseline.
+
+This is a source milestone, not a published `.fwsc` release. The original author's release history follows below.
+
 ## 0.2.1 (2026-11)
 
 Getting on and off Niagara Drift, on every FM-1. The sound is the same as 0.2's, and an update from 0.2 keeps your

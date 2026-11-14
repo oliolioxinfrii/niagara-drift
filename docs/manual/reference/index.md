@@ -12,7 +12,7 @@ intro: What every page, knob and key does, in the order of the buttons
 <li><a href="life.md"><img class="ic" src="../../../web/manual/icons/speaker-high.svg" alt=""><b>Life and Tone</b><span>ENV: Feedback, Drift, Character, Age; noise</span></a></li>
 <li><a href="osc.md"><img class="ic" src="../../../web/manual/icons/wave-square.svg" alt=""><b>Osc and Sub · Drive</b><span>EDIT: each drone's wave, sub and drive</span></a></li>
 <li><a href="partner.md"><img class="ic" src="../../../web/manual/icons/music-notes-simple.svg" alt=""><b>Partner and Pitch moves</b><span>SEQ: partners, Shift, glide, Wander</span></a></li>
-<li><a href="lfo-pages.md"><img class="ic" src="../../../web/manual/icons/intersect.svg" alt=""><b>LFO sends and Mods</b><span>LFO: where the LFO goes, what else it moves</span></a></li>
+<li><a href="lfo-pages.md"><img class="ic" src="../../../web/manual/icons/intersect.svg" alt=""><b>LFO Waves, Sends and Mods</b><span>LFO: shapes, levels, routing and modulation</span></a></li>
 <li><a href="swell.md"><img class="ic" src="../../../web/manual/icons/pulse.svg" alt=""><b>Swell</b><span>ARP: both drones breathing in time</span></a></li>
 <li><a href="space.md"><img class="ic" src="../../../web/manual/icons/broadcast.svg" alt=""><b>Space and Details</b><span>FX: the delay, the drive, the reverb</span></a></li>
 <li><a href="setup.md"><img class="ic" src="../../../web/manual/icons/gear-six.svg" alt=""><b>Setup</b><span>GLO: the room's settings, the Tuning</span></a></li>

@@ -15,6 +15,9 @@ uint32_t plat_buttons(void)
 }
 
 int plat_headphones(void) { return fm1_jack_phones(); }
+static volatile uint8_t fm1_speaker_muted;
+void plat_speaker_mute(int mute) { fm1_speaker_muted = (uint8_t)(mute != 0); }
+int plat_speaker_muted(void) { return fm1_speaker_muted != 0; }
 uint32_t plat_keys(void) { return fm1_in.notes & ((1u << NKEYS) - 1u); }
 
 int32_t plat_enc(int role)

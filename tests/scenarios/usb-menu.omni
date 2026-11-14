@@ -1,0 +1,27 @@
+# USB settings is GLO's third page; it is status-only until USB host audio is implemented.
+# Existing page IDs and controls remain unchanged.
+notips
+tap GLO
+expect view 11
+tap GLO
+expect view 12
+tap GLO
+expect view 17
+wait 300
+shot usb.png
+# Returning from another page recalls USB, and cycling wraps to Setup 1.
+tap HOME
+expect view 0
+tap GLO
+expect view 17
+tap GLO
+expect view 11
+tap GLO
+expect view 12
+tap GLO
+expect view 17
+# Swell retains its original page number and GLO cannot steal that page.
+tap ARP
+expect view 13
+tap HOME
+expect view 0

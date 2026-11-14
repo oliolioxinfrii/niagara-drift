@@ -78,6 +78,9 @@ static int phones = 1;                     /* the browser: a computer's output, 
 static int phones;                         /* the scenarios: the speaker, unless "phones 1" */
 #endif
 int plat_headphones(void) { return phones; }
+static int speaker_muted;
+void plat_speaker_mute(int mute) { speaker_muted = mute != 0; }
+int plat_speaker_muted(void) { return speaker_muted; }
 uint32_t plat_keys(void) { return held_keys; }
 int32_t plat_enc(int role)
 {
@@ -474,6 +477,8 @@ static int expect(const char *what, const char *val)
         got = dr_level[what[3] - '0'] > 1e-5f ? (int)(20.0f * log10f(dr_level[what[3] - '0'])) : -99;
     else if (!strcmp(what, "lfo0"))                /* the LFO's Wave I now, x 100 */
         got = (int)(dr_lfo[0] * 100.0f);
+    else if (!strcmp(what, "speaker_mute"))
+        got = plat_speaker_muted();
     else if (!strcmp(what, "phones"))             /* the engine told: headphones in (no Speaker cut) */
         got = (int)dr_phones;
     else if (!strcmp(what, "store_writes"))

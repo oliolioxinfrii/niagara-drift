@@ -58,7 +58,8 @@ tap LFO
 expect view 6
 wait 1300
 shot lfo-waves.png
-# LFO Sends: larger routing labels and values, without duplicate wave traces.
+# LFO Sends: restored 0.2 purple panel, two running waves, five colored connections,
+# and four Osc / Filter depth readouts; page and knob assignments remain as in 0.3.
 tap LFO
 expect view 7
 tap OCT+

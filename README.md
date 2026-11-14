@@ -7,6 +7,10 @@
 > controls, keyboard gestures and LED fixes are described in the [local manual](docs/manual/index.md).
 > This is **not** an official Niagara Drift release; the original project is
 > [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift).
+>
+> **Experimental branch `feature/usb-audio-routing`:** adds a read-only USB page to GLO
+> (Setup 1, Setup 2, USB). It describes the existing stereo USB device output; **direct
+> USB-host audio to JIANT is not implemented**. The tested baseline remains on `main`.
 
 Niagara Drift is open-source firmware that turns the M-VAVE
 FM-1 into a drone synthesizer: two always-on drones you tune, shape and move rather than play note by

@@ -1,7 +1,11 @@
 # Building Niagara Drift
 
 The file names below are still FoMni's (`omni.*`, `omni_host`); the engine inside is the drone's.
-Renaming them is a separate change.
+Renaming the produced `.fwsc` file for local storage does not modify its contents.
+
+**This custom fork:** build from the desired branch or `main`; the resulting `build/omni.fwsc`
+is the installable artifact for that exact source. The original creator's installer/release
+downloads do not distribute this fork's modifications.
 
 ## Notes for macOS 26/27 on Apple silicon
 

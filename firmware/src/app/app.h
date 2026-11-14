@@ -8,7 +8,7 @@
 #include "../dsp/fastmath.h"            /* the UI's few float sums (the pitch in Hz) */
 
 #ifndef OM_VERSION                       /* a release build passes its own (tools/build.py --release) */
-#define OM_VERSION "DEV"
+#define OM_VERSION "1.1 DEV"
 #endif
 #define PROJ_MAGIC 0x314E5244u           /* "DRN1" */
 #define PROJ_FORMAT 45u                  /* 45: reuse retired gesture slots for per-drone mute, Swell design and per-LFO levels.

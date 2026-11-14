@@ -46,6 +46,7 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 
 - **KNOB 1** sets **On** (default) or **Off** (mute the FM-1's built-in speaker).
 - USB audio recording continues to transmit the full stereo master mix, including MASTER volume changes.
+  With Speaker Off, the speaker-specific bass cut is bypassed so the USB signal is full-range.
 - Headphones connected through the 3.5 mm jack remain audible even with Speaker Off.
 - The setting is saved with the project and does not follow scenes or presets.
 

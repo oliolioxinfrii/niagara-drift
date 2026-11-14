@@ -1596,7 +1596,7 @@ static int lk_wave_on(int route, int w)
 static void lk_pic_lfo(void)
 {
     static const int32_t WY[2] = {37, 86};     /* two 0.2-style traces, compressed for the 0.3 header */
-    const uint16_t panel = RGB(38, 10, 34), grid = RGB(70, 30, 64);
+    const uint16_t panel = RGB(38, 10, 34);
     const uint16_t faint = RGB(104, 66, 96), dim = RGB(160, 128, 148);
     const uint16_t paper = RGB(251, 233, 242), lilac = RGB(220, 188, 255);
     const int32_t x0 = 12, wave_w = 88, half = 12;
@@ -1682,7 +1682,6 @@ static void lk_pic_lfo(void)
         dr_param_text(p, proj.par[p], q);
         cv_text(12, 102, &FONT_S, t, proj.par[P_LFO_LOCK] ? K_GOLD : lilac);
     }
-    (void)grid;                                /* retained as a color token for the legacy panel */
 }
 
 /* ------------------------------------------------------- Mods' picture --- */

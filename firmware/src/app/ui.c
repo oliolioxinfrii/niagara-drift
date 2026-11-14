@@ -51,9 +51,9 @@
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
 enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO_WAVES, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
-       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, NVIEWS };
+       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_USB, NVIEWS };
 static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO waves", "LFO sends",
-                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details"};
+                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "USB"};
 /* what each knob moves on each page: a drone's parameter (g 0 or 1, GP_*), a global one (g G, P_*), or
  * nothing (g NONE) */
 #define G 2
@@ -85,6 +85,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
      * SEL the delay's type over Time and what goes into the reverb over Type (sel_job) */
     {{G, P_DLY_REPEATS}, {G, P_DLY_MIX}, {G, P_REV_LEN}, {G, P_REV_MIX}},
     {{G, P_DLY_DRIVE}, {G, P_DLY_TIME}, {G, P_REV_DAMP}, {G, P_REV_TYPE}},
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO USB: status page, no inactive controls */
 };
 /* A KNOB's SECOND JOB with SEL held, on the pages that have one (its card shows both, the second "+ SEL"): the
  * choices set before playing, so a player who never finds them loses nothing. FX's KNOB 4: the delay's type, what goes
@@ -105,7 +106,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 2}, {B_GLO, V_SETUP, 2}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 2}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -726,7 +727,21 @@ static void sw_toggle(sw_t w)
 }
 
 /* ------------------------------------------------------------ buttons --- */
-static int on_pages(int i) { return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n; }
+/* Keep existing numeric page IDs: USB is appended, but is GLO's third page. */
+static int on_pages(int i)
+{
+    if (PAGE_BTN[i].btn == B_GLO)
+        return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_USB;
+    return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
+}
+static int page_step(int i, int v)
+{
+    return PAGE_BTN[i].btn == B_GLO && v == V_USB ? 2 : v - PAGE_BTN[i].first;
+}
+static int page_target(int i, int step)
+{
+    return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_USB : PAGE_BTN[i].first + step;
+}
 static void set_view(int v)
 {
     uint32_t i;
@@ -749,7 +764,7 @@ static void set_view(int v)
         tip(TIP_KN_SETUP2);
     for (i = 0; i < NPAGE_BTN; i++)                    /* remembered: the button opens it next time */
         if (on_pages((int)i))
-            ui.page_last[i] = (uint8_t)(v - PAGE_BTN[i].first);
+            ui.page_last[i] = (uint8_t)page_step((int)i, v);
 }
 
 static int page_btn(int b)                             /* the index in PAGE_BTN, or -1 */
@@ -775,7 +790,7 @@ static void page_down(int b)
     if (b == B_ARP)
         return;   /* a hold must not briefly open the Swell pages */
     if (!ui.hold_cycle)
-        set_view(PAGE_BTN[i].first + (b == B_HOME || b == B_FX ? 0 : ui.page_last[i]));   /* HOME and FX: the page played */
+        set_view(page_target(i, b == B_HOME || b == B_FX ? 0 : ui.page_last[i]));   /* HOME and FX: the page played */
 }
 /* let go: after a hold (or a knob turned while held), back where it was; after a tap, stay (or step on) */
 static void page_up(int b)
@@ -789,7 +804,7 @@ static void page_up(int b)
             param_set(P_PULSE, !proj.par[P_PULSE]);
             say("SWELL", proj.par[P_PULSE] ? "ON" : "OFF");
         } else if (ui.hold_cycle)
-            set_view(PAGE_BTN[i].first + (ui.view - PAGE_BTN[i].first + 1) % PAGE_BTN[i].n);
+            set_view(page_target(i, (page_step(i, ui.view) + 1) % PAGE_BTN[i].n));
         else
             set_view(V_PULSE);
         ui.hold_btn = -1;
@@ -799,7 +814,7 @@ static void page_up(int b)
         if (!ui.hold_cycle)
             set_view(ui.hold_from);
     } else if (ui.hold_cycle) {
-        set_view(PAGE_BTN[i].first + (ui.view - PAGE_BTN[i].first + 1) % PAGE_BTN[i].n);
+        set_view(page_target(i, (page_step(i, ui.view) + 1) % PAGE_BTN[i].n));
     }
     ui.hold_btn = -1;
 }

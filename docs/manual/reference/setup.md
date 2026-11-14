@@ -1,6 +1,6 @@
 ---
 title: Setup
-intro: GLO: the room's settings and the Tuning
+intro: GLO: the room's settings, the Tuning and internal speaker
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
@@ -11,13 +11,14 @@ Settings for the FM-1 itself, not for a sound: how long changes take, the clock,
 
 ## Knobs
 
-[[GLO]] opens Setup 1; [[GLO]] again, Setup 2. These belong to the FM-1, not to a sound: scenes don't change them,
-except the Tuning.
+[[GLO]] opens Setup 1, then Setup 2, then Speaker (3/3); the next tap returns to Setup 1.
+These settings belong to the FM-1, not to a sound: scenes don't change them, except the Tuning.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|---|
 | Setup 1 | fade | morph | scene time | sync |
 | Setup 2 | tuning | tune | stereo | pressure |
+| Speaker (3/3) | speaker On/Off | — | — | — |
 
 ## Setup 1
 
@@ -40,6 +41,16 @@ except the Tuning.
 | **Tune** | A's pitch: 427 to 453 Hz (440 to start) |
 | **Stereo** | mono to drone I left, drone II right |
 | **Pressure** | how hard you press the scene keys: up for a light touch, down for a firm one |
+
+## Speaker (3/3)
+
+- **KNOB 1** sets **On** (default) or **Off** (mute the FM-1's built-in speaker).
+- USB audio recording continues to transmit the full stereo master mix, including MASTER volume changes.
+- Headphones connected through the 3.5 mm jack remain audible even with Speaker Off.
+- The setting is saved with the project and does not follow scenes or presets.
+
+The internal speaker's existing bass cut remains in effect when it is enabled.
+Muting the physical output does not stop the sound engine or affect USB audio.
 
 ## Tunings
 

@@ -3046,6 +3046,8 @@ static void sp_screen(int all)
     sp_start();
     sp_cat(ui.view == V_SOURCE ? "Sub and Drive" : VIEW_NAME[ui.view]);   /* (the screen's "·") */
     sp_cat(" page");
+    if (ui.view == V_USB)
+        sp_cat(": stereo USB audio device; host audio not yet available");
     for (i = 0; i < 4; i++) {
         const knob_t k = VIEW_KNOB[ui.view][i];
         if (knob_param(i) < 0)

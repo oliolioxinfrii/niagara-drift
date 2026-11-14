@@ -2514,16 +2514,19 @@ static void leds(void)
         b[B_PLAY] = (uint8_t)(40.0f + 215.0f * (0.5f - 0.5f * fm_cosf(6.2831853f * (float)(now % 3600u) / 3600.0f)));
     if (ui.dirty)                                      /* SAVE: a dim glow while something isn't saved yet */
         b[B_SAVE] = 90;
+    /* The audio engine publishes LFO samples *after* amplitude scaling.
+     * Divide out the level for a phase indicator that reaches true darkness
+     * at -1 even when the LFO's audio send is less than 100%. */
     if (proj.par[P_LFO_W1] && proj.par[P_LFO_AMP1] > 0)
-        b[B_OCTDN] = still ? LED_DIM : wave_lvl(dr_lfo[0]);
+        b[B_OCTDN] = still ? LED_DIM :
+                     wave_lvl(dr_lfo[0] / fm_maxf((float)proj.par[P_LFO_AMP1] * 0.01f, 0.01f));
     if (proj.par[P_LFO_W2] && proj.par[P_LFO_AMP2] > 0)
-        b[B_OCTUP] = still ? LED_DIM : wave_lvl(dr_lfo[1]);
-    if (proj.par[P_PULSE]) {                           /* ARP: breathing with the swell, a beat a breath; stopped,
-                                                        * still */
-        float b1 = 1.0f + (float)proj.par[P_PULSE_SWING] * 0.01f, ph = dr_pulse_ph;
-        float u = ph < b1 ? ph / b1 : (ph - b1) / (2.0f - b1);
-        b[B_ARP] = still ? LED_DIM : wave_lvl(fm_cosf(6.2831853f * u));
-    }
+        b[B_OCTUP] = still ? LED_DIM :
+                     wave_lvl(dr_lfo[1] / fm_maxf((float)proj.par[P_LFO_AMP2] * 0.01f, 0.01f));
+    /* Follow the actual Swell shape, skew, width and swing, not a cosine. */
+    if (proj.par[P_PULSE] && proj.par[P_PULSE_DEPTH] > 0)
+        b[B_ARP] = still ? LED_DIM :
+                   (uint8_t)(255.0f * dr_pulse_led_level(dr_pulse_ph) + 0.5f);
     if (ui.loop == L_PLAY)                             /* REC: steady looping; recording, once a second, fast in the
                                                         * last 20 s before it's full (fast all along was an alarm) */
         b[B_REC] = 255;

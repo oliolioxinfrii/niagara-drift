@@ -839,7 +839,7 @@ static uint32_t fb_w;
  * (the energy fed in against the oscillators'), taken off the output: never louder than without it */
 static float fb_d = 300.0f, fb_c = 1.0f, fb_ein, fb_eosc, fb_esn;   /* (fb_esn: Snarl's bend, its power) */
 static float spk[2][2];                          /* the speaker low cut's states, left and right */
-volatile uint8_t dr_phones;
+volatile uint8_t dr_phones;                  /* headphones inserted OR speaker muted: no speaker-only bass cut */
 #define SPK_CUT 61.0f                            /* the speaker's low cut, fixed (2026-10-20: ~120 Hz; P_SPEAKER unused) */
 static float spk_x, spk_f;                       /* ... how far it's in (0..1), its knob (the corner) */
 /* every parameter as it sounds: gliding to its setting. A knob's detent glides over the time until the

@@ -2,6 +2,7 @@
 # Existing view IDs are intentionally unchanged; V_SPEAKER is appended as 17.
 notips
 expect speaker_mute 0
+expect phones 0
 tap GLO
 expect view 11
 tap GLO
@@ -12,6 +13,7 @@ wait 250
 shot speaker-on.png
 spin K1 1
 expect speaker_mute 1
+expect phones 1
 wait 250
 shot speaker-off.png
 # Other knobs are not assigned; this is a simple single-setting page.
@@ -23,6 +25,7 @@ tap GLO
 expect view 17
 spin K1 -1
 expect speaker_mute 0
+expect phones 0
 tap GLO
 expect view 11
 tap GLO

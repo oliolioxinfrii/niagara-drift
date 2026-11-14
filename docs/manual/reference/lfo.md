@@ -37,6 +37,7 @@ The first [[LFO]] page lets you select either waveform directly using KNOB 1 or 
 ## Good to know
 
 - Bypassing an LFO retains its waveform and volume even when a scene is saved.
+- OCT− and OCT+ LEDs follow the respective waveform through its full dark-to-bright cycle, regardless of its volume setting; when bypassed, the corresponding light goes out.
 - The levels on the Waves page multiply the existing per-route depths; the four sends retain their balance.
 - Movement scales the sends and delay-time modulation, not the separate Cross-mod circuit.
 - At 0% Movement no LFO is heard on the routed destinations, regardless of the waveform's level.

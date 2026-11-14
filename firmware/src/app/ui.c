@@ -2022,7 +2022,7 @@ static void input(void)
     }
     if (!(btn >> B_SEL & 1u))
         ui.km_key = -1;
-    {   /* THE HEADPHONE JACK: the Speaker low cut only while the speaker plays (Evan, 2026-10-20); a plug settled
+    {   /* HEADPHONE JACK: the speaker bass cut is enabled only when its built-in speaker plays; a plug settled
          * for 150 ms (its contacts bounce) */
         int ph = plat_headphones();
         if (ph != ui.jack) {

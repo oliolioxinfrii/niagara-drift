@@ -239,7 +239,7 @@ static void lk_bar(void)
     lk_page_name(ui.view, name);
     for (i = 0; i < (int)NPAGE_BTN; i++)       /* which of its button's pages: "1/2" */
         if (on_pages(i) && PAGE_BTN[i].n > 1) {
-            half[0] = (char)('1' + ui.view - PAGE_BTN[i].first);
+            half[0] = (char)('1' + page_step(i, ui.view));
             half[1] = '/';
             half[2] = (char)('0' + PAGE_BTN[i].n);
             half[3] = 0;
@@ -1984,6 +1984,19 @@ static void lk_pic_setup2(void)
     }
 }
 
+/* ------------------------------------------------- USB settings/status page --- */
+/* The current Felucca USB Audio Class interface is a stereo recording DEVICE.
+ * Direct device-to-device audio into JIANT requires USB host support, which is
+ * not yet present. This page reports the real state; it deliberately has no
+ * mode toggle or effect on the existing USB, headphone or speaker outputs. */
+static void lk_pic_usb(void)
+{
+    cv_text(8, 8, &FONT_T20, "USB AUDIO", LK_VIOLET);
+    cv_text(8, 38, &LK_F_SMALL, "DEVICE OUTPUT", LK_WHITE);
+    cv_text(8, 64, &LK_F_SMALL, "STEREO 44.1 kHz", LK_INK);
+    cv_text(8, 92, &FONT_U1, "16-bit PCM to a host", LK_LABEL);
+}
+
 /* ------------------------------------------------------ the Swell's picture --- */
 /* Two bars (four breaths) of each drone's shared Swell waveform. Both
  * envelopes have one clock; drone II is evaluated at its own phase offset.
@@ -2226,6 +2239,7 @@ static void lk_pic(void)
     case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
     case V_SETUP: lk_pic_setup1(); break;
     case V_SETUP2: lk_pic_setup2(); break;
+    case V_USB: lk_pic_usb(); break;
     case V_FX:
     case V_FX2: lk_pic_space(); break;
     default: lk_pic_drones2(); break;
@@ -2691,6 +2705,14 @@ static void lk_values(void)
         return;
     ui.sig[2] = h;
     cv_begin(240, LK_VAL_H, LK_BG);
+    if (ui.view == V_USB) {
+        cv_rect(8, 0, 224, 1, LK_RULE);
+        cv_text(8, 9, &FONT_T20, "HOST AUDIO", LK_LABEL);
+        cv_text(8, 36, &LK_F_SMALL, "NOT AVAILABLE", LK_INK);
+        cv_text(8, 62, &FONT_U1, "JIANT link: pending", LK_LABEL);
+        cv_blit(0, LK_VAL_Y);
+        return;
+    }
     if (ui.view == V_LFO) {                   /* release-0.2's LFO Depths value row only */
         const uint16_t bg = RGB(20, 0, 15), grid = RGB(70, 30, 64);
         const uint16_t dim = RGB(160, 128, 148), paper = RGB(251, 233, 242);

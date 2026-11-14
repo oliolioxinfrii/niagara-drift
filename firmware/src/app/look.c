@@ -1588,86 +1588,101 @@ static int lk_wave_on(int route, int w)
 }
 
 /* -------------------------------------------------- LFO sends' picture --- */
-/* Restore the 0.2-style signal-flow drawing without changing the three-page LFO
- * layout or the four send knobs. The sources on the left are named, rather than
- * drawn as waves (their animated cycles live on LFO Waves); the four drone
- * targets and the delay on the right are connected by color-coded lines.
- * The delay's controls remain on Mods: its route appears here for context. */
+/* The 0.2 LFO Depths diagram, adapted to 0.3's shorter picture band.
+ * Two lilac waveform traces on the left and five color-coded destinations on
+ * the right, with a line for each routed LFO. This is only a drawing: the
+ * three LFO pages, knob assignments, destinations and send amounts stay put.
+ * The fifth route is Delay, still adjusted from Mods, not this page. */
 static void lk_pic_lfo(void)
 {
-    static const int32_t SRC_Y[2] = {48, 102};
-    static const int32_t DST_Y[5] = {20, 41, 62, 83, 104};
-    const felucca_font_t *const f = &FONT_T18;
-    const int clock = dr_ext_spb > 0.0f, lock = proj.par[P_LFO_LOCK] != 0;
-    int d, w;
-    char t[24], *q;
+    static const int32_t WY[2] = {37, 86};     /* two 0.2-style traces, compressed for the 0.3 header */
+    const uint16_t panel = RGB(38, 10, 34), grid = RGB(70, 30, 64);
+    const uint16_t faint = RGB(104, 66, 96), dim = RGB(160, 128, 148);
+    const uint16_t paper = RGB(251, 233, 242), lilac = RGB(220, 188, 255);
+    const int32_t x0 = 12, wave_w = 88, half = 12;
+    int w, d;
+    char t[24];
 
-    /* Preserve the current rate and Swell-lock indicators at the top. */
-    if (!proj.par[P_MOVE]) {
-        cv_text(8, 0, &FONT_U1, "mvmt 0%", LK_VIOLET);
-    } else {
-        q = scopy(t, clock ? "cycle " : "rate ");
-        dr_param_text(clock ? P_LFO_DIV : P_LFO_RATE, proj.par[clock ? P_LFO_DIV : P_LFO_RATE], q);
-        cv_text(8, 0, &FONT_U1, t, LK_INK);
-    }
-    {
-        const char *lt = lock ? "[C#5] on Swell" : "[C#5] free";
-        lk_ktext(232 - lk_ktext_w(&FONT_U1, lt), 0, &FONT_U1, lt,
-                 !lock ? LK_LABEL : proj.par[P_PULSE] ? LK_CORAL : lk_mix(0x07060Bu, 0xFF8F73u, 0.55f));
-    }
+    cv_round(6, 3, 228, LK_PIC_H - 5, 4, panel);
+    for (w = 0; w < 2; w++) {
+        const int sh = proj.par[w ? P_LFO_W2 : P_LFO_W1];
+        const int level = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1];
+        const int active = sh != DR_LFO_OFF && level > 0;
+        const uint16_t c = active ? lilac : faint;
+        const int32_t yc = WY[w], n = wave_w / 2 + 1;
+        const float r0 = sh == DR_LFO_RANDOM ? 1.0f : 0.0f;
+        int16_t y[45];
+        int i;
+        const felucca_font_t *fn;
 
-    /* Draw connections first so the labels stay readable above crossing lines.
-     * The fifth (blue) route is Delay LFO, adjusted on the Mods page. */
-    for (d = 0; d < 5; d++) {
-        const int g = d / 2, osc = !(d & 1), delay = d == 4;
-        const int route = delay ? proj.par[P_DLY_LFO] : gpar(g, osc ? GP_OLFO : GP_FLFO);
-        const int depth = delay ? proj.par[P_DLY_LFO_DEPTH] : gpar(g, osc ? GP_OLFO_DEPTH : GP_FLFO_DEPTH);
-        const uint32_t tint = delay ? 0x78ADFFu : g ? 0x1FC8FFu : 0xFF9A1Fu;
-        const char *target = delay ? "delay" : osc
-                             ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "wave" : "pitch")
-                             : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff");
-        const int32_t cy = DST_Y[d] + (int32_t)f->h / 2;
-        int32_t label_x, line_end;
-        int heard = 0;
-        if (delay) {
-            scopy(t, "delay");
-        } else {
-            q = scopy(t, g ? "II " : "I ");
-            scopy(q, target);
+        /* Identical waveform geometry and phase dot to release-0.2's pic_lfo. */
+        for (i = 0; i < n; i++)
+            y[i] = (int16_t)(yc - (int32_t)(dr_lfo_wave(w, sh, r0 + 0.9999f * (float)i / (float)(n - 1))
+                                            * (float)half));
+        if (active) {                         /* soft lower stroke, then the bright trace */
+            for (i = 1; i < n; i++)
+                cv_line(x0 + 2 * (i - 1), y[i - 1] + 1, x0 + 2 * i, y[i] + 1,
+                        lk_mix(0x260A22u, 0xDCBCFFu, 0.35f));
         }
-        label_x = 232 - text_w(f, t);
-        line_end = label_x - 6;
+        lk_plot(x0, y, n, c);
+        if (active) {
+            const float ph = dr_lfo_ph;
+            const int32_t px = x0 + (int32_t)(ph * (float)wave_w);
+            const int32_t py = yc - (int32_t)(dr_lfo_wave(w, sh, r0 + ph) * (float)half);
+            cv_round(px - 3, py - 3, 7, 7, 3, paper);
+        }
+        cv_text(x0, yc - 32, &FONT_S, w ? "II" : "I", c);
+        dr_param_text(w ? P_LFO_W2 : P_LFO_W1, sh, t);
+        fn = text_w(&FONT_S, t) <= 81 ? &FONT_S
+           : text_w(&FONT_U1, t) <= 81 ? &FONT_U1 : &FONT_U2;
+        cv_text(x0 + 16, yc - 32 + ((int32_t)FONT_S.h - (int32_t)fn->h) / 2, fn, t, active ? paper : dim);
+    }
+
+    /* The five release-0.2 targets, all in their original relative order. */
+    for (d = 0; d < 5; d++) {
+        const int delay = d == 4, g = d / 2, osc = !(d & 1);
+        const int route = delay ? proj.par[P_DLY_LFO] : gpar(g, osc ? GP_OLFO : GP_FLFO);
+        const int depth = delay ? proj.par[P_DLY_LFO_DEPTH]
+                                : gpar(g, osc ? GP_OLFO_DEPTH : GP_FLFO_DEPTH);
+        const uint16_t col = delay ? RGB(251, 233, 242) : K_DRONE[g];
+        const int32_t ny = 6 + 23 * d, ay = ny + 9;
+        int32_t ax;
+        int heard = 0;
+        if (delay)
+            scopy(t, "delay");
+        else
+            scopy(scopy(t, g ? "II " : "I "),
+                  osc ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "wave" : "pitch")
+                      : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff"));
+
+        ax = 232 - text_w(&FONT_S, t);
         for (w = 0; w < 2; w++) {
             const int sh = proj.par[w ? P_LFO_W2 : P_LFO_W1];
             const int amp = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1];
-            const int connected = route == w + 1 || route == DR_LFO_BOTH;
-            const int active = connected && sh != DR_LFO_OFF && amp > 0 && depth != 0 && proj.par[P_MOVE] != 0;
-            uint16_t line;
-            if (!connected)
+            const int routed = route == w + 1 || route == DR_LFO_BOTH;
+            const int on = routed && sh != DR_LFO_OFF && amp > 0 && depth != 0 && proj.par[P_MOVE] != 0;
+            const uint16_t lc = on ? col : lk_mix(0x260A22u, col, 0.32f);
+            const int32_t sx = x0 + wave_w + 4, sy = WY[w], ex = ax - 5;
+            if (!routed)
                 continue;
-            heard |= active;
-            line = lk_mix(0x07060Bu, tint, active ? 1.0f : 0.30f);
-            if (active)                         /* the subtle glow on a heard send, as in 0.2 */
-                cv_line(98, SRC_Y[w] + 1, line_end, cy + 1, lk_mix(0x07060Bu, tint, 0.45f));
-            cv_line(98, SRC_Y[w], line_end, cy, line);
-            cv_round(line_end - 2, cy - 2, 5, 5, 2, line);
+            heard |= on;
+            if (on)                             /* offset underlay: the original glow */
+                cv_line(sx, sy + 1, ex, ay + 1, lk_mix(0x260A22u, col, 0.35f));
+            cv_line(sx, sy, ex, ay, lc);
+            cv_round(ex - 2, ay - 2, 5, 5, 2, lc);
         }
-        cv_text(label_x, DST_Y[d], f, t,
-                heard ? (delay ? LK_FX : LK_DRONE[g]) : LK_LABEL);
+        cv_text(ax, ny, &FONT_S, t, heard ? col : route == DR_LFO_OFF ? dim : lk_mix(0x260A22u, col, 0.7f));
     }
 
-    /* Named LFO sources replace the two plots. Their tinted I / II labels
-     * distinguish the inputs while leaving space for five crossing routes. */
-    for (w = 0; w < 2; w++) {
-        const int sh = proj.par[w ? P_LFO_W2 : P_LFO_W1];
-        const int active = sh != DR_LFO_OFF && proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1] > 0;
-        const int32_t y = SRC_Y[w] - 24;
-        const uint16_t ink = lk_mix(0x07060Bu, LK_LFO_TINT[w], active ? 1.0f : 0.40f);
-        cv_text(8, y, f, w ? "II" : "I", ink);
-        dr_param_text(w ? P_LFO_W2 : P_LFO_W1, sh, t);
-        cv_text(8 + text_w(f, "II") + 6, y, f, t, active ? LK_INK : LK_LABEL);
-        cv_round(96, SRC_Y[w] - 2, 5, 5, 2, ink);
+    /* Rate at the bottom left, as on 0.2. External sync still shows its division. */
+    {
+        char *q = scopy(t, dr_ext_spb > 0.0f ? "cycle " :
+                           proj.par[P_LFO_LOCK] ? "locked " : "rate ");
+        const int p = dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE;
+        dr_param_text(p, proj.par[p], q);
+        cv_text(12, 102, &FONT_S, t, proj.par[P_LFO_LOCK] ? K_GOLD : lilac);
     }
+    (void)grid;                                /* retained as a color token for the legacy panel */
 }
 
 /* ------------------------------------------------------- Mods' picture --- */

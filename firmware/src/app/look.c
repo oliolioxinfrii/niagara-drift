@@ -1627,8 +1627,16 @@ static void lk_pic_lfo(void)
                              ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "wave" : "pitch")
                              : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff");
         const int32_t cy = DST_Y[d] + (int32_t)f->h / 2;
-        const int32_t ax = 232 - text_w(f, delay ? "delay" : g ? "II cutoff" : "I cutoff") - 5;
+        int32_t label_x, line_end;
         int heard = 0;
+        if (delay) {
+            scopy(t, "delay");
+        } else {
+            q = scopy(t, g ? "II " : "I ");
+            scopy(q, target);
+        }
+        label_x = 232 - text_w(f, t);
+        line_end = label_x - 6;
         for (w = 0; w < 2; w++) {
             const int sh = proj.par[w ? P_LFO_W2 : P_LFO_W1];
             const int amp = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1];
@@ -1640,19 +1648,12 @@ static void lk_pic_lfo(void)
             heard |= active;
             line = lk_mix(0x07060Bu, tint, active ? 1.0f : 0.30f);
             if (active)                         /* the subtle glow on a heard send, as in 0.2 */
-                cv_line(98, SRC_Y[w] + 1, ax - 7, cy + 1, lk_mix(0x07060Bu, tint, 0.45f));
-            cv_line(98, SRC_Y[w], ax - 7, cy, line);
-            cv_round(ax - 9, cy - 2, 5, 5, 2, line);
+                cv_line(98, SRC_Y[w] + 1, line_end, cy + 1, lk_mix(0x07060Bu, tint, 0.45f));
+            cv_line(98, SRC_Y[w], line_end, cy, line);
+            cv_round(line_end - 2, cy - 2, 5, 5, 2, line);
         }
-        if (delay) {
-            cv_text(232 - text_w(f, target), DST_Y[d], f, target,
-                    heard ? LK_FX : LK_LABEL);
-        } else {
-            q = scopy(t, g ? "II " : "I ");
-            scopy(q, target);
-            cv_text(232 - text_w(f, t), DST_Y[d], f, t,
-                    heard ? LK_DRONE[g] : LK_LABEL);
-        }
+        cv_text(label_x, DST_Y[d], f, t,
+                heard ? (delay ? LK_FX : LK_DRONE[g]) : LK_LABEL);
     }
 
     /* Named LFO sources replace the two plots. Their tinted I / II labels

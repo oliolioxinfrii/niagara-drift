@@ -2692,6 +2692,42 @@ static void lk_values(void)
         return;
     ui.sig[2] = h;
     cv_begin(240, LK_VAL_H, LK_BG);
+    if (ui.view == V_LFO) {                   /* release-0.2's LFO Depths value row only */
+        const uint16_t bg = RGB(20, 0, 15), grid = RGB(70, 30, 64);
+        const uint16_t dim = RGB(160, 128, 148), paper = RGB(251, 233, 242);
+        int j;
+        cv_rect(0, 0, 240, LK_VAL_H, bg);
+        cv_rect(0, 0, 240, 1, grid);
+        cv_rect(120, 7, 1, 74, grid);        /* the two drones' pairs */
+        for (j = 0; j < 4; j++) {
+            const int p = knob_param(j), g = j / 2, v = proj.par[p], on = lit(j);
+            const int lo = dr_param_info(p)->lo, hi = dr_param_info(p)->hi;
+            const int32_t cx = 36 + 56 * j;
+            const uint16_t c = K_DRONE[g];
+            const felucca_font_t *const font = on ? &FONT_N1 : &FONT_N2;
+            char t[16];
+            int32_t m, x;
+            if (on) {
+                cv_round(cx - 26, 3, 52, 79, 5, c);
+                cv_round(cx - 25, 4, 50, 77, 4, RGB(58, 18, 53));
+            }
+            text_c(cx, 5, &FONT_T20, j & 1 ? "Filter" : "Osc", on ? c : dim);
+            dr_param_text(p, v, t);
+            text_c(cx, 34 - ((int32_t)font->h - (int32_t)FONT_N2.h) / 2,
+                   font, t, on ? paper : RGB(211, 179, 196));
+            cv_round(cx - 21, 68, 42, 4, 2, grid);
+            m = cx - 21 + 42 * (0 - lo) / (hi - lo);
+            x = cx - 21 + 42 * (v - lo) / (hi - lo);
+            cv_rect(m, 66, 1, 8, dim);       /* the 0 position */
+            if (x != m) {
+                const int32_t left = x < m ? x : m, right = x < m ? m : x;
+                cv_round(left, 68, right - left + 1, 4, 2,
+                         on ? c : lk_mix(0x461E40u, c, 0.70f));
+            }
+        }
+        cv_blit(0, LK_VAL_Y);
+        return;
+    }
     cv_rect(8, 0, 224, 1, LK_RULE);
     if (VIEW_KNOB[ui.view][0].g < G || ui.view == V_LFO_WAVES)
         cv_rect(119, 9, 1, 74, LK_RULE);       /* drone I | drone II (not on a global page) */

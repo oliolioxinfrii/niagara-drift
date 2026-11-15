@@ -761,8 +761,17 @@ static int page_target(int i, int step)
 static void set_view(int v)
 {
     uint32_t i;
+    if (ui.view == V_SEQ_NOTES && v != V_SEQ_NOTES && sd.preview_key >= 0) {
+        sd.preview_key = -1;
+        sd.preview_active = 0;
+        if (sd.preview_sounded && !ui.playing) {
+            dr_play(0);
+            sd.preview_sounded = 0;
+        }
+        if (!sd.enabled) sd_restore_pitch();
+    }
     ui.view = (uint8_t)v;
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 4; i++ )
         ui.touch_t[i] = 0;
     if (v == V_PLAY)
         tip(TIP_KN_DRONES);
@@ -795,22 +804,17 @@ static int page_btn(int b)                             /* the index in PAGE_BTN,
 /* a page button pressed: the page of its last shown at once (the review: Reverb, Life, Moves couldn't be peeked;
  * HOME always Drones and FX always Space, the pages played: v0.3), unless already on its pages (then the next on a
  * tap) */
+static void fresh_sound(void);
 static void page_down(int b)
 {
     int i = page_btn(b);
-    if (b == B_SEQ && (ui.btn >> B_SEL & 1u)) {
-        sd_toggle();
-        ui.btn_used |= 1u << B_SEL;
-        ui.hold_btn = -1;
-        return;
-    }
     ui.hold_btn = (int8_t)b;
     ui.hold_t = plat_ms();
     ui.hold_turned = 0;
     ui.hold_from = ui.view;
     ui.hold_cycle = (uint8_t)on_pages(i);
-    if (b == B_ARP)
-        return;   /* a hold must not briefly open the Swell pages */
+    if (b == B_ARP || (b == B_HOME && (ui.btn >> B_SEL & 1u)))
+        return;   /* Swell toggle or SEL+HOME randomize: don't open another page */
     if (!ui.hold_cycle)
         set_view(page_target(i, b == B_HOME || b == B_FX ? 0 : ui.page_last[i]));   /* HOME and FX: the page played */
 }
@@ -821,6 +825,14 @@ static void page_up(int b)
     if (ui.hold_btn != b)
         return;
     peek = ui.hold_turned || plat_ms() - ui.hold_t >= HOLD_MS;
+    if (b == B_HOME && (ui.btn >> B_SEL & 1u)) {
+        ui.btn_used |= 1u << B_SEL;
+        sd_stop();
+        fresh_sound();
+        sd_sync_home();
+        ui.hold_btn = -1;
+        return;
+    }
     if (b == B_ARP) {
         if (plat_ms() - ui.hold_t >= HOLD_MS) {
             param_set(P_PULSE, !proj.par[P_PULSE]);
@@ -2075,9 +2087,12 @@ static void input(void)
                 }
             }
             if (i == B_PLAY && (btn >> B_SEL & 1u)) {
-                /* An explicit new beginning: do not toggle playback or any drone mute. */
                 ui.btn_used |= 1u << B_SEL;
-                fresh_sound();
+                if (!ui.playing) {
+                    ui.playing = 1;
+                    dr_play(1);
+                }
+                sd_start();               /* start or restart at step 1 */
             } else if (i == B_PLAY) {                  /* PLAY responds immediately, as before */
                 static uint8_t seeded;
                 if (!seeded) {
@@ -2086,6 +2101,7 @@ static void input(void)
                 }
                 ui.playing = (uint8_t)!ui.playing;
                 dr_play(ui.playing);
+                if (!ui.playing) sd_stop();
             }
         } else if (i == B_OCTDN || i == B_OCTUP) {
             const int w = i == B_OCTUP;
@@ -2103,6 +2119,9 @@ static void input(void)
     }
     ch = keys ^ ui.keys;                               /* the black keys: switches, on the press */
     ui.keys = keys;
+    if (ui.view == V_SEQ_NOTES && (!(ui.btn >> B_SEL & 1u) || sd.preview_key >= 0)) {
+        sd_keys(keys, ui.btn >> B_SEL & 1u ? 0 : ch & keys);
+    } else {
     for (i = 0; i < 11u; i++) {
         sw_t w = sw_layer()[i];
         if (ui.btn >> B_SEL & 1u) {                   /* SEL held: a key touched names itself on the map, and
@@ -2203,6 +2222,7 @@ static void input(void)
     for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go (one that picked a bank: nothing) */
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
             gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+    }
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();
@@ -2601,6 +2621,8 @@ static void leds(void)
                                                         * the banks, the one playing lit (as the map draws them) */
         for (i = 0; i < 8u; i++)
             k[WHITE_K[NPLAY + i]] = proj.bank == KEY_BANK[i] ? 255 : LED_DIM;
+    if (ui.view == V_SEQ_NOTES)
+        sd_key_leds(k);
     boxed_blink(b, k);
     plat_leds(b, k);
 }

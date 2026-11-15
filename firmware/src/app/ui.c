@@ -172,6 +172,8 @@ static struct {
     int8_t save_q;                     /* a save waiting for the dip (something heard): -2 none, -1 the sound, -3 the
                                         * autosave, N scene N */
     uint32_t save_t;                   /* ... asked then */
+    uint8_t save_menu;                /* modal bank / slot save and recall */
+    uint8_t menu_bank, menu_slot, menu_load;
     uint8_t page_last[8];              /* each page button's page last shown (0: its first): opened again there */
     uint32_t sel_t;                    /* when SEL went down (held 0.4 s: the black keys' map) */
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
@@ -1641,7 +1643,11 @@ static void button(int b)                              /* the other buttons, on 
             ui.btn_used |= 1u << B_SEL;
             scene_undo();
         } else {
-            save_ask(-1);
+            ui.save_menu = 1;
+            ui.menu_bank = proj.bank;
+            ui.menu_slot = ui.scene_at < 0 ? 0 : (uint8_t)ui.scene_at;
+            ui.menu_load = 0;
+            ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         }
         break;
     case B_REC:
@@ -2036,6 +2042,57 @@ static int rq_input(uint32_t btn)                      /* asking: SEL or HOME an
     return 1;
 }
 
+/* A modal browser controls the existing scene banks. No additional flash
+ * format or slot copies are needed; SAVE commits the selected action. */
+static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
+{
+    int32_t step;
+    uint32_t i;
+    const uint32_t released = changed & ~btn;
+    const uint32_t keyup = ui.keys & ~keys;
+    for (i = NPLAY; i < NWHITE; i++)
+        if (keyup >> WHITE_K[i] & 1u)
+            gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+    ui.keys = keys;
+    if ((step = plat_enc(EN_SELECT)) != 0) {
+        int b = ((int)ui.menu_bank + (int)step) % NBANKS;
+        if (b < 0) b += NBANKS;
+        ui.menu_bank = (uint8_t)b;
+    }
+    if ((step = plat_enc(EN_K1)) != 0) {
+        int n = ((int)ui.menu_slot + (int)step) % NPLAY;
+        if (n < 0) n += NPLAY;
+        ui.menu_slot = (uint8_t)n;
+    }
+    if ((step = plat_enc(EN_K2)) != 0) ui.menu_load = (uint8_t)(step > 0);
+    for (i = 0; i < NE; i++)
+        if (i != EN_SELECT && i != EN_K1 && i != EN_K2)
+            plat_enc((int)i);
+    if (released >> B_HOME & 1u) {
+        ui.save_menu = 0;
+    } else if (released >> B_SAVE & 1u) {
+        const int bank = ui.menu_bank, slot = ui.menu_slot;
+        if (ui.menu_load && !scene_has(bank, slot)) {
+            say("EMPTY SLOT", "CHOOSE ANOTHER");
+        } else if (!ui.menu_load && BANK_IS_PRESETS(bank)) {
+            say("PRESETS ARE FIXED", "SELECT BANK A-F");
+        } else {
+            proj.bank = (uint8_t)bank;
+            mark_dirty();
+            if (ui.menu_load)
+                scene_recall(slot, 1);
+            else
+                scene_store(slot);
+            ui.save_menu = 0;
+        }
+    }
+    loop_run();
+    sd_run();
+    midi_in();
+    clk_feed();
+    ui.act_t = plat_ms();
+}
+
 static void input(void)
 {
     uint32_t btn = plat_buttons(), keys = plat_keys(), ch, i;
@@ -2045,6 +2102,10 @@ static void input(void)
     save_run();
     ch = btn ^ ui.btn;
     ui.btn = btn;
+    if (ui.save_menu) {
+        save_menu_input(btn, ch, keys);
+        return;
+    }
     if ((ch & btn) >> B_SEL & 1u) {
         int g;
         ui.sel_t = plat_ms();
@@ -2215,24 +2276,7 @@ static void input(void)
                                                                                           * gestures (v0.3) */
         if (!((ch & keys) >> WHITE_K[i] & 1u))
             continue;
-        if (btn >> B_SEL & 1u) {                       /* SEL + one: a bank, in a row (not while a scene key is
-                                                        * held: a visit's way back stays put) */
-            const uint8_t bk = KEY_BANK[i - NPLAY];
-            uint32_t j, held = 0;
-            ui.btn_used |= 1u << B_SEL;
-            for (j = 0; j < NPLAY; j++)
-                held |= keys >> WHITE_K[j] & 1u;
-            if (held)
-                continue;
-            if (proj.bank != bk) {
-                proj.bank = bk;
-                ui.scene_at = -1;
-                mark_dirty();
-            }
-            say_c("BANK", BANK_N[bk], K_GOLD);
-        } else {
-            gesture_down(g);                           /* the gestures (v0.2, v0.3) */
-        }
+        gesture_down(g);
     }
     for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go (one that picked a bank: nothing) */
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
@@ -2645,10 +2689,7 @@ static void leds(void)
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
     }
-    if (keymap_on())                                   /* SEL held, the map on screen: the eight gesture keys are
-                                                        * the banks, the one playing lit (as the map draws them) */
-        for (i = 0; i < 8u; i++)
-            k[WHITE_K[NPLAY + i]] = proj.bank == KEY_BANK[i] ? 255 : LED_DIM;
+    /* SEL no longer turns gesture keys into bank selectors. */
     if (ui.view == V_SEQ_NOTES)
         sd_key_leds(k);
     boxed_blink(b, k);

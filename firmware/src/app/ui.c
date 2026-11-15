@@ -2092,11 +2092,7 @@ static void input(void)
             }
             if (i == B_PLAY && (btn >> B_SEL & 1u)) {
                 ui.btn_used |= 1u << B_SEL;
-                if (!ui.playing) {
-                    ui.playing = 1;
-                    dr_play(1);
-                }
-                sd_toggle();              /* play/pause without resetting elapsed sequence time */
+                sd_toggle();              /* independent transport; only plain PLAY fades audio */
             } else if (i == B_PLAY) {                  /* PLAY responds immediately, as before */
                 static uint8_t seeded;
                 if (!seeded) {

@@ -365,38 +365,51 @@ static void sd_note_knob(int i, int32_t e)
     }
 }
 
-/* Random Start derives each event from the preceding pitch, not from an
- * independent full-range draw. Constraining every event to within an octave
- * of step 1 also bounds the closing interval back to the first event.
- * Timing weights vary but preserve the chosen step count and loop duration. */
+/* Random Start chooses a new progression with 2–4 events and a total
+ * duration of 20–240 seconds. The count and duration differ from the
+ * previous progression. Pitches follow the selected tuning, with every
+ * transition (including the wrap to step 1) bounded by one octave. */
 static void sd_randomize(int (*between)(int lo, int hi))
 {
-    const uint32_t duration = sd_total_s();
+    const int previous_count = sd.count;
+    const uint32_t previous_duration = sd_total_s();
     uint32_t weights[SD_MAX], weight_sum = 0, assigned = 0;
+    uint32_t duration;
     int i, g;
-    sd.lock_was = 0;                     /* capture the new random home interval */
+
+    sd.count = (uint8_t)between(2, SD_MAX);
+    if (sd.count == previous_count)
+        sd.count = (uint8_t)(sd.count == SD_MAX ? 2 : sd.count + 1);
+
+    duration = (uint32_t)between(20, SD_LIMIT_S);
+    if (duration == previous_duration)
+        duration = duration == SD_LIMIT_S ? duration - 1u : duration + 1u;
+
+    sd.lock_was = 0;
     sd_sync_home();
     for (g = 0; g < 2; g++) {
-        int prev;
         const int p = DR_GP(g, GP_PITCH);
         const dr_param_t *info = dr_param_info(p);
         const int home = sd.note[g][0];
+        int prev = home;
         if (g && sd_linked()) continue;
-        prev = home;
         for (i = 1; i < sd.count; i++) {
-            int candidate = prev + between(-450, 450);
-            int snapped;
-            if (candidate < home - 1100) candidate = home - 1100;
-            if (candidate > home + 1100) candidate = home + 1100;
-            if (candidate < info->lo) candidate = info->lo;
-            if (candidate > info->hi) candidate = info->hi;
-            snapped = grid_near(p, candidate);
-            /* The grid can be nonchromatic; retain the preceding legal note
-             * if the nearest tuning step falls outside the bounded path. */
-            if (snapped < info->lo || snapped > info->hi ||
-                snapped - prev > 1200 || prev - snapped > 1200 ||
-                snapped - home > 1200 || home - snapped > 1200)
-                snapped = prev;
+            int attempt, snapped = prev;
+            for (attempt = 0; attempt < 12; attempt++) {
+                int candidate = prev + between(-600, 600);
+                int next;
+                if (candidate < home - 1100) candidate = home - 1100;
+                if (candidate > home + 1100) candidate = home + 1100;
+                if (candidate < info->lo) candidate = info->lo;
+                if (candidate > info->hi) candidate = info->hi;
+                next = grid_near(p, candidate);
+                if (next == prev || next < info->lo || next > info->hi ||
+                    next - prev > 1200 || prev - next > 1200 ||
+                    next - home > 1200 || home - next > 1200)
+                    continue;
+                snapped = next;
+                break;
+            }
             sd.note[g][i] = (int16_t)snapped;
             prev = snapped;
         }
@@ -404,26 +417,31 @@ static void sd_randomize(int (*between)(int lo, int hi))
     if (sd_linked())
         for (i = 1; i < sd.count; i++)
             sd.note[1][i] = (int16_t)(sd.note[0][i] + sd_offset());
-    if (sd.count > 1 && duration >= sd.count) {
+
+    /* Every active interval has at least one second. Allocate the remaining
+     * seconds by independent positive weights and give rounding remainder to
+     * the final interval so the complete duration is exact. */
+    for (i = 0; i < sd.count; i++) {
+        weights[i] = (uint32_t)between(40, 180);
+        weight_sum += weights[i];
+    }
+    for (i = 0; i < sd.count; i++) {
         const uint32_t extra = duration - sd.count;
-        for (i = 0; i < sd.count; i++) {
-            weights[i] = (uint32_t)between(70, 130);
-            weight_sum += weights[i];
-        }
-        for (i = 0; i < sd.count; i++) {
-            const uint32_t allot = i == sd.count - 1 ? extra - assigned :
-                                   (uint32_t)((uint64_t)extra * weights[i] / weight_sum);
-            sd.gap_s[i] = (uint16_t)(1u + allot);
-            assigned += allot;
-        }
+        const uint32_t allot = i == sd.count - 1 ? extra - assigned :
+                               (uint32_t)((uint64_t)extra * weights[i] / weight_sum);
+        sd.gap_s[i] = (uint16_t)(1u + allot);
+        assigned += allot;
+    }
+    for (i = sd.count; i < SD_MAX; i++) {
+        sd.gap_s[i] = SD_DEFAULT_S;
+        for (g = 0; g < 2; g++)
+            sd.note[g][i] = sd.note[g][sd.count - 1];
     }
     sd_capture_node_fracs();
     sd.phase = (uint8_t)between(0, 99);
     sd.position = 0;
     sd.stopping = (uint8_t)(sd.enabled && !ui.playing && dr_fade > 0.0f);
     sd_reset_clock();
-    /* Preserve the previous transport state: Random Start changes the
-     * composition, not whether the progression is enabled. */
 }
 
 /* K4 rescales every interval, preserving event positions as fractions of

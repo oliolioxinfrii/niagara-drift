@@ -11,9 +11,7 @@ set 11 75
 set 32 61
 # a new FM-1 plays the Presets; these scenes go in bank A (SEL + G4)
 expect bank 3
-press SEL
-tapkey w8
-release SEL
+bank 0
 expect bank 0
 # scenes switch in ~4 s here (the Scene time at 46; ~15 s on a new FM-1 since 2026-10-25)
 set 71 34

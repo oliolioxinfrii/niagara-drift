@@ -3098,15 +3098,62 @@ static void lk_keymap(void)
     cv_blit(0, LK_VAL_Y);
 }
 
+/* SAVE's bank browser shares the standard palette and three screen bands.
+ * All stored scenes remain in their existing bank objects. */
+static void lk_save_menu(void)
+{
+    const int bank = ui.menu_bank, slot = ui.menu_slot;
+    const int filled = scene_has(bank, slot);
+    const uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
+                                                   (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),
+                            plat_ms() < ui.msg_until ? ui.msg_until : 0u);
+    char key[12];
+    if (ui.sig[0] == h) return;
+    ui.sig[0] = h;
+    scene_name(key, bank, slot);
+    cv_begin(240, LK_BAR_H, LK_BG);
+    cv_text(9, 4, &LK_F_PAGE, "SCENES", LK_WHITE);
+    cv_text(173, 7, &LK_F_TAG, "SAVE", LK_GOLD);
+    cv_blit(0, 0);
+
+    cv_begin(240, LK_PIC_H, LK_BG);
+    cv_rect(8, 4, 224, 1, LK_RULE);
+    cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
+    cv_text(76, 10, &FONT_T20, BANK_N[bank], LK_GOLD);
+    cv_text(12, 45, &LK_F_SMALL, "SLOT", LK_LABEL);
+    cv_text(76, 41, &FONT_N1, key, LK_WHITE);
+    cv_text(12, 82, &LK_F_SMALL, "STATE", LK_LABEL);
+    cv_text(76, 80, &FONT_T20, filled ? "STORED" : "EMPTY", filled ? LK_WHITE : LK_UNLIT);
+    if (plat_ms() < ui.msg_until) {
+        cv_rect(7, 101, 226, 19, LK_BAND);
+        cv_text(10, 103, &LK_F_TAG, ui.msg[0], ui.msg_col ? lk_msg_col(ui.msg_col) : LK_GOLD);
+    }
+    cv_blit(0, LK_PIC_Y);
+
+    cv_begin(240, LK_VAL_H, LK_BG);
+    cv_rect(8, 0, 224, 1, LK_RULE);
+    text_c(60, 8, &FONT_T20, "K2: ACTION", LK_LABEL);
+    text_c(174, 8, &FONT_T20, "K1: SLOT", LK_LABEL);
+    text_c(120, 30, &FONT_N2, ui.menu_load ? "LOAD SCENE" : "SAVE SCENE",
+           !ui.menu_load && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_GOLD);
+    cv_text(11, 63, &FONT_XS, "SELECT: BANK", LK_LABEL);
+    cv_text(11, 75, &FONT_XS, "[SAVE] APPLY   [HOME] BACK", LK_LABEL);
+    cv_blit(0, LK_VAL_Y);
+}
+
 /* a frame of the new look (every page since 0.3's PR H), the key map while SEL is held */
 static void lk_frame(void)
 {
-    static int was = -1;                       /* into or out of the key map: every band afresh */
-    const int km = keymap_on();
+    static int was = -1;                       /* into or out of overlays: every band afresh */
+    const int km = ui.save_menu ? 2 : keymap_on();
     if (km != was) {
         was = km;
         ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         lcd_fill(0, 0, 240, 240, LK_BG);
+    }
+    if (km == 2) {
+        lk_save_menu();
+        return;
     }
     if (km) {
         lk_keymap();

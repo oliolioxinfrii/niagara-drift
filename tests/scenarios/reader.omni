@@ -2,6 +2,7 @@
 # the screen reader (Charles Vestal's fm1-reader, announce.c; issue #87): a reader listens, and the screen, each page,
 # a knob turning, a key hint changing, a banner, PLAY and stop, a Preset tapped and the SEL key map are said
 notips
+legacykeys
 wait 300
 listen
 wait 100

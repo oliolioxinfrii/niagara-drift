@@ -350,7 +350,7 @@ static void vl_atlas(void)
     static const char *const N[5] = {"ATMOSPHERE", "SURFACE", "CRUST", "MANTLE", "DEEP MANTLE"};
     static const char *const B[5] = {"FX", "HOME", "SEQ / ARP", "EDIT / ENV", "LFO"};
     float amt[5];
-    int part, i, k;
+    int part, k;
     amt[0] = fm_clampf(0.15f + 0.85f * fm_maxf(vl_norm(P_DLY_MIX), vl_norm(P_REV_MIX)), 0.15f, 1.0f);
     amt[1] = fm_clampf(0.16f + 0.84f * dr_fade *
                       (vl_norm(DR_GP(0, GP_LEVEL)) + vl_norm(DR_GP(1, GP_LEVEL))) * 0.5f, 0.16f, 1.0f);

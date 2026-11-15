@@ -535,8 +535,11 @@ static int expect(const char *what, const char *val)
         got = ui.menu_load;
     else if (!strcmp(what, "menupct"))
         got = ui.menu_pct;
-    else if (!strncmp(what, "name", 4))
-        got = (unsigned char)project_bank_name(atoi(what + 4))[0];
+    else if (!strncmp(what, "slotname", 8)) {
+        const int bank = what[8] - '0', slot = what[9] - '0';
+        const char *nm = project_slot_name(bank, slot);
+        got = nm ? (unsigned char)nm[0] : 0;
+    }
     else if (!strncmp(what, "seqshape", 8))
         got = sd.shape[atoi(what + 8) & 3];
     else if (!strcmp(what, "bscenes")) {           /* the current bank's slots in use, as a bit mask */

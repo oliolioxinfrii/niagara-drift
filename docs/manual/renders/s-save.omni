@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # A recipe's steps, checked (tools/make_manual.py --renders; nothing to see or hear: the expects are the point): from P10, headphones, Pitch lock off, Scene time about 2 s.
 notips
+legacykeys
 phones 1
 set 74 0
 set 71 27

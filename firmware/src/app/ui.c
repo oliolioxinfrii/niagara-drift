@@ -124,6 +124,9 @@ static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
 static const uint8_t WHITE_K[NWHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const char BANK_L[NBANKS] = {'A', 'B', 'C', 'P', 'D', 'E', 'F', 'P'};
 static const char *const BANK_N[NBANKS] = {"A", "B", "C", "PRESETS 1-8", "D", "E", "F", "PRESETS 9-16"};
+/* Browse user banks together, followed by the two immutable Preset banks.
+ * Storage IDs remain unchanged for saved projects and scene recalls. */
+static const uint8_t BANK_ORDER[NBANKS] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
 static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL",
                                                "STUTTER"};   /* D5-G5, then G4-C5: fixed */
 enum { S_NONE, S_PARTNER, S_SUBOCT, S_HP, S_OTAP, S_ODEST, S_FTAP, S_FDEST, S_PLINK, S_SYNC, S_XMOD, S_LFORESET, S_DTAP,
@@ -1640,7 +1643,9 @@ static void button(int b)                              /* the other buttons, on 
             scene_undo();
         } else {
             ui.save_menu = 1;
-            ui.menu_bank = proj.bank;
+            ui.menu_bank = 0;
+            while (ui.menu_bank < NBANKS - 1 && BANK_ORDER[ui.menu_bank] != proj.bank)
+                ui.menu_bank++;
             ui.menu_slot = ui.scene_at < 0 ? 0 : (uint8_t)ui.scene_at;
             ui.menu_load = 0;
             ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
@@ -2071,7 +2076,7 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
     if (released >> B_HOME & 1u) {
         ui.save_menu = 0;
     } else if (released >> B_SAVE & 1u) {
-        const int bank = ui.menu_bank, slot = ui.menu_slot;
+        const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
         if (ui.menu_load == 3) {
             save_ask(-1);
             ui.save_menu = 0;

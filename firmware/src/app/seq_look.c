@@ -103,6 +103,37 @@ static uint32_t sd_curve_node_ms(int g, int pos, uint32_t len)
     const uint32_t offset = g && !sd_linked() ? len * (uint32_t)sd.phase / 100u : 0u;
     return (at + len - offset) % len;
 }
+/* Each segment's transition is drawn from its actual interpolation function.
+ * The horizontal axis is the fractional time within a single interval. */
+static void lk_pic_seq_shape(void)
+{
+    int i, g, j;
+    const int32_t x0 = 12, width = 216, y0 = 18, slot_h = 23;
+    char t[16];
+    cv_text(9, 1, &FONT_XS, "TRANSITION CURVES", LK_LABEL);
+    for (i = 0; i < SD_MAX; i++) {
+        const int active = sd.count > 1 && i < sd.count;
+        const uint16_t c = active ? LK_DRONE[i & 1] : LK_UNLIT;
+        const int32_t y = y0 + slot_h * i;
+        int16_t yy[37];
+        itoa_u((uint32_t)i + 1u, t);
+        cv_text(2, y + 5, &FONT_XS, t, c);
+        cv_rect(x0 + 16, y + 15, width - 25, 1, LK_RULE);
+        if (!active) continue;
+        for (j = 0; j < 37; j++) {
+            const float x = (float)j / 36.0f;
+            yy[j] = (int16_t)(y + 17 - (int32_t)(sd_interp(i, x) * 14.0f + 0.5f));
+        }
+        for (j = 1; j < 37; j++)
+            cv_line(x0 + 16 + (width - 25) * (j - 1) / 36, yy[j - 1],
+                    x0 + 16 + (width - 25) * j / 36, yy[j], c);
+        for (g = 0; g < 2; g++)
+            cv_round(x0 + 15 + (width - 25) * g, y + 14 - 14 * g, 3, 3, 1, LK_WHITE);
+    }
+    cv_text(20, 108, &FONT_XS, "LATE", LK_LABEL);
+    cv_text(95, 108, &FONT_XS, "SINE", LK_LABEL);
+    cv_text(178, 108, &FONT_XS, "EARLY", LK_LABEL);
+}
 static void lk_pic_sequence(int timing)
 {
     const int32_t x0 = 38, width = 187;
@@ -200,12 +231,13 @@ static void lk_pic_sequence(int timing)
  * controls are visibly empty and cannot affect the sequence. */
 static void lk_values_sequence(void)
 {
-    const int timing = ui.view == V_SEQ_TIME;
+    const int timing = ui.view == V_SEQ_TIME, shaping = ui.view == V_SEQ_SHAPE;
     uint32_t h = hash(2166136261u, ui.view | (uint32_t)sd.count << 8 | (uint32_t)sd.position << 12 |
                                  (uint32_t)sd.drone << 16 | (uint32_t)sd.phase << 18 |
                                  (uint32_t)sd.enabled << 26);
     int i;
     for (i = 0; i < 4; i++) {
+        h = hash(h, (uint32_t)(uint8_t)sd.shape[i] | (uint32_t)sd.gap_s[i] << 8);
         h = hash(h, (uint32_t)sd.gap_s[i] | ((uint32_t)(uint16_t)sd.note[0][i] << 16));
         h = hash(h, (uint32_t)(uint16_t)sd.note[1][i] | (uint32_t)lit(i) << 20);
     }
@@ -217,11 +249,12 @@ static void lk_values_sequence(void)
     cv_rect(8, 0, 224, 1, LK_RULE);
     for (i = 0; i < 4; i++) {
         const int32_t cx = 36 + 56 * i;
-        const int active = !timing ? !(sd_linked() && (i == 1 || i == 3)) :
+        const int active = shaping ? (sd.count > 1 && i < sd.count) : !timing ? !(sd_linked() && (i == 1 || i == 3)) :
                            (sd.count > 1 && (i == 3 || i + 1 < sd.count));
         const uint16_t col = !active ? LK_UNLIT : lit(i) ? LK_WHITE :
                              !timing && i == 1 ? LK_DRONE[sd.drone] : LK_NEUTRAL;
-        const char *name = timing ? (i == 0 ? "Node 2" : i == 1 ? "Node 3" : i == 2 ? "Node 4" : "Loop") :
+        const char *name = shaping ? (i == 0 ? "1 to 2" : i == 1 ? "2 to 3" : i == 2 ? "3 to 4" : "4 to 1") :
+                           timing ? (i == 0 ? "Node 2" : i == 1 ? "Node 3" : i == 2 ? "Node 4" : "Loop") :
                            (i == 0 ? (ui.btn >> B_SEL & 1u ? "Pitch" : "Position") :
                             i == 1 ? "Drone" : i == 2 ? "Steps" : "Phase");
         char value[20];
@@ -232,6 +265,18 @@ static void lk_values_sequence(void)
         text_c(cx, 8, &FONT_T20, name, col);
         if (!active) {
             scopy(value, !timing && i == 1 && sd_linked() ? "LINK" : "--");
+        } else if (shaping) {
+            if (sd.shape[i] == -100) scopy(value, "Late");
+            else if (sd.shape[i] == 100) scopy(value, "Early");
+            else if (!sd.shape[i]) scopy(value, "Sine");
+            else {
+                char *q;
+                if (sd.shape[i] > 0) value[0] = '+';
+                itoa_u((uint32_t)(sd.shape[i] < 0 ? -sd.shape[i] : sd.shape[i]), value + (sd.shape[i] > 0));
+                q = value;
+                while (*q) q++;
+                scopy(q, "%");
+            }
         } else if (timing) {
             char *q;
             const uint32_t t = i == 3 ? sd_total_s() : sd_node_s(i + 1);
@@ -262,7 +307,9 @@ static void lk_values_sequence(void)
         }
         text_c(cx, 39, text_w(&FONT_N1, value) <= 52 ? &FONT_N1 : &FONT_N2,
                value, active ? LK_WHITE : LK_UNLIT);
-        if (active && timing) {
+        if (active && shaping) {
+            lk_dotrow(cx, 72, (float)(sd.shape[i] + 100) / 200.0f, LK_RAMP[0][0], LK_RAMP[0][1], 0, 0);
+        } else if (active && timing) {
             const uint32_t total = sd_total_s();
             const uint32_t value = i == 3 ? total : sd_node_s(i + 1);
             const uint32_t scale = i == 3 ? SD_LIMIT_S : total;

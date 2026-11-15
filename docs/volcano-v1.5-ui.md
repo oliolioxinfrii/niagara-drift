@@ -30,14 +30,14 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 
 | Button | Existing views | New graphical treatment |
 | --- | --- | --- |
-| HOME | Drones, Pitch | Fixed-dimness volcanic strata; Drone I drives lava up and down the left flank, Drone II level increases smoke; two seismic channels show level as amplitude and cutoff as active width. Pitch uses the original Niagara filter-curve display, recolored |
+| HOME | Drones, Pitch | Fixed-dimness volcanic strata; Drone I drives lava up and down the left flank, Drone II level increases smoke; two seismic channels combine live scope samples with the current filter transfer function, making cutoff, mode and resonance visible without repeated fake pulses. Pitch shows Niagara's oscilloscopic history by default and filter-response strands while Reso is adjusted |
 | ENV | Life, Tone | Volcano/plume observatory; separate per-drone ash/particulate fans |
 | EDIT | Osc, Sub · Drive | Native Niagara-style waveform bundles, morphed oscillator shapes, subharmonic blend and drive response; updated source hues, header and thermal meters |
 | LFO | Waves, Sends, Mods | Existing informative wave/route diagrams, recolored in the Deep Mantle family |
-| SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained |
+| SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained. Random Start now randomizes all active transition shapes, including the loop back to step 1 |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
 | FX | Space, Details | Cyan seismographic arrivals and reverberant coda; continuous 50/50 linear–square-root display gain avoids the former discontinuity at zero and retains more value differentiation; icy-white value ramps |
-| GLO | Setup 1, Setup 2 | Planetary cross-section with tuning ticks, a Tune-responsive A marker and stereo spacing; the built-in speaker switch is Setup 2 KNOB 4 (no third GLO page) |
+| GLO | Setup 1, Setup 2 | Setup 1 overlays red Fade, orange Morph and yellow Scene transition curves against fixed independent maximum-time axes. Setup 2 has the planetary tuning cross-section, A marker, stereo spacing and the built-in speaker switch on KNOB 4 |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
 
 ## Control behavior
@@ -47,7 +47,9 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 - A factory preset selection or transition clears any previously authored
   RAM-only multistep sequence; user scenes retain their existing behavior.
 - The global LFO rate, movement and gesture-time readouts use value-dependent
-  dark-red-to-yellow halos and a matching gradient ruler around white text.
+  dark-red-to-yellow halos and a matching gradient ruler around white text. The
+  halo's interpolation stays in 24-bit RGB until it is converted to RGB565, so
+  intermediate values no longer acquire a spurious green tint.
 - The splash screen has a black sky above the separately layered mineral ground.
 
 ## ENV visual mappings
@@ -92,7 +94,10 @@ independent of brightness.
   intensity meters.
 - `firmware/src/app/ui.c`: black-sky layered VOLCANO wake, neutral pressure
   response, Speaker on Setup 2 KNOB 4 and one-step factory preset recalls.
-- `tests/scenarios/volcano-ui.omni`: host screenshot smoke scenario.
+- `tests/scenarios/volcano-ui.omni`: host screenshot smoke scenario, including
+  Pitch scopes, touched-resonance filter curves and Setup time overlays.
+- `tests/scenarios/sequence-random.omni`: confirms non-sine randomized
+  interpolations and captures the transition curves.
 - `tests/scenarios/volcano-presets.omni`: factory-preset one-step sequence regression.
 
 ## Emulator review
@@ -109,7 +114,8 @@ python3 -m http.server 8766 --directory build/emu
 The test runner writes the new gallery of screenshots to
 `build/scenarios/volcano-ui/`, including
 `geological-atlas.png`, `orbit-memory.png`, `life.png`,
-`tone.png`, `surface.png`, and `atmosphere.png`.
+`tone.png`, `surface.png`, `pitch-scope.png`, `pitch-resonance.png`,
+`setup-time-overlay.png`, and `atmosphere.png`.
 
 ## Review questions
 

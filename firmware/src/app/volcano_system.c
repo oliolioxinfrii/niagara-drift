@@ -105,7 +105,7 @@ static void vl_save_menu(void)
     if (ui.save_menu == 1) {
         vs_orbit_figure(slot, filled, name);
     } else if (ui.save_menu == 2) {
-        /* The cursor never leaves the ten supported character positions. */
+        /* The cursor stays inside the fixed-size slot-name buffer. */
         cv_text(12, 9, &FONT_XS, "RENAME RECORDED STATE", LK_LABEL);
         cv_rect(9, 25, 222, 1, LK_RULE);
         for (i = 0; i < BANK_NAME_LEN - 1; i++) {
@@ -148,14 +148,14 @@ static void vl_save_menu(void)
             cv_rect(cx[i] - 22, 70, i == 3 ? (int)(44.0f * (float)ui.menu_pct * 0.01f) :
                     (i == 2 ? 15 : 7), 2, VL_SURFACE);
         }
-        cv_text(10, 79, &FONT_XS, "SAVE: YES / HOME: BACK", LK_LABEL);
+        cv_text(10, 75, &FONT_U2, "SAVE: YES / HOME: BACK", LK_LABEL);
     } else if (ui.save_menu == 3) {
         text_c(120, 14, &FONT_XS, "EXISTING SCENE WILL BE LOST", LK_LABEL);
         text_c(64, 41, &FONT_T20, "SAVE: YES", VL_SURFACE);
         text_c(177, 41, &FONT_T20, "HOME: BACK", LK_WHITE);
     } else {
         text_c(120, 13, &FONT_T20, "A-Z   0-9   -   SPACE", LK_LABEL);
-        text_c(120, 45, &FONT_XS, "10 CHARACTERS", LK_LABEL);
+        text_c(120, 45, &FONT_XS, "11 CHARACTERS MAX", LK_LABEL);
     }
     cv_blit(0, LK_VAL_Y);
 }
@@ -229,14 +229,14 @@ static void vl_atlas(void)
             const int y = 38 + row * 31;
             cv_rect(127, y - y0, 4, 25, vg_dim(color[row], a[row]));
             cv_text(138, y - y0, &FONT_XS, name[row], LK_WHITE);
-            cv_text(142, y + 15 - y0, &FONT_XS, btn[row], LK_LABEL);
+            cv_text(142, y + 16 - y0, &FONT_U2, btn[row], LK_LABEL);
             if (row < 4)
-                cv_rect(138, y + 28 - y0, 94, 1, LK_RULE);
+                cv_rect(138, y + 30 - y0, 94, 1, LK_RULE);
         }
         cv_rect(8, 201 - y0, 224, 1, LK_RULE);
         cv_text(9, 208 - y0, &FONT_XS, "ORBIT / SAVE", VL_SURFACE);
         cv_text(135, 208 - y0, &FONT_XS, "PLANET / GLO", LK_WHITE);
-        cv_text(9, 226 - y0, &FONT_XS, "RELEASE HOME TO RETURN", LK_LABEL);
+        cv_text(9, 223 - y0, &FONT_XS, "RELEASE HOME TO RETURN", LK_LABEL);
         cv_blit(0, (uint32_t)y0);
     }
 }

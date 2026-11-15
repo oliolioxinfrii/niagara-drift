@@ -55,12 +55,22 @@ spin K2 4
 spin K3 -2
 wait 250
 shot seq-timing-four.png
-# SEL+PLAY starts/restarts the progression without randomizing the patch.
+# SEL+PLAY starts, pauses, then resumes the progression.
 press SEL
 tap PLAY
 release SEL
 wait 1400
 shot seq-timing-running.png
+press SEL
+tap PLAY
+release SEL
+wait 1400
+shot seq-timing-paused.png
+press SEL
+tap PLAY
+release SEL
+wait 1400
+shot seq-timing-resumed.png
 # Plain PLAY stops. SEL+HOME remains the existing random-start.
 tap PLAY
 tap HOME

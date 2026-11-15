@@ -173,7 +173,7 @@ static struct {
                                         * autosave, N scene N */
     uint32_t save_t;                   /* ... asked then */
     uint8_t save_menu;                /* modal bank / slot save and recall */
-    uint8_t menu_bank, menu_slot, menu_load;
+    uint8_t menu_bank, menu_slot, menu_load;  /* action: save, load, select bank */
     uint8_t page_last[8];              /* each page button's page last shown (0: its first): opened again there */
     uint32_t sel_t;                    /* when SEL went down (held 0.4 s: the black keys' map) */
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
@@ -1188,7 +1188,7 @@ static void save_run(void)                             /* each look at the input
 static void scene_store(int n)                         /* SAVE held + a white key: and into the flash */
 {
     if (BANK_IS_PRESETS(proj.bank)) {                  /* the Presets stay as they are (Evan, 2026-10-19) */
-        say_c("PRESETS ARE FIXED", "[SEL]+[G4]-[G5]: BANK", K_GOLD);
+        say_c("PRESETS ARE FIXED", "[SAVE]: SELECT BANK", K_GOLD);
         return;
     }
     scene_put(proj.bank, n);
@@ -2064,7 +2064,11 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
         if (n < 0) n += NPLAY;
         ui.menu_slot = (uint8_t)n;
     }
-    if ((step = plat_enc(EN_K2)) != 0) ui.menu_load = (uint8_t)(step > 0);
+    if ((step = plat_enc(EN_K2)) != 0) {
+        int action = ((int)ui.menu_load + (int)step) % 3;
+        if (action < 0) action += 3;
+        ui.menu_load = (uint8_t)action;
+    }
     for (i = 0; i < NE; i++)
         if (i != EN_SELECT && i != EN_K1 && i != EN_K2)
             plat_enc((int)i);
@@ -2072,16 +2076,16 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
         ui.save_menu = 0;
     } else if (released >> B_SAVE & 1u) {
         const int bank = ui.menu_bank, slot = ui.menu_slot;
-        if (ui.menu_load && !scene_has(bank, slot)) {
+        if (ui.menu_load == 1 && !scene_has(bank, slot)) {
             say("EMPTY SLOT", "CHOOSE ANOTHER");
-        } else if (!ui.menu_load && BANK_IS_PRESETS(bank)) {
+        } else if (ui.menu_load == 0 && BANK_IS_PRESETS(bank)) {
             say("PRESETS ARE FIXED", "SELECT BANK A-F");
         } else {
             proj.bank = (uint8_t)bank;
             mark_dirty();
-            if (ui.menu_load)
+            if (ui.menu_load == 1)
                 scene_recall(slot, 1);
-            else
+            else if (ui.menu_load == 0)
                 scene_store(slot);
             ui.save_menu = 0;
         }

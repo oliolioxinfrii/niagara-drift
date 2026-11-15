@@ -16,6 +16,8 @@ static struct {
     uint8_t preview_sounded;             /* audition temporarily started PLAY's audio */
     uint8_t preview_active;              /* audible preview replaced the normal pitch */
     uint8_t link_was;
+    uint8_t lock_was;
+    int16_t lock_offset;                  /* Pitch Lock without Pitch Link: retain initial interval */
 } sd;
 
 static uint32_t sd_total_s(void)
@@ -33,11 +35,15 @@ static uint32_t sd_node_s(int pos)       /* elapsed seconds from step 1 */
     for (i = 0; i < pos && i < sd.count; i++) sum += sd.gap_s[i];
     return sum;
 }
-static int sd_linked(void) { return proj.par[P_PLINK] != 0; }
+static int sd_linked(void) { return proj.par[P_PLINK] != 0 || proj.par[P_PLOCK] != 0; }
+static int sd_offset(void)
+{
+    return proj.par[P_PLINK] ? proj.par[P_PLINK_OFF] : sd.lock_offset;
+}
 static int sd_pitch(int g, int pos)
 {
     if (g && sd_linked())
-        return sd.note[0][pos] + proj.par[P_PLINK_OFF];
+        return sd.note[0][pos] + sd_offset();
     return sd.note[g][pos];
 }
 
@@ -49,8 +55,12 @@ static void sd_reset_clock(void)
 }
 static void sd_sync_home(void)
 {
-    const int link = sd_linked(), offset = proj.par[P_PLINK_OFF];
-    int i;
+    int link, offset, i;
+    if (proj.par[P_PLOCK] && !sd.lock_was)
+        sd.lock_offset = (int16_t)(proj.par[DR_GP(1, GP_PITCH)] - proj.par[DR_GP(0, GP_PITCH)]);
+    sd.lock_was = (uint8_t)(proj.par[P_PLOCK] != 0);
+    link = sd_linked();
+    offset = sd_offset();
     sd.note[0][0] = proj.par[DR_GP(0, GP_PITCH)];
     sd.note[1][0] = link ? (int16_t)(sd.note[0][0] + offset) : proj.par[DR_GP(1, GP_PITCH)];
     if (link)
@@ -121,7 +131,7 @@ static int sd_at(int g, uint32_t elapsed_ms)
             const float x = (float)t / (float)gap;
             const float smooth = x * x * (3.0f - 2.0f * x);
             const float v = (float)a + (float)(b - a) * smooth +
-                            (g && sd_linked() ? (float)proj.par[P_PLINK_OFF] : 0.0f);
+                            (g && sd_linked() ? (float)sd_offset() : 0.0f);
             return (int)(v + (v >= 0.0f ? 0.5f : -0.5f));
         }
         t -= gap;
@@ -143,7 +153,7 @@ static void sd_note_set(int pos, int g, int cents)
     } else {
         sd.note[g][pos] = (int16_t)cents;
         if (sd_linked())
-            sd.note[1][pos] = (int16_t)(cents + proj.par[P_PLINK_OFF]);
+            sd.note[1][pos] = (int16_t)(cents + sd_offset());
     }
 }
 static int sd_key_cents(int key)

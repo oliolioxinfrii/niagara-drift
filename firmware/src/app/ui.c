@@ -171,8 +171,11 @@ static struct {
     int8_t save_q;                     /* a save waiting for the dip (something heard): -2 none, -1 the sound, -3 the
                                         * autosave, N scene N */
     uint32_t save_t;                   /* ... asked then */
-    uint8_t save_menu;                /* modal bank / slot save and recall */
-    uint8_t menu_bank, menu_slot, menu_load;  /* action: save scene, load scene, select bank, save sound */
+    uint8_t save_menu;                /* 0 off, 1 scene browser, 2 bank-name popup */
+    uint8_t menu_bank, menu_slot, menu_load; /* 0 save, 1 load, 2 transition */
+    uint8_t menu_pct;                /* final blend percentage for Transition */
+    uint8_t name_pos;                /* character currently edited in the popup */
+    char name_draft[BANK_NAME_LEN];
     uint8_t page_last[8];              /* each page button's page last shown (0: its first): opened again there */
     uint32_t sel_t;                    /* when SEL went down (held 0.4 s: the black keys' map) */
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
@@ -1648,6 +1651,7 @@ static void button(int b)                              /* the other buttons, on 
                 ui.menu_bank++;
             ui.menu_slot = ui.scene_at < 0 ? 0 : (uint8_t)ui.scene_at;
             ui.menu_load = 0;
+            ui.menu_pct = 100;
             ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         }
         break;
@@ -2043,8 +2047,88 @@ static int rq_input(uint32_t btn)                      /* asking: SEL or HOME an
     return 1;
 }
 
-/* A modal browser controls the existing scene banks. No additional flash
- * format or slot copies are needed; SAVE commits the selected action. */
+/* SAVE browser: the same bank/slot storage as before, but no keypad shortcuts.
+ * All actions require SAVE to commit; HOME always returns or closes.
+ * REC opens the bank-name popup (never on the factory Presets). */
+#define MENU_TRANSITION 100              /* distinct from a scene number and VISIT_BACK */
+static const char BANK_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
+static void menu_name_begin(void)
+{
+    const int bank = BANK_ORDER[ui.menu_bank];
+    const char *name = project_bank_name(bank);
+    int i;
+    if (BANK_IS_PRESETS(bank)) {
+        say("FACTORY PRESET", "NAME IS FIXED");
+        return;
+    }
+    for (i = 0; i < BANK_NAME_LEN - 1; i++)
+        ui.name_draft[i] = ' ';
+    ui.name_draft[BANK_NAME_LEN - 1] = 0;
+    for (i = 0; i < BANK_NAME_LEN - 1 && name[i]; i++)
+        ui.name_draft[i] = name[i];
+    ui.name_pos = 0;
+    ui.save_menu = 2;
+}
+static void menu_name_input(uint32_t released)
+{
+    int32_t step;
+    uint32_t i;
+    if ((step = plat_enc(EN_K1)) != 0) {
+        int n = ((int)ui.name_pos + (int)step) % (BANK_NAME_LEN - 1);
+        if (n < 0) n += BANK_NAME_LEN - 1;
+        ui.name_pos = (uint8_t)n;
+    }
+    if ((step = plat_enc(EN_K2)) != 0) {
+        const int choices = (int)(sizeof BANK_CHARS - 1);
+        int at, next;
+        for (at = 0; at < choices && BANK_CHARS[at] != ui.name_draft[ui.name_pos]; at++) {}
+        if (at >= choices) at = 0;
+        next = (at + (int)(step % choices) + choices) % choices;
+        ui.name_draft[ui.name_pos] = BANK_CHARS[next];
+    }
+    for (i = 0; i < NE; i++)
+        if (i != EN_K1 && i != EN_K2) (void)plat_enc((int)i);
+    if (released >> B_HOME & 1u)
+        ui.save_menu = 1;
+    else if (released >> B_SAVE & 1u) {
+        int bank = BANK_ORDER[ui.menu_bank];
+        int end = BANK_NAME_LEN - 1;
+        while (end > 0 && ui.name_draft[end - 1] == ' ')
+            ui.name_draft[--end] = 0;
+        if (project_bank_rename(bank, ui.name_draft) == 0) {
+            mark_dirty();
+            save_ask(-1);              /* names persist through existing ducked flash path */
+            ui.save_menu = 1;
+        }
+    }
+}
+static void menu_start_transition(int bank, int slot)
+{
+    const int16_t *target = scene_get(bank, slot);
+    int i;
+    if (!target) {
+        say("EMPTY TARGET", "SELECT A SOUND");
+        return;
+    }
+    if (!ui.menu_pct) {
+        say("TRANSITION 0%", "SOUND UNCHANGED");
+        ui.save_menu = 0;
+        return;
+    }
+    undo_keep();
+    for (i = 0; i < DR_NPARAMS; i++) {
+        ui.morph_from[i] = proj.par[i];
+        ui.morph_to[i] = target[i];
+    }
+    hands_clear();
+    ui.press = ui.visit = -1;
+    ui.scene_at = -1;
+    ui.morph = MENU_TRANSITION;
+    ui.morph_t0 = plat_ms();
+    ui.morph_ms = (uint32_t)(scene_s() * 1000.0f);
+    ui.save_menu = 0;
+    say("TRANSITION", "TARGET SET");
+}
 static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
 {
     int32_t step;
@@ -2055,43 +2139,51 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
         if (keyup >> WHITE_K[i] & 1u)
             gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
     ui.keys = keys;
-    if ((step = plat_enc(EN_SELECT)) != 0) {
-        int b = ((int)ui.menu_bank + (int)step) % NBANKS;
-        if (b < 0) b += NBANKS;
-        ui.menu_bank = (uint8_t)b;
-    }
-    if ((step = plat_enc(EN_K1)) != 0) {
-        int n = ((int)ui.menu_slot + (int)step) % NPLAY;
-        if (n < 0) n += NPLAY;
-        ui.menu_slot = (uint8_t)n;
-    }
-    if ((step = plat_enc(EN_K2)) != 0) {
-        int action = ((int)ui.menu_load + (int)step) % 4;
-        if (action < 0) action += 4;
-        ui.menu_load = (uint8_t)action;
-    }
-    for (i = 0; i < NE; i++)
-        if (i != EN_SELECT && i != EN_K1 && i != EN_K2)
-            plat_enc((int)i);
-    if (released >> B_HOME & 1u) {
-        ui.save_menu = 0;
-    } else if (released >> B_SAVE & 1u) {
-        const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
-        if (ui.menu_load == 3) {
-            save_ask(-1);
+    if (ui.save_menu == 2) {
+        menu_name_input(released);
+    } else {
+        if ((step = plat_enc(EN_K1)) != 0) {
+            int b = ((int)ui.menu_bank + (int)(step % NBANKS)) % NBANKS;
+            if (b < 0) b += NBANKS;
+            ui.menu_bank = (uint8_t)b;
+        }
+        if ((step = plat_enc(EN_K2)) != 0) {
+            int n = ((int)ui.menu_slot + (int)(step % NPLAY)) % NPLAY;
+            if (n < 0) n += NPLAY;
+            ui.menu_slot = (uint8_t)n;
+        }
+        if ((step = plat_enc(EN_K3)) != 0) {
+            int action = ((int)ui.menu_load + (int)(step % 3)) % 3;
+            if (action < 0) action += 3;
+            ui.menu_load = (uint8_t)action;
+        }
+        if ((step = plat_enc(EN_K4)) != 0) {
+            int n = (int)ui.menu_pct + (int)accel(EN_K4, step, 100);
+            ui.menu_pct = (uint8_t)(n < 0 ? 0 : n > 100 ? 100 : n);
+        }
+        for (i = 0; i < NE; i++)
+            if (i < EN_K1 || i > EN_K4) (void)plat_enc((int)i);
+        if (released >> B_HOME & 1u) {
             ui.save_menu = 0;
-        } else if (ui.menu_load == 1 && !scene_has(bank, slot)) {
-            say("EMPTY SLOT", "CHOOSE ANOTHER");
-        } else if (ui.menu_load == 0 && BANK_IS_PRESETS(bank)) {
-            say("PRESETS ARE FIXED", "SELECT BANK A-F");
-        } else {
-            proj.bank = (uint8_t)bank;
-            mark_dirty();
-            if (ui.menu_load == 1)
-                scene_recall(slot, 1);
-            else if (ui.menu_load == 0)
-                scene_store(slot);
-            ui.save_menu = 0;
+        } else if (released >> B_REC & 1u) {
+            menu_name_begin();
+        } else if (released >> B_SAVE & 1u) {
+            const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+            if (ui.menu_load && !scene_has(bank, slot)) {
+                say("EMPTY SLOT", "CHOOSE ANOTHER");
+            } else if (ui.menu_load == 0 && BANK_IS_PRESETS(bank)) {
+                say("PRESETS ARE FIXED", "SELECT BANK A-F");
+            } else if (ui.menu_load == 2) {
+                menu_start_transition(bank, slot);
+            } else {
+                proj.bank = (uint8_t)bank;
+                mark_dirty();
+                if (ui.menu_load == 1)
+                    scene_recall(slot, 1);
+                else
+                    scene_store(slot);
+                ui.save_menu = 0;
+            }
         }
     }
     loop_run();

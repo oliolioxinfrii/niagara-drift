@@ -526,6 +526,12 @@ static int expect(const char *what, const char *val)
         got = proj.scene_used;
     else if (!strcmp(what, "bank"))                /* the bank the scene keys play: 0 A, 1 B, 2 C, 3 Presets */
         got = proj.bank;
+    else if (!strcmp(what, "savemenu"))
+        got = ui.save_menu;
+    else if (!strcmp(what, "menuaction"))
+        got = ui.menu_load;
+    else if (!strncmp(what, "seqshape", 8))
+        got = sd.shape[atoi(what + 8) & 3];
     else if (!strcmp(what, "bscenes")) {           /* the current bank's slots in use, as a bit mask */
         int n;
         got = 0;
@@ -721,6 +727,18 @@ int main(int argc, char **argv)
                 enc_acc[e] += s;
                 run_ms(gap);
             }
+        } else if (!strcmp(cmd, "bank")) {
+            /* Fixture setup for scenes; the SAVE menu itself has separate
+             * interaction tests. The selected bank persists with the project. */
+            int b = atoi(a);
+            if (b < 0 || b >= NBANKS) {
+                printf("line %d: invalid bank %d\n", lineno, b);
+                return 2;
+            }
+            proj.bank = (uint8_t)b;
+            ui.scene_at = -1;
+            mark_dirty();
+            run_ms(2);
         } else if (!strcmp(cmd, "page")) {          /* page V: page V at once, in no time (the pages moved in v0.3:
                                                     * the scripts kept their timing, sample for sample) */
             set_view(atoi(a));

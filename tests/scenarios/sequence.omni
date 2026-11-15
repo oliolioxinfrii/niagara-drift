@@ -1,4 +1,5 @@
-# Experimental long-form sequence: new SEQ pages preserve Partner and Pitch Moves.
+# Experimental SEQ 3/4: keyboard note entry, linked drone pitches and
+# unequal event timing. Screenshots are for emulator review.
 notips
 tap PLAY
 tap SEQ
@@ -7,44 +8,60 @@ tap SEQ
 expect view 10
 tap SEQ
 expect view 18
-# 1 step: all timing gaps inert
+# Step 1 is the Home Pitch note. The timeline must fill the picture at N=1.
+wait 250
+shot seq-single.png
+# Add step 2 and enter a note with the physical keyboard.
+spin K3 1
+spin K1 1
+tapkey b5
+wait 300
+shot seq-two.png
+# SEL+K1 moves the note along the current tuning.
+press SEL
+spin K1 2
+release SEL
+spin K2 1
+tapkey w5
+# Edit a third and fourth step using the keyboard.
+spin K3 2
+spin K1 1
+tapkey b7
+spin K1 1
+tapkey w9
+wait 250
+shot seq-four.png
+# Return to two steps, then edit Node 2 and the overall loop endpoint.
+spin K3 -2
 tap SEQ
 expect view 19
-spin K1 40
-spin K2 30
-spin K3 20
-spin K4 10
-# Add a second event and tune a new note on each drone
+spin K1 5
+spin K2 20
+spin K3 30
+spin K4 20
+wait 250
+shot seq-timing-two.png
+# Add nodes back, demonstrate independent placements.
 tap SEQ
 expect view 9
 tap SEQ
 expect view 10
 tap SEQ
 expect view 18
-spin K3 1
-spin K1 1
-press SEL
-spin K2 4
-release SEL
-spin K2 1
-press SEL
-spin K2 -3
-release SEL
-wait 300
-shot sequence.png
-# Unequal time: 150 seconds forward and 90 seconds back, total 240s.
+spin K3 2
 tap SEQ
 expect view 19
-spin K1 140
-spin K2 80
-wait 300
-shot intervals.png
-# Play sequence by SEL + SEQ, then disable from any SEQ page.
+spin K2 4
+spin K3 -2
+wait 250
+shot seq-timing-four.png
+# SEL+PLAY starts/restarts the progression without randomizing the patch.
 press SEL
-tap SEQ
+tap PLAY
 release SEL
-wait 1000
-shot intervals-running.png
-press SEL
-tap SEQ
-release SEL
+wait 1400
+shot seq-timing-running.png
+# Plain PLAY stops. SEL+HOME remains the existing random-start.
+tap PLAY
+tap HOME
+expect view 0

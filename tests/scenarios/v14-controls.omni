@@ -31,9 +31,11 @@ expect savemenu 0
 expect bank 0
 expect scenes 1
 
-# Factory Presets are always valid LOAD targets.
+# Factory Presets cannot be overwritten, but they remain valid LOAD targets.
 tap SAVE
 spin K1 -2
+tap SAVE
+expect savemenu 1
 spin K3 1
 expect menuaction 1
 tap SAVE
@@ -100,6 +102,7 @@ expect seqshape0 -100
 expect seqshape1 100
 expect seqshape2 50
 expect seqshape3 -50
+shot seq-shape-edges.png
 page 18
 spin K3 -2
 page 20

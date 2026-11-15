@@ -1,0 +1,50 @@
+# Experimental long-form sequence: new SEQ pages preserve Partner and Pitch Moves.
+notips
+tap PLAY
+tap SEQ
+expect view 9
+tap SEQ
+expect view 10
+tap SEQ
+expect view 18
+# 1 step: all timing gaps inert
+tap SEQ
+expect view 19
+spin K1 40
+spin K2 30
+spin K3 20
+spin K4 10
+# Add a second event and tune a new note on each drone
+tap SEQ
+expect view 9
+tap SEQ
+expect view 10
+tap SEQ
+expect view 18
+spin K3 1
+spin K1 1
+press SEL
+spin K2 4
+release SEL
+spin K2 1
+press SEL
+spin K2 -3
+release SEL
+wait 300
+shot sequence.png
+# Unequal time: 150 seconds forward and 90 seconds back, total 240s.
+tap SEQ
+expect view 19
+spin K1 140
+spin K2 80
+wait 300
+shot intervals.png
+# Play sequence by SEL + SEQ, then disable from any SEQ page.
+press SEL
+tap SEQ
+release SEL
+wait 1000
+shot intervals-running.png
+press SEL
+tap SEQ
+release SEL

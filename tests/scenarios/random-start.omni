@@ -1,4 +1,5 @@
-# Random start is SEL+PLAY, independently of ordinary PLAY and drone mute.
+# Random Start is SEL+HOME, independent of PLAY and drone mute.
+# SEL+PLAY controls progression play/pause without randomizing the sound.
 # The parameter format remains unchanged; no scene slot is overwritten.
 notips
 set 71 0
@@ -21,7 +22,7 @@ tap PLAY
 expect playing 0
 # Randomization is immediate on the combined press.
 press SEL
-tap PLAY
+tap HOME
 release SEL
 expect playing 0
 expect dirty 1
@@ -53,16 +54,40 @@ expect par8 250
 expect par18 0
 expect par39 0
 expect playing 0
-# SEL+PLAY also works while playing and does not toggle the play state.
+# SEL+HOME also works while playing without toggling global audio.
 tap PLAY
 expect playing 1
 press SEL
-tap PLAY
+tap HOME
 release SEL
 expect playing 1
 expect scene_at -1
 expect par7 >249
 expect par8 >99
+
+# SEL+PLAY controls progression transport but leaves the randomized sound
+# and its programmed step count, notes and timings untouched.
+seqsnap
+press SEL
+tap PLAY
+release SEL
+expect playing 1
+expect seqstate 1
+expect seqcountchanged 0
+expect seqtimechanged 0
+expect seqnoteschanged 0
+expect seqgapschanged 0
+press SEL
+tap PLAY
+release SEL
+expect playing 1
+expect seqstate 2
+press SEL
+tap PLAY
+release SEL
+expect playing 1
+expect seqstate 1
+
 # The drone II fade is still SEL+OCT+, not SEL+PLAY.
 press SEL
 tap OCT+

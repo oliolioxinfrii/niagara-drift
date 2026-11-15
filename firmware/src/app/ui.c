@@ -2119,8 +2119,13 @@ static void input(void)
     }
     ch = keys ^ ui.keys;                               /* the black keys: switches, on the press */
     ui.keys = keys;
-    if (ui.view == V_SEQ_NOTES && (!(ui.btn >> B_SEL & 1u) || sd.preview_key >= 0)) {
-        sd_keys(keys, ui.btn >> B_SEL & 1u ? 0 : ch & keys);
+    if (ui.view == V_SEQ_NOTES) {
+        /* All 27 physical keys belong to pitch entry on the sequence page.
+         * SEL+K1 remains a knob-only modifier; holding SEL here must not
+         * recall scenes, banks, or the black-key settings. */
+        sd_keys(keys, ch & keys);
+        if (btn >> B_SEL & 1u && keys)
+            ui.btn_used |= 1u << B_SEL;
     } else {
     for (i = 0; i < 11u; i++) {
         sw_t w = sw_layer()[i];

@@ -1,7 +1,8 @@
 # VOLCANO v1.5 — geological UI overhaul
 
 Status: **web-emulator review build; physical FM-1 performance remains unverified.**
-The v1.4 synthesis, scene memory, sequencing, and encoder assignments remain unchanged.
+The v1.4 sound engine and scene storage are retained. Setup 2 no longer exposes
+pressure sensitivity, and factory preset recalls reset the RAM-only sequencer to one step.
 The new drawings are composed at native **240 × 240 pixels** by the existing RGB565
 strip renderer; no photograph, full-screen framebuffer, or additional DSP layer is required.
 
@@ -19,7 +20,8 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 - Continuous-parameter indicators use a dark-red → yellow thermal gradient.
   Numeric values remain readable white. The two audio sources have independent
   sulfur-yellow and lava-red line palettes; peaks and saturated values receive
-  off-white, not warning red. Categorical and bipolar controls retain their
+  off-white, not warning red. FX amounts instead use a blue-to-icy-white scale;
+  continuous sliders retain their gradient when no control is selected. Categorical and bipolar controls retain their
   original selection/zero semantics.
 - Graphs showing pitch over time **remain pitch graphs**, not simulated
   seismogram amplitudes.
@@ -28,15 +30,25 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 
 | Button | Existing views | New graphical treatment |
 | --- | --- | --- |
-| HOME | Drones, Pitch | Full-width volcanic cross-section and event-like seismic trace on Drones; distinct, buckling, nine-band geological sections on Pitch |
+| HOME | Drones, Pitch | Fixed-dimness volcanic strata; Drone I level advances a lava stream from ground to vent to flank, Drone II level increases smoke; two seismic channels show level as amplitude and cutoff as active width. Pitch retains two buckling geological sections |
 | ENV | Life, Tone | Volcano/plume observatory; separate per-drone ash/particulate fans |
-| EDIT | Osc, Sub · Drive | Dual, dense stratigraphic sections with isolated seams, texture, subharmonic intrusions, and distinct source hues |
+| EDIT | Osc, Sub · Drive | Native Niagara-style waveform bundles, morphed oscillator shapes, subharmonic blend and drive response; updated source hues, header and thermal meters |
 | LFO | Waves, Sends, Mods | Existing informative wave/route diagrams, recolored in the Deep Mantle family |
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
-| FX | Space, Details | Two cyan seismograph-inspired channels: discrete delay arrivals above a decaying reverberant coda, with off-white saturation highlights |
-| GLO | Setup 1, Setup 2, Speaker | A compact planetary cutaway: muted observation meridians and warm internal arcs; the standard four-parameter readout remains |
+| FX | Space, Details | Stronger cyan seismographic arrivals and reverberant coda, using perceptual gain at low wet mixes and large amplitude near 100%; icy-white value ramps |
+| GLO | Setup 1, Setup 2, Speaker | Planetary cross-section with true tuning ticks and a Tune-responsive A marker; Setup 2 restores animated stereo spacing and exposes only Tuning, Tune and Stereo |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
+
+## Control behavior
+
+- Setup 2 uses K1 Tuning, K2 Tune, K3 Stereo, and leaves K4 unassigned.
+  Pressure uses the former neutral (50) response.
+- A factory preset selection or transition clears any previously authored
+  RAM-only multistep sequence; user scenes retain their existing behavior.
+- The global LFO rate, movement and gesture-time readouts use value-dependent
+  dark-red-to-yellow halos around white text.
+- The splash screen has a black sky above the separately layered mineral ground.
 
 ## ENV visual mappings
 
@@ -78,9 +90,10 @@ independent of brightness.
 - `firmware/src/app/look.c`: existing UI renderer, page dispatch, depth-coded
   header and intensity meters. Source-gradient rendering is independent from
   intensity meters.
-- `firmware/src/app/ui.c`: procedural, textured VOLCANO wake screen and message
-  colors; DSP, parameter selection, and persistence untouched.
+- `firmware/src/app/ui.c`: black-sky layered VOLCANO wake, neutral pressure
+  response, three-control Setup 2 and one-step factory preset recalls.
 - `tests/scenarios/volcano-ui.omni`: host screenshot smoke scenario.
+- `tests/scenarios/volcano-presets.omni`: factory-preset one-step sequence regression.
 
 ## Emulator review
 

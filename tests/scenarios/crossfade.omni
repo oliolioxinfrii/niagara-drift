@@ -8,9 +8,7 @@ set 7 700
 # Pitch lock off (on at start since 2026-10-19): these move the pitch
 set 74 0
 # bank A (a new FM-1 starts on the Presets, which are fixed)
-press SEL
-tapkey w8
-release SEL
+bank 0
 pressure w0 0
 tap PLAY
 wait 1500

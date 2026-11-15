@@ -47,8 +47,9 @@ static void lk_pic_seq_time(void)
         for (i = 0; i < sd.count; i++) {
             const uint32_t t = sd_curve_node_ms(g, i, total * 1000u);
             const int32_t x = x0 + (int32_t)((uint64_t)t * (uint32_t)width / (total * 1000u));
-            cv_round(x - 3, y - 3, 7, 7, 3, col);
-            cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
+            const int32_t r = i == 0 ? 4 : 3;
+            cv_round(x - r, y - r, 2 * r + 1, 2 * r + 1, r, col);
+            cv_round(x - 1, y - 1, 3, 3, 1, i == 0 ? LK_WHITE : LK_BG);
         }
         if (sd.enabled) {
             const uint32_t tms = elapsed % (total * 1000u);

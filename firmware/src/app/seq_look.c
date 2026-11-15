@@ -207,7 +207,7 @@ static void lk_pic_sequence(int timing)
     }
     cv_text(5, 0, &FONT_XS, timing ? "TIME" : "PITCH", LK_LABEL);
     if (sd_linked() && !timing)
-        cv_text(150, 0, &FONT_XS, "LINKED", LK_LABEL);
+        cv_text(130, 0, &FONT_XS, "PITCHES LINKED", LK_LABEL);
     if (sd.enabled)
         cv_text(202, 0, &FONT_XS, "ON", LK_GOLD);
 }

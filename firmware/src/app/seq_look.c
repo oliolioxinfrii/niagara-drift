@@ -10,8 +10,76 @@ static void sd_pitch_text(int g, int cents, char *out)
 {
     dr_param_text(DR_GP(g, GP_PITCH), cents, out);
 }
+/* Timing edit: the note paths deliberately give way to one proportional time
+ * axis. Inactive positions remain as grey placeholders; only active intervals
+ * illuminate. The right-hand marker is LOOP, not an extra pitched step. */
+static void lk_pic_seq_time(void)
+{
+    const int32_t x0 = 18, x1 = 222, y0 = 56, y1 = 75;
+    const uint32_t total = sd_total_s();
+    uint32_t now = plat_ms();
+    int i, g;
+    char t[20];
+    cv_text(8, 4, &FONT_XS, "EVENT POSITIONS", LK_LABEL);
+    if (sd.count < 2) {
+        cv_rect(x0, y0 + 7, x1 - x0, 1, LK_RULE);
+        for (i = 1; i <= 3; i++) {
+            int32_t x = x0 + (x1 - x0) * i / 4;
+            cv_round(x - 3, y0 + 4, 7, 7, 3, LK_UNLIT);
+        }
+        cv_round(x0 - 4, y0 + 3, 9, 9, 4, LK_WHITE);
+        cv_text(20, 96, &LK_F_TAG, "1 STEP  -  NO INTERVALS", LK_LABEL);
+        return;
+    }
+    /* A subdued ruler runs the complete four-minute range. Keeping the
+     * endpoint proportional makes actual gap changes visible immediately. */
+    for (i = 0; i <= 4; i++) {
+        const int32_t x = x0 + (x1 - x0) * i / 4;
+        cv_rect(x, y0 - 9, 1, 34, LK_RULE);
+    }
+    for (g = 0; g < 2; g++) {
+        const int32_t y = g ? y1 : y0;
+        const uint16_t c = LK_DRONE[g];
+        const int32_t endx = x0 + (int32_t)((x1 - x0) * total / SD_LIMIT_S);
+        cv_rect(x0, y, x1 - x0, 1, LK_RULE);
+        cv_round(x0, y - 1, endx - x0 + 1, 3, 1, c);
+        for (i = 0; i < sd.count; i++) {
+            const uint32_t event_s = sd_node_s(i);
+            const int32_t x = x0 + (int32_t)((x1 - x0) * event_s / SD_LIMIT_S);
+            cv_round(x - 3, y - 3, 7, 7, 3, c);
+            cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
+        }
+        if (sd.enabled && ui.playing) {
+            const uint32_t tms = (now - sd.started_ms) % (total * 1000u);
+            const int32_t x = x0 + (int32_t)((x1 - x0) * tms / (SD_LIMIT_S * 1000u));
+            cv_round(x - 3, y - 3, 7, 7, 3, LK_WHITE);
+        }
+        cv_round(endx - 3, y - 3, 7, 7, 3, LK_GOLD);
+    }
+    for (i = sd.count; i < SD_MAX; i++) {
+        /* Future steps are ghosts at equally spaced positions, not events. */
+        const int32_t x = x0 + (x1 - x0) * i / SD_MAX;
+        cv_round(x - 2, y0 - 2, 5, 5, 2, LK_UNLIT);
+        cv_round(x - 2, y1 - 2, 5, 5, 2, LK_UNLIT);
+    }
+    cv_text(7, 28, &FONT_XS, "I", LK_DRONE[0]);
+    cv_text(7, 47, &FONT_XS, "II", LK_DRONE[1]);
+    cv_text(8, 98, &FONT_XS, "0", LK_LABEL);
+    cv_text(196, 98, &FONT_XS, "4m", LK_LABEL);
+    itoa_u(total, t);
+    {
+        char *q = t;
+        while (*q) q++;
+        scopy(q, "s LOOP");
+    }
+    cv_text(110 - text_w(&LK_F_TAG, t) / 2, 98, &LK_F_TAG, t, LK_WHITE);
+}
 static void lk_pic_sequence(int timing)
 {
+    if (timing) {
+        lk_pic_seq_time();
+        return;
+    }
     int lo = 32767, hi = -32768, g, j, k;
     const int32_t x0 = 38, width = 187;
     uint32_t span[SD_MAX], total = 0;

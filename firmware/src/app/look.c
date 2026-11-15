@@ -2210,6 +2210,7 @@ static void lk_pic_speaker(void)
 }
 
 static void lk_pic_sequence(int timing);
+static void lk_pic_seq_shape(void);
 static void lk_pic(void)
 {
     const int msg = plat_ms() < ui.msg_until;
@@ -2218,14 +2219,14 @@ static void lk_pic(void)
                       msg ? ui.msg_until : 0);
     if (ui.view == V_SPEAKER)
         h = hash(h, (uint32_t)proj.par[P_SPEAKER]);
-    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME) {
+    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE) {
         int j;
         h = hash(h, (uint32_t)sd.count | (uint32_t)sd.position << 8 | (uint32_t)sd.phase << 16 |
                     (uint32_t)sd.enabled << 24 | (uint32_t)sd.paused << 25 | (uint32_t)sd_linked() << 26 |
                     (uint32_t)sd.stopping << 27);
         for (j = 0; j < SD_MAX; j++) {
             h = hash(h, (uint32_t)(uint16_t)sd.note[0][j] | (uint32_t)(uint16_t)sd.note[1][j] << 16);
-            h = hash(h, sd.gap_s[j]);
+            h = hash(h, sd.gap_s[j] | (uint32_t)(uint8_t)sd.shape[j] << 16);
         }
         if (sd.enabled) h = hash(h, plat_ms() / 100u);
     }
@@ -2246,6 +2247,7 @@ static void lk_pic(void)
     case V_LFO2: lk_pic_mods(); break;
     case V_SEQ_NOTES: lk_pic_sequence(0); break;
     case V_SEQ_TIME: lk_pic_sequence(1); break;
+    case V_SEQ_SHAPE: lk_pic_seq_shape(); break;
     case V_PULSE: lk_pic_swell(); break;
     case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
     case V_SETUP: lk_pic_setup1(); break;
@@ -2681,7 +2683,7 @@ static int lk_readout(void)
 static void lk_values(void)
 {
     const int held = (int)(ui.btn >> B_SEL & 1u);
-    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME) {
+    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE) {
         lk_values_sequence();
         return;
     }

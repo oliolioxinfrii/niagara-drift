@@ -1990,8 +1990,9 @@ static void render_group(int g, uint32_t n)
     const float width = pfs[P_WIDTH] * 0.01f * grp[1 - g].gf;
     const float pan0 = g ? 0.5f + 0.5f * width : 0.5f - 0.5f * width;
     const float pan_depth = pv[GP_FLFO_DEPTH] * 0.005f * mv * v->dp;
-    const float pan = lfo_fit(pan0, route_at(v, 1, 0) * pan_depth,
-                              fm_fabsf(pan_depth) * route_n(v, 1));
+    const float pan = fm_fabsf(pan_depth) > 1e-6f ?
+        lfo_fit(pan0, route_at(v, 1, 0) * pan_depth,
+                fm_fabsf(pan_depth) * route_n(v, 1)) : pan0;
     const float gl1 = fm_sqrtf(1.0f - pan) * 1.41421356f, gr1 = fm_sqrtf(pan) * 1.41421356f;
     float pdl, pdr, gl, gr;
     if (v->pl == 0.0f && v->pr == 0.0f) {        /* the first block: where it's set (both never 0 otherwise) */

@@ -3109,13 +3109,14 @@ static void lk_frame(void)
     const int atlas = ui.hold_btn == B_HOME && !(ui.btn >> B_SEL & 1u) &&
                       !ui.hold_turned && plat_ms() - ui.hold_t >= HOLD_MS;
     const int km = ui.save_menu ? 2 : atlas ? 3 : keymap_on();
-    if (km != was) {
+    const int changed = km != was;
+    if (changed) {
         was = km;
         ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         lcd_fill(0, 0, 240, 240, LK_BG);
     }
     if (km == 3) {
-        if (!(ui.frame % 6)) vl_atlas(); /* ten updates per second, including live layer brightness */
+        if (changed || !(ui.frame % 6)) vl_atlas(); /* show immediately, then refresh at 10 Hz */
         return;
     }
     if (km == 2) {

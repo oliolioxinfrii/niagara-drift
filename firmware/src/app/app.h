@@ -79,7 +79,8 @@ typedef struct {
     int16_t scene[NSCENES][DR_NPARAMS];  /* bank A: every parameter, recalled but for the room's settings */
     /* Trailing v1.4 metadata: old format-45 flash objects have zeroes here.
      * The prefix, slot positions and bank objects remain binary-compatible. */
-    char bank_name[NBANKS][BANK_NAME_LEN]; /* A-F user names; Presets are immutable */
+    char bank_name[NBANKS][BANK_NAME_LEN]; /* legacy v1.4 bank labels; retained so stored prefixes never move */
+    char slot_name[6][NPLAY][BANK_NAME_LEN]; /* A-F slots, 11 characters; factory Presets have fixed names */
 } project_t;
 _Static_assert(sizeof(project_t) <= PLAT_STORE_MAX, "the project must fit one flash object");
 
@@ -108,8 +109,8 @@ int project_save(void);                  /* 0 = saved and verified */
 extern int proj_note_moved, proj_note_stored, proj_note_presets;   /* the load's moves for 0.3's keys 9-12 */
 int scene_has(int bank, int n);                 /* scene n of a bank holds a sound */
 const int16_t *scene_get(int bank, int n);   /* scene n of a bank, or 0 if empty (a Preset's: until another is asked for) */
-const char *project_bank_name(int bank);
-int project_bank_rename(int bank, const char *name);   /* changes the saved project, never Presets */
+const char *project_slot_name(int bank, int slot); /* 0 for an unnamed user scene; Presets use preset_name */
+int project_slot_rename(int bank, int slot, const char *name); /* never edits factory Presets */
 const char *preset_name(int n);          /* the Preset's name (P1 "NIAGARA" ..) */
 int scene_put(int bank, int n);         /* the sound now into scene n of a bank of yours (marks it to save); 0 ok */
 void project_apply(void);                /* every value to the engine (boot, load) */

@@ -53,7 +53,15 @@ static uint16_t lk_mix(uint32_t a, uint32_t b, float t)   /* 0xRRGGBB a -> b */
     int bl = (int)((float)(a & 255u) + ((float)(b & 255u) - (float)(a & 255u)) * t);
     return RGB(r, g, bl);
 }
-static uint16_t lk_ramp(int g, float t) { return lk_mix(LK_RAMP[g][0], LK_RAMP[g][1], t); }
+static const uint32_t LK_FX_RAMP[2] = {0x174C76u, 0xEFFCFFu};
+static uint16_t lk_ramp(int g, float t)
+{
+    const int fx = ui.view == V_FX || ui.view == V_FX2;
+    const uint32_t *ramp = fx ? LK_FX_RAMP : LK_RAMP[g];
+    return lk_mix(ramp[0], ramp[1], fm_clampf(t, 0.0f, 1.0f));
+}
+static uint32_t lk_meter_start(int g) { return ui.view == V_FX || ui.view == V_FX2 ? LK_FX_RAMP[0] : LK_RAMP[g][0]; }
+static uint32_t lk_meter_end(int g) { return ui.view == V_FX || ui.view == V_FX2 ? LK_FX_RAMP[1] : LK_RAMP[g][1]; }
 static const uint32_t LK_SOURCE_RAMP[2][2] = {
     {0x962D22u, 0xFFE04Bu}, {0x591820u, 0xFF7652u}
 };
@@ -2271,8 +2279,8 @@ static void lk_pic(void)
     case V_PLAY2: vl_surface(1); break;
     case V_LIFE: vl_life(); break;
     case V_TONE: vl_tone(); break;
-    case V_OSC: vl_mantle_sources(0); break;
-    case V_SOURCE: vl_mantle_sources(1); break;
+    case V_OSC: lk_pic_osc(); break;
+    case V_SOURCE: lk_pic_source(); break;
     case V_PARTNER: lk_pic_partner(); break;
     case V_MOVES: lk_pic_moves(); break;
     case V_LFO_WAVES: lk_pic_lfo_waves(); break;
@@ -2377,9 +2385,9 @@ static void lk_pills(int32_t cx, int32_t y, float frac, int centred)   /* ARP's:
                                                                        * same") */
 {
     if (centred)
-        lk_cdots_c(cx, y, frac, LK_RAMP[LK_G][0], LK_RAMP[LK_G][1]);
+        lk_cdots_c(cx, y, frac, lk_meter_start(LK_G), lk_meter_end(LK_G));
     else
-        lk_dotrow(cx, y, frac, LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], 0, 0);
+        lk_dotrow(cx, y, frac, lk_meter_start(LK_G), lk_meter_end(LK_G), 0, 0);
 }
 
 static void lk_cells(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c1, int caution)   /* ENV's: a dot row
@@ -2395,7 +2403,7 @@ static void lk_stripes(int32_t cx, int32_t y, float frac, int g, int gray)   /* 
                                                                                 * unheard */
 {
     (void)y;
-    lk_dotrow(cx, 70, frac, LK_RAMP[g][0], LK_RAMP[g][1], 0, gray);
+    lk_dotrow(cx, 70, frac, lk_meter_start(g), lk_meter_end(g), 0, gray);
 }
 
 static void lk_ticks4(int32_t cx, int32_t y)    /* under X-Wave's gauge: sine, triangle, saw, square */
@@ -2407,26 +2415,31 @@ static void lk_ticks4(int32_t cx, int32_t y)    /* under X-Wave's gauge: sine, t
 
 static void lk_cdots(int32_t cx, int32_t y, float frac)   /* Tune's: from the middle, in the neutral ramp */
 {
-    lk_cdots_c(cx, y, frac, LK_RAMP[LK_G][0], LK_RAMP[LK_G][1]);
+    lk_cdots_c(cx, y, frac, lk_meter_start(LK_G), lk_meter_end(LK_G));
 }
-static void lk_xfader(int32_t cx, int32_t y, float frac, int g)   /* Osc/Sub: the oscillators' color to a white mark,
-                                                                    * the sub's lighter tint after it */
+/* Every continuous slider displays its full positional color scale at rest.
+ * Only the white position marker and the extra outline indicate manipulation. */
+static void lk_color_track(int32_t cx, int32_t y, float frac, int fx)
 {
-    const int32_t x0 = cx - 25, w = 50, m = x0 + (int32_t)(fm_clampf(frac, 0.0f, 1.0f) * (float)w);
-    cv_rect(x0, y + 1, w, 3, lk_ramp(g, 0.75f));
-    if (m > x0)
-        cv_rect(x0, y + 1, m - x0, 3, LK_DRONE[g]);
-    cv_rect(m - 1, y - 2, 2, 9, LK_WHITE);
+    const float pos = fm_clampf(frac, 0.0f, 1.0f);
+    const uint32_t a = fx ? LK_FX_RAMP[0] : LK_RAMP[LK_G][0];
+    const uint32_t b = fx ? LK_FX_RAMP[1] : LK_RAMP[LK_G][1];
+    int i;
+    for (i = 0; i < 50; i++) {
+        const uint16_t col = lk_mix(a, b, (float)i / 49.0f);
+        cv_rect(cx - 25 + i, y + 1, 1, 3,
+                col); /* position hue never depends on selection */
+    }
+    cv_rect(cx - 25 + (int32_t)(pos * 49.0f + 0.5f) - 1, y - 2, 2, 9, LK_WHITE);
 }
-
-static void lk_xfade_col(int32_t cx, int32_t y, float frac)   /* Tone's Color, as lk_xfader: pink as far as it
-                                                                 * goes, white after it, a white mark */
+static void lk_xfader(int32_t cx, int32_t y, float frac, int g)
 {
-    const int32_t x0 = cx - 25, w = 50, m = x0 + (int32_t)(fm_clampf(frac, 0.0f, 1.0f) * (float)w);
-    cv_rect(x0, y + 1, w, 3, lk_mix(0x07060Bu, 0xFFFFFFu, 0.6f));
-    if (m > x0)
-        cv_rect(x0, y + 1, m - x0, 3, lk_mix(0x07060Bu, LK_PINK, 1.0f));
-    cv_rect(m - 1, y - 2, 2, 9, LK_WHITE);
+    (void)g;
+    lk_color_track(cx, y, frac, ui.view == V_FX || ui.view == V_FX2);
+}
+static void lk_xfade_col(int32_t cx, int32_t y, float frac)
+{
+    lk_color_track(cx, y, frac, 0);
 }
 
 static void lk_one_of(int32_t cx, int32_t y, int n, int at, int g)   /* one of n segments, the chosen one lit */
@@ -2678,7 +2691,7 @@ cents:
 static void lk_ruler(int32_t cx, int32_t y, float frac, int g, int centred)   /* SEQ's: a dot row (was a ruler),
                                                                                  * Shift's from the middle */
 {
-    const uint32_t c0 = LK_RAMP[g][0], c1 = LK_RAMP[g][1];
+    const uint32_t c0 = lk_meter_start(g), c1 = lk_meter_end(g);
     if (centred)
         lk_cdots_c(cx, y, frac, c1, c0);
     else
@@ -2692,22 +2705,33 @@ static int lk_readout(void)
     const char *q;
     uint32_t h = hash(2166136261u, 0x4C47u);
     const felucca_font_t *fb;
+    float magnitude = 0.5f;
+    uint16_t col;
+    int i;
     if (plat_ms() >= ui.glab_until)
         return 0;
-    for (q = ui.glab[0]; *q; q++)
-        h = hash(h, (uint32_t)*q);
-    for (q = ui.glab[1]; *q; q++)
-        h = hash(h, (uint32_t)*q << 8);
-    if (h == ui.sig[2])
-        return 1;
+    for (q = ui.glab[0]; *q; q++) h = hash(h, (uint32_t)*q);
+    for (q = ui.glab[1]; *q; q++) h = hash(h, (uint32_t)*q << 8);
+    if (h == ui.sig[2]) return 1;
     ui.sig[2] = h;
+    if (ui.glab[0][0] == 'M') magnitude = vl_norm(P_MOVE);
+    else if (ui.glab[0][0] == 'G') magnitude = 1.0f - (float)proj.mtime * 0.01f;
+    else if (ui.glab[0][0] == 'L')
+        magnitude = vl_norm(dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE);
+    col = lk_mix(LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], magnitude);
     cv_begin(240, LK_VAL_H, LK_BG);
     cv_rect(8, 0, 224, 1, LK_RULE);
-    cv_round(9, 4, 222, 81, 5, LK_VIOLET);
-    cv_round(10, 5, 220, 79, 4, LK_BG);
-    text_c(120, 9, &FONT_T20, ui.glab[0], LK_VIOLET);
+    /* Nested, translucent RGB565 outlines form a value-dependent color halo. */
+    for (i = 0; i < 7; i++) {
+        const uint16_t edge = lk_mix(0x08080Au, magnitude < 0.01f ? LK_RAMP[LK_G][0] : col,
+                                     0.10f + (float)i * 0.12f);
+        cv_round(9 + i, 4 + i, 222 - 2 * i, 81 - 2 * i, 5, edge);
+    }
+    cv_round(16, 11, 208, 67, 4, LK_BG);
+    text_c(120, 10, &FONT_T20, ui.glab[0], LK_WHITE);
     fb = text_w(&FONT_N1, ui.glab[1]) <= 210 ? &FONT_N1 : &FONT_N2;
-    text_c(120, 9 + (int32_t)FONT_T20.h + (62 - (int32_t)FONT_T20.h - (int32_t)fb->h) / 2, fb, ui.glab[1], LK_WHITE);
+    text_c(120, 9 + (int32_t)FONT_T20.h + (62 - (int32_t)FONT_T20.h - (int32_t)fb->h) / 2,
+           fb, ui.glab[1], LK_WHITE);
     cv_blit(0, LK_VAL_Y);
     return 1;
 }
@@ -2776,7 +2800,7 @@ static void lk_values(void)
             const int p = knob_param(j), g = j / 2, v = proj.par[p], on = lit(j);
             const int lo = dr_param_info(p)->lo, hi = dr_param_info(p)->hi;
             const int32_t cx = 36 + 56 * j;
-            const uint16_t c = g ? VL_MANTLE : VL_DEEP;
+            const uint16_t c = lk_ramp(LK_G, hi > lo ? (float)(v - lo) / (float)(hi - lo) : 0.5f);
             const felucca_font_t *const font = on ? &FONT_N1 : &FONT_N2;
             char t[16];
             int32_t m, x;
@@ -2788,15 +2812,12 @@ static void lk_values(void)
             dr_param_text(p, v, t);
             text_c(cx, 34 - ((int32_t)font->h - (int32_t)FONT_N2.h) / 2,
                    font, t, on ? paper : LK_WHITE);
-            cv_round(cx - 21, 68, 42, 4, 2, grid);
-            m = cx - 21 + 42 * (0 - lo) / (hi - lo);
-            x = cx - 21 + 42 * (v - lo) / (hi - lo);
-            cv_rect(m, 66, 1, 8, dim);       /* the 0 position */
-            if (x != m) {
-                const int32_t left = x < m ? x : m, right = x < m ? m : x;
-                cv_round(left, 68, right - left + 1, 4, 2,
-                         on ? c : lk_mix(0x461E40u, c, 0.70f));
-            }
+            lk_color_track(cx, 68, hi > lo ? (float)(v - lo) / (float)(hi - lo) : 0.5f, 0);
+            m = cx - 25 + 49 * (0 - lo) / (hi - lo);
+            x = cx - 25 + 49 * (v - lo) / (hi - lo);
+            cv_rect(m, 65, 1, 10, dim);  /* neutral zero position */
+            cv_rect(x - 1, 64, 3, 12, LK_WHITE);
+
         }
         cv_blit(0, LK_VAL_Y);
         return;
@@ -2972,7 +2993,7 @@ static void lk_values(void)
             else if (gp == GP_NCOLOR && ui.view == V_TONE)   /* a crossfade, white to pink (Evan, 2026-11-02) */
                 lk_xfade_col(cx, 70, frac);
             else if (ui.view == V_LIFE || ui.view == V_TONE)   /* ENV's square cells */
-                lk_cells(cx, 70, frac, LK_RAMP[g][0], LK_RAMP[g][1], p == P_FEEDBACK);
+                lk_cells(cx, 70, frac, lk_meter_start(g), lk_meter_end(g), p == P_FEEDBACK);
             else if (second)
                 lk_one_of(cx, 70, hi - lo + 1, v - lo, g);
             else if (gp == GP_MIX)

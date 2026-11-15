@@ -21,7 +21,7 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 
 ## Setup 1
 
-<img class="shot" src="../../img/screen-setup.png" width="240" alt="The Setup 1 page: the fade, morph and scene times, and Sync">
+<img class="shot" src="../../img/screen-setup.png" width="240" alt="Setup 1: three overlapping red, orange and yellow time-transition curves, with Fade, Morph and Scene as fixed time domains">
 
 | Knob | What it does |
 |---|---|
@@ -29,6 +29,10 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 | **Morph** | how long a black key or a new LFO wave takes to move the sound: 0.02–30 s (2 s to start) |
 | **Scene time** | how long every scene move takes: 0.1 s to 5 minutes (about 8 s to start) |
 | **Sync** | **On** follows a MIDI clock; **Off** ignores it |
+
+The graph overlays three **single** transition curves: Fade (red), Morph (orange), and Scene (yellow).
+Each trace spans its own fixed maximum time, rather than rescaling when a knob turns. The curve reaches its
+plateau at the selected time; the value below the graph gives the exact duration.
 
 ## Setup 2
 
@@ -83,6 +87,7 @@ hear is within 10 cents; otherwise the familiar name ("5th").
 - **Wander, Chord, a partner's interval and Shift** take the Tuning's notes.
 - **A sound carries its Tuning:** a scene saved on LMY brings LMY back, even with Pitch lock on. A Preset plays on
   12-tone unless it has its own. The Tuning changes half way through a scene's glide.
-- **The pictures:** on Setup 1, a row for each time, ending where its knob is; on Setup 2, note ticks from the current
-  tuning surround a planetary cross-section. The A marker follows Tune; the two wave traces show stereo separation.
+- **The pictures:** on Setup 1, the Fade, Morph and Scene transition trajectories share one color-coded graph with
+  fixed maximum-time axes. On Setup 2, note ticks from the current tuning surround a planetary cross-section.
+  The A marker follows Tune; the two wave traces show stereo separation.
 - **Pressure:** the scene-key response uses the neutral setting; it is no longer an adjustable parameter.

@@ -1676,7 +1676,7 @@ static void lk_pic_lfo(void)
         const int route = delay ? proj.par[P_DLY_LFO] : gpar(g, osc ? GP_OLFO : GP_FLFO);
         const int depth = delay ? proj.par[P_DLY_LFO_DEPTH]
                                 : gpar(g, osc ? GP_OLFO_DEPTH : GP_FLFO_DEPTH);
-        const uint16_t col = delay ? RGB(251, 233, 242) : K_DRONE[g];
+        const uint16_t col = delay ? LK_WHITE : LK_DRONE[g];
         const int32_t ny = 6 + 23 * d, ay = ny + 9;
         int32_t ax;
         int heard = 0;
@@ -1693,13 +1693,13 @@ static void lk_pic_lfo(void)
             const int amp = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1];
             const int routed = route == w + 1 || route == DR_LFO_BOTH;
             const int on = routed && sh != DR_LFO_OFF && amp > 0 && depth != 0 && proj.par[P_MOVE] != 0;
-            const uint16_t lc = on ? col : lk_mix(0x260A22u, col, 0.32f);
+            const uint16_t lc = on ? col : LK_UNLIT; /* zero-depth routes are neutral */
             const int32_t sx = x0 + wave_w + 4, sy = WY[w], ex = ax - 5;
             if (!routed)
                 continue;
             heard |= on;
             if (on)                             /* offset underlay: the original glow */
-                cv_line(sx, sy + 1, ex, ay + 1, lk_mix(0x260A22u, col, 0.35f));
+                cv_line(sx, sy + 1, ex, ay + 1, vl_bright(col, 0.30f));
             cv_line(sx, sy, ex, ay, lc);
             cv_round(ex - 2, ay - 2, 5, 5, 2, lc);
         }
@@ -2276,7 +2276,7 @@ static void lk_pic(void)
     ui.sig[1] = h;
     cv_begin(240, LK_PIC_H, LK_BG);
     switch (ui.view) {
-    case V_PLAY2: lk_pic_drones2(); break;
+    case V_PLAY2: lk_pic_drones1(); break;
     case V_LIFE: vl_life(); break;
     case V_TONE: vl_tone(); break;
     case V_OSC: lk_pic_osc(); break;
@@ -2706,25 +2706,28 @@ static int lk_readout(void)
     uint32_t h = hash(2166136261u, 0x4C47u);
     const felucca_font_t *fb;
     float magnitude = 0.5f;
-    uint16_t col;
+    uint32_t col;
     int i;
     if (plat_ms() >= ui.glab_until)
         return 0;
     for (q = ui.glab[0]; *q; q++) h = hash(h, (uint32_t)*q);
     for (q = ui.glab[1]; *q; q++) h = hash(h, (uint32_t)*q << 8);
-    if (h == ui.sig[2]) return 1;
-    ui.sig[2] = h;
     if (ui.glab[0][0] == 'M') magnitude = vl_norm(P_MOVE);
     else if (ui.glab[0][0] == 'G') magnitude = 1.0f - (float)proj.mtime * 0.01f;
     else if (ui.glab[0][0] == 'L')
         magnitude = vl_norm(dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE);
-    col = lk_mix(LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], magnitude);
+    magnitude = fm_clampf(magnitude, 0.0f, 1.0f);
+    h = hash(h, (uint32_t)(magnitude * 1024.0f + 0.5f));
+    if (h == ui.sig[2]) return 1;
+    ui.sig[2] = h;
+    /* Keep the interpolated hue in RGB888. Passing an RGB565 color back to
+     * lk_mix caused the middle values to appear green. */
+    col = lk_mix888(LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], magnitude);
     cv_begin(240, LK_VAL_H, LK_BG);
     cv_rect(8, 0, 224, 1, LK_RULE);
     /* Nested, translucent RGB565 outlines form a value-dependent color halo. */
     for (i = 0; i < 7; i++) {
-        const uint16_t edge = lk_mix(0x08080Au, magnitude < 0.01f ? LK_RAMP[LK_G][0] : col,
-                                     0.10f + (float)i * 0.12f);
+        const uint16_t edge = lk_mix(0x08080Au, col, 0.10f + (float)i * 0.12f);
         cv_round(9 + i, 4 + i, 222 - 2 * i, 81 - 2 * i, 5, edge);
     }
     cv_round(16, 11, 208, 67, 4, LK_BG);

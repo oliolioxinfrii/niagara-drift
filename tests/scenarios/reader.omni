@@ -26,8 +26,6 @@ said HARD_SYNC_ON
 # the Presets, P2 from its key
 bank 3
 wait 100
-said BANK_PRESETS_1-8
-wait 100
 tapkey w1
 wait 300
 said to_Preset_2_EMBERS

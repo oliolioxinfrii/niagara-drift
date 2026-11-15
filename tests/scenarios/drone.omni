@@ -257,9 +257,11 @@ tapkey b0
 expect par13 1
 tapkey b0
 expect par13 2
-# the filter LFO onto the resonance and back (the fourth key)
+# the filter LFO cycles cutoff, resonance, pan, cutoff (fourth key)
 tapkey b3
 expect par18 1
+tapkey b3
+expect par18 2
 tapkey b3
 expect par18 0
 tapkey b1

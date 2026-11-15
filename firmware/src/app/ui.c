@@ -2308,12 +2308,17 @@ static void input(void)
             global_turn(EN_SELECT, dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE,
                         dr_ext_spb > 0.0f ? "LFO CYCLE" : "LFO RATE", e);
         } else {
-            /* SELECT traverses the full cyclic page order, including the
-             * sequencer editors. Page buttons remain direct shortcuts. */
-            int next = (int)ui.view + (int)e;
-            next %= NVIEWS;
-            if (next < 0) next += NVIEWS;
-            set_view(next);
+            /* SELECT stays inside the current button's family (SEQ 1-5,
+             * LFO 1-3, etc.). The panel buttons still select families. */
+            uint32_t group;
+            for (group = 0; group < NPAGE_BTN; group++)
+                if (on_pages((int)group)) {
+                    int step = page_step((int)group, ui.view);
+                    int count = PAGE_BTN[group].n;
+                    step = (step + (int)(e % count) + count) % count;
+                    set_view(page_target((int)group, step));
+                    break;
+                }
         }
     }
     if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */

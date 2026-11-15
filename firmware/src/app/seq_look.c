@@ -107,28 +107,39 @@ static uint32_t sd_curve_node_ms(int g, int pos, uint32_t len)
  * The horizontal axis is the fractional time within a single interval. */
 static void lk_pic_seq_shape(void)
 {
-    int i, g, j;
-    const int32_t x0 = 12, width = 216, y0 = 18, slot_h = 23;
+    int i, j;
+    const int32_t xs = 30, xe = 218, y0 = 18, slot_h = 23;
     char t[16];
     cv_text(9, 1, &FONT_XS, "TRANSITION CURVES", LK_LABEL);
     for (i = 0; i < SD_MAX; i++) {
         const int active = sd.count > 1 && i < sd.count;
         const uint16_t c = active ? LK_DRONE[i & 1] : LK_UNLIT;
-        const int32_t y = y0 + slot_h * i;
-        int16_t yy[37];
+        const int32_t y = y0 + slot_h * i, low = y + 17, high = y + 3;
+        int32_t prev = low;
         itoa_u((uint32_t)i + 1u, t);
         cv_text(2, y + 5, &FONT_XS, t, c);
-        cv_rect(x0 + 16, y + 15, width - 25, 1, LK_RULE);
+        cv_rect(xs, y + 15, xe - xs + 1, 1, LK_RULE);
         if (!active) continue;
-        for (j = 0; j < 37; j++) {
-            const float x = (float)j / 36.0f;
-            yy[j] = (int16_t)(y + 17 - (int32_t)(sd_interp(i, x) * 14.0f + 0.5f));
+        /* Draw every pixel column rather than 36 widely separated samples.
+         * Vertical spans join steep ramps, including the exact saw endpoints.
+         * Endpoints share the same x coordinate as their note markers. */
+        for (j = xs; j <= xe; j++) {
+            const float x = (float)(j - xs) / (float)(xe - xs);
+            const int32_t yy = low - (int32_t)(sd_interp(i, x) * 14.0f + 0.5f);
+            if (j > xs && yy != prev) {
+                const int32_t a = yy < prev ? yy : prev;
+                cv_rect(j, a, 1, (yy < prev ? prev - yy : yy - prev) + 1, c);
+            } else {
+                cv_rect(j, yy, 1, 1, c);
+            }
+            prev = yy;
         }
-        for (j = 1; j < 37; j++)
-            cv_line(x0 + 16 + (width - 25) * (j - 1) / 36, yy[j - 1],
-                    x0 + 16 + (width - 25) * j / 36, yy[j], c);
-        for (g = 0; g < 2; g++)
-            cv_round(x0 + 15 + (width - 25) * g, y + 14 - 14 * g, 3, 3, 1, LK_WHITE);
+        /* A discontinuity is vertical at the node itself, not a diagonal
+         * extending into the adjacent segment. */
+        if (sd.shape[i] <= -100) cv_rect(xe, high, 1, low - high + 1, c);
+        if (sd.shape[i] >= 100) cv_rect(xs, high, 1, low - high + 1, c);
+        cv_round(xs - 1, low - 1, 3, 3, 1, LK_WHITE);
+        cv_round(xe - 1, high - 1, 3, 3, 1, LK_WHITE);
     }
     cv_text(20, 108, &FONT_XS, "LATE", LK_LABEL);
     cv_text(95, 108, &FONT_XS, "SINE", LK_LABEL);

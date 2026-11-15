@@ -1529,8 +1529,7 @@ static void press_start(int n, const int16_t *sc)
 
 /* a key's pressure at the player's sensitivity (Setup 2, KNOB 3): a curve, light .. firm, 50 as tuned; a full press
  * is always all the way (QA 2026-10-20: as a gain, at 0 a full press went only 38 % in) */
-static float press_gain(void) { return 1.0f; }  /* fixed neutral response: former sensitivity setting is not exposed */
-static float press_curve(float x) { return x > 0.0f ? fm_exp2f(fm_log2f(x) / press_gain()) : 0.0f; }   /* 0..1 */
+static float press_curve(float x) { return fm_clampf(x, 0.0f, 1.0f); }  /* neutral response */
 static int press_scaled(int p)
 {
     return p < 0 ? p : (int)fm_clampf(127.0f * press_curve((float)p * (1.0f / 127.0f)) + 0.5f, 0.0f, 127.0f);

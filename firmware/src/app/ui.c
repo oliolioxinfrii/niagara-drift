@@ -78,7 +78,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{G, P_SHIFT_MOVE}, {G, P_GLIDE}, {G, P_WANDER}, {G, P_WSCALE}},   /* Shift's move, Glide; Wander, its scale */
     /* GLO: the room's settings only, none in a sound (Evan, 2026-10-18): the times, then the unit and the room */
     {{G, P_FADE}, {G, P_MORPH}, {G, P_SCENE_T}, {G, P_CLK_SYNC}},   /* Sync on KNOB 4 (v0.3) */
-    {{G, P_TUNING}, {G, P_TUNE}, {G, P_WIDTH}, {G, P_PRESS_SENS}},   /* Tuning and Tune side by side (2026-11-01) */
+    {{G, P_TUNING}, {G, P_TUNE}, {G, P_WIDTH}, {NONE, 0}},   /* Tuning, reference pitch, stereo */
     {{G, P_PULSE_RATE}, {G, P_PULSE_DEPTH}, {G, P_SWELL_PHASE}, {G, P_PULSE_SWING}},
     {{G, P_SWELL_WAVE}, {G, P_SWELL_SKEW}, {G, P_SWELL_EDGE}, {G, P_SWELL_WIDTH}},
     /* FX (v0.3, Evan, 2026-11-08): Space, the amounts played (the delay's repeats and mix, the reverb's length and
@@ -1367,6 +1367,10 @@ static void scene_recall(int n, int keep)              /* a white key: morph the
         say(t, "EMPTY: [SAVE] BROWSE");
         return;
     }
+    if (BANK_IS_PRESETS(proj.bank)) {
+        sd_stop();
+        sd_init();  /* Factory sounds start with one step, independent of earlier RAM sequences. */
+    }
     if (keep)
         undo_keep();
     for (k = 0; k < DR_NPARAMS; k++) {
@@ -1390,6 +1394,10 @@ static void scene_play(int bank, int n)
     int k;
     if (!sc)
         return;
+    if (BANK_IS_PRESETS(bank)) {
+        sd_stop();
+        sd_init();
+    }
     for (k = 0; k < DR_NPARAMS; k++) {
         ui.morph_from[k] = proj.par[k];
         ui.morph_to[k] = sc[k];
@@ -1492,6 +1500,10 @@ static void scene_morph(void)
 #define PR_WAIT_MS 250u                /* ... held this long, the pressure starts to move the sound (a crossfade) */
 static void press_start(int n, const int16_t *sc)
 {
+    if (BANK_IS_PRESETS(proj.bank)) {
+        sd_stop();
+        sd_init();
+    }
     int k;
     float x0 = 0.0f;
     if (!(ui.morph == VISIT_BACK && ui.visit == -2 - n)) {  /* not already gliding back from this key: */
@@ -1517,7 +1529,7 @@ static void press_start(int n, const int16_t *sc)
 
 /* a key's pressure at the player's sensitivity (Setup 2, KNOB 3): a curve, light .. firm, 50 as tuned; a full press
  * is always all the way (QA 2026-10-20: as a gain, at 0 a full press went only 38 % in) */
-static float press_gain(void) { return fm_exp2f(((float)proj.par[P_PRESS_SENS] - 50.0f) * 0.02f); }
+static float press_gain(void) { return 1.0f; }  /* fixed neutral response: former sensitivity setting is not exposed */
 static float press_curve(float x) { return x > 0.0f ? fm_exp2f(fm_log2f(x) / press_gain()) : 0.0f; }   /* 0..1 */
 static int press_scaled(int p)
 {
@@ -2118,6 +2130,10 @@ static void menu_start_transition(int bank, int slot)
     if (!target) {
         say("EMPTY TARGET", "SELECT A SOUND");
         return;
+    }
+    if (BANK_IS_PRESETS(bank)) {
+        sd_stop();
+        sd_init();
     }
     if (!ui.menu_pct) {
         say("TRANSITION 0%", "SOUND UNCHANGED");

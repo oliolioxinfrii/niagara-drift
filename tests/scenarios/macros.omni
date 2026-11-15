@@ -208,10 +208,7 @@ expect par93 100
 expect heard63 >60
 # a restart brings the whole sound back to the engine, the gestures too (the last values of a load were once
 # dropped)
-tap SAVE
-spin K2 -1
-expect menuaction 3
-tap SAVE
+save
 wait 500
 reboot
 wait 5000
@@ -220,9 +217,7 @@ expect heard63 >60
 # SAVE again with nothing changed: nothing is written (each write is a late block while playing); one so far: the
 # project
 expect store_writes 1
-tap SAVE
-spin K2 -1
-tap SAVE
+save
 wait 500
 expect store_writes 1
 # GESTURE TIME (PRESETS), respread (Evan, 2026-10-28): slower evenly in seconds to x12 (Weight in over ~34 s), faster

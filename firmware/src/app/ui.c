@@ -78,7 +78,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{G, P_SHIFT_MOVE}, {G, P_GLIDE}, {G, P_WANDER}, {G, P_WSCALE}},   /* Shift's move, Glide; Wander, its scale */
     /* GLO: the room's settings only, none in a sound (Evan, 2026-10-18): the times, then the unit and the room */
     {{G, P_FADE}, {G, P_MORPH}, {G, P_SCENE_T}, {G, P_CLK_SYNC}},   /* Sync on KNOB 4 (v0.3) */
-    {{G, P_TUNING}, {G, P_TUNE}, {G, P_WIDTH}, {NONE, 0}},   /* Tuning, reference pitch, stereo */
+    {{G, P_TUNING}, {G, P_TUNE}, {G, P_WIDTH}, {G, P_SPEAKER}},   /* Tuning, reference, stereo, speaker */
     {{G, P_PULSE_RATE}, {G, P_PULSE_DEPTH}, {G, P_SWELL_PHASE}, {G, P_PULSE_SWING}},
     {{G, P_SWELL_WAVE}, {G, P_SWELL_SKEW}, {G, P_SWELL_EDGE}, {G, P_SWELL_WIDTH}},
     /* FX (v0.3, Evan, 2026-11-08): Space, the amounts played (the delay's repeats and mix, the reverb's length and
@@ -86,7 +86,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
      * SEL the delay's type over Time and what goes into the reverb over Type (sel_job) */
     {{G, P_DLY_REPEATS}, {G, P_DLY_MIX}, {G, P_REV_LEN}, {G, P_REV_MIX}},
     {{G, P_DLY_DRIVE}, {G, P_DLY_TIME}, {G, P_REV_DAMP}, {G, P_REV_TYPE}},
-    {{G, P_SPEAKER}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO 3: internal speaker only */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* retired GLO 3; view id retained for compatibility */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* sequence edit controls are custom */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* unequal interval controls */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* segment curves */
@@ -110,7 +110,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 5}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 5}, {B_GLO, V_SETUP, 2}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -758,7 +758,7 @@ static void sw_toggle(sw_t w)
 static int on_pages(int i)
 {
     if (PAGE_BTN[i].btn == B_GLO)
-        return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_SPEAKER;
+        return ui.view == V_SETUP || ui.view == V_SETUP2;
     if (PAGE_BTN[i].btn == B_SEQ)
         return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
     return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
@@ -767,13 +767,13 @@ static int page_step(int i, int v)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
         return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v == V_SEQ_SHAPE ? 4 : v - V_PARTNER;
-    return PAGE_BTN[i].btn == B_GLO && v == V_SPEAKER ? 2 : v - PAGE_BTN[i].first;
+    return v - PAGE_BTN[i].first;
 }
 static int page_target(int i, int step)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
         return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : step == 4 ? V_SEQ_SHAPE : V_PARTNER + step;
-    return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_SPEAKER : PAGE_BTN[i].first + step;
+    return PAGE_BTN[i].first + step;
 }
 static void set_view(int v)
 {

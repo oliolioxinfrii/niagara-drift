@@ -1,0 +1,77 @@
+# SELECT traverses the existing pages; SEL+SELECT retains the LFO rate.
+notips
+expect view 0
+spin SELECT 1
+expect view 1
+spin SELECT -1
+expect view 0
+expect par47 48
+press SEL
+spin SELECT 1
+release SEL
+expect view 0
+expect par47 49
+
+# SAVE browses existing banks and slots. The bank-only action can choose
+# an empty bank without attempting to load a non-existent scene.
+expect bank 3
+tap SAVE
+expect savemenu 1
+spin SELECT -3
+spin K2 -1
+expect menuaction 2
+tap SAVE
+expect savemenu 0
+expect bank 0
+tap SAVE
+spin K2 1
+expect menuaction 1
+tap SAVE
+expect savemenu 1
+spin K2 -1
+expect menuaction 0
+tap SAVE
+expect savemenu 0
+expect scenes 1
+tap SAVE
+spin K2 1
+tap SAVE
+expect savemenu 0
+expect bank 0
+
+# Each filter-LFO destination cycles cutoff -> resonance -> pan -> cutoff.
+tap LFO
+expect view 6
+expect par18 0
+tapkey b3
+expect par18 1
+tapkey b3
+expect par18 2
+tapkey b3
+expect par18 0
+expect par39 0
+tapkey b4
+expect par39 1
+tapkey b4
+expect par39 2
+tapkey b4
+expect par39 0
+
+# A fifth SEQ page shapes each active segment independently.
+page 18
+spin K3 3
+page 20
+expect view 20
+spin K1 -100
+spin K2 100
+spin K3 50
+spin K4 -50
+expect seqshape0 -100
+expect seqshape1 100
+expect seqshape2 50
+expect seqshape3 -50
+page 18
+spin K3 -2
+page 20
+spin K3 -30
+expect seqshape2 50

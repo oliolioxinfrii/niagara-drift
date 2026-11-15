@@ -10,7 +10,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   push:
-    branches: [main, feature/volcano-v1.5-ui]
+    branches: [main]
 
 permissions:
   contents: read

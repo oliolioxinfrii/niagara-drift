@@ -260,8 +260,11 @@ static void lk_values_sequence(void)
         text_c(cx, 39, text_w(&FONT_N1, value) <= 52 ? &FONT_N1 : &FONT_N2,
                value, active ? LK_WHITE : LK_UNLIT);
         if (active && timing) {
+            const uint32_t total = sd_total_s();
+            const uint32_t value = i == 3 ? total : sd_node_s(i + 1);
+            const uint32_t scale = i == 3 ? SD_LIMIT_S : total;
             cv_rect(cx - 22, 72, 44, 1, LK_RULE);
-            cv_round(cx - 22 + (int32_t)((i == 3 ? sd_total_s() : sd_node_s(i + 1)) * 43 / SD_LIMIT_S) - 2, 69, 5, 5, 2, col);
+            cv_round(cx - 22 + (int32_t)(value * 43 / scale) - 2, 69, 5, 5, 2, col);
         } else if (active && !timing) {
             const int v = i == 0 ? sd.position : i == 1 ? sd.drone : i == 2 ? sd.count - 1 : sd.phase;
             const int max = i == 0 ? sd.count - 1 : i == 1 ? 1 : i == 2 ? 3 : 100;

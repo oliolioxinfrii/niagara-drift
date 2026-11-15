@@ -595,7 +595,7 @@ static int sw_get(sw_t w)                              /* 1: lit (on, or the sec
     case S_HP: return p[GP_MODE] == DR_HP ? 1 : p[GP_MODE] == DR_BP ? 2 : 0;   /* HP lit, BP winking */
     case S_OTAP: return tap_lit(p[GP_OLFO]);
     case S_ODEST: return p[GP_OLFO_DEST] == DR_TO_XWAVE;
-    case S_FDEST: return p[GP_FLFO_DEST] == DR_TO_RESO;
+    case S_FDEST: return p[GP_FLFO_DEST];
     case S_FTAP: return tap_lit(p[GP_FLFO]);
     case S_PLINK: return proj.par[P_PLINK] != 0;
     case S_SYNC: return proj.par[P_SYNC] != 0;
@@ -614,7 +614,8 @@ static int sw_look(sw_t w)
     switch (w.s) {
     case S_SUBOCT: return p[GP_SUBOCT] == 3 || p[GP_SUBOCT] == 4 ? 3 : p[GP_SUBOCT] <= 1 ? 1 : 2;
     case S_HP: return p[GP_MODE] == DR_HP ? 2 : p[GP_MODE] == DR_BP ? 3 : 1;
-    case S_ODEST: case S_FDEST: return sw_get(w) ? 2 : 1;
+    case S_ODEST: return sw_get(w) ? 2 : 1;
+    case S_FDEST: return p[GP_FLFO_DEST] == DR_TO_PAN ? 3 : p[GP_FLFO_DEST] == DR_TO_RESO ? 2 : 1;
     case S_OTAP: case S_FTAP: case S_DTAP:
         v = (w.s == S_DTAP ? proj.par[P_DLY_LFO] : p[w.s == S_OTAP ? GP_OLFO : GP_FLFO]) & 3;
         return v == DR_LFO_BOTH ? 3 : v == DR_LFO_II ? 2 : v ? 1 : 0;
@@ -674,9 +675,15 @@ static void sw_flip(sw_t w)
         st = WAVES[nx]; break;
     case S_ODEST: param_set(base + GP_OLFO_DEST, on); what = on ? "X-WAVE" : "PITCH"; st = WAVES[proj.par[base + GP_OLFO]];
         break;
-    case S_FDEST: param_set(base + GP_FLFO_DEST, on); what = on ? "RESONANCE" : "CUTOFF"; st = WAVES[proj.par[base + GP_FLFO]];
+    case S_FDEST: {
+        static const char *const DEST[3] = {"CUTOFF", "RESONANCE", "PAN"};
+        int v = (proj.par[base + GP_FLFO_DEST] + 1) % 3;
+        param_set(base + GP_FLFO_DEST, v);
+        what = DEST[v]; st = WAVES[proj.par[base + GP_FLFO]];
         break;
-    case S_FTAP: param_set(tp, nx); what = proj.par[base + GP_FLFO_DEST] == DR_TO_RESO ? "RESONANCE" : "CUTOFF";
+    }
+        break;
+    case S_FTAP: param_set(tp, nx); what = proj.par[base + GP_FLFO_DEST] == DR_TO_PAN ? "PAN" : proj.par[base + GP_FLFO_DEST] == DR_TO_RESO ? "RESONANCE" : "CUTOFF";
         st = WAVES[nx]; break;
     case S_PLINK: link_set(on); q = a; what = "PITCH LINK"; st = on ? "ON" : "OFF"; break;
     case S_SYNC: param_set(P_SYNC, on); q = a; what = "HARD SYNC"; st = on ? "ON" : "OFF"; break;
@@ -2480,7 +2487,7 @@ static void sw_text(sw_t w, const char **name, const char **st)
     case S_XMOD: *name = "X-mod"; *st = proj.par[P_XMOD] == DR_XMOD_OUT ? "snarl" : proj.par[P_XMOD] == DR_XMOD_FM ? "pitch" : on ? "cutoff" : "off"; break;
     case S_OTAP: *name = "Osc LFO"; *st = TAP[(unsigned)p[GP_OLFO] & 3u]; break;
     case S_ODEST: *name = "Osc to"; *st = on ? "X-Wave" : "Pitch"; break;
-    case S_FDEST: *name = "Filt to"; *st = on ? "Reso" : "Cutoff"; break;
+    case S_FDEST: *name = "Filt to"; *st = p[GP_FLFO_DEST] == DR_TO_PAN ? "Pan" : p[GP_FLFO_DEST] == DR_TO_RESO ? "Reso" : "Cutoff"; break;
     case S_FTAP: *name = "Filt LFO"; *st = TAP[(unsigned)p[GP_FLFO] & 3u]; break;
     case S_DTAP: *name = "Dly LFO"; *st = TAP[(unsigned)proj.par[P_DLY_LFO] & 3u]; break;
     default: *name = ""; *st = ""; break;
@@ -3038,7 +3045,7 @@ static void sp_does_k(int k, int key)
         break;
     }
     case S_ODEST: sp_cat(on ? " for pitch" : " for x-wave"); break;
-    case S_FDEST: sp_cat(on ? " for cutoff" : " for reso"); break;
+    case S_FDEST: sp_cat(p[GP_FLFO_DEST] == DR_TO_CUTOFF ? " for reso" : p[GP_FLFO_DEST] == DR_TO_RESO ? " for pan" : " for cutoff"); break;
     case S_XMOD: sp_cat(" for "); sp_cat(XM[(proj.par[P_XMOD] + 1) % (DR_XMOD_OUT + 1)]); break;
     case S_LFORESET: sp_cat(proj.par[P_LFO_LOCK] ? " for free, hold to reset LFO" :
                                                 " for lock to Swell, hold to reset LFO"); break;

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Procedural geological and seismographic figures for the 240 x 124 picture
  * band. All textures are deterministic, bounded, and drawn into the existing
- * RGB565 strip buffer. The DSP and parameter tables are not involved. */
+ * RGB565 strip buffer. Live parameters are read, not modified. */
 
 /* Each drone has its own hue hierarchy. The separate red-to-yellow meter ramp
  * represents normalized parameter magnitude, not drone identity. */
@@ -287,7 +287,7 @@ static void vl_tone(void)
     int g;
     cv_rect(119, 3, 1, 117, LK_RULE);
     for (g = 0; g < 2; g++) {
-        const int x0 = 9 + 120 * g, noise = gpar(g, GP_NOISE);
+        const int x0 = 9 + 120 * g;
         const float level = vl_norm(DR_GP(g, GP_NOISE));
         const float pink = vl_norm(DR_GP(g, GP_NCOLOR));
         const uint16_t col = LK_DRONE[g];
@@ -319,7 +319,6 @@ static void vl_tone(void)
         cv_rect(x0 + 1, 108, 103, 1, LK_RULE);
         cv_text(x0 + 2, 109, &FONT_XS, "LOW", LK_LABEL);
         cv_text(x0 + 69, 109, &FONT_XS, "HIGH", LK_LABEL);
-        (void)noise;
     }
 }
 /* Seismographic propagation: discrete delay arrivals and a dissipating

@@ -7,7 +7,7 @@ intro: GLO: the room's settings, the Tuning and internal speaker
 
 ## Setup
 
-Settings for the FM-1 itself, not for a sound: how long changes take, the clock, the Tuning and the keys' touch.
+Settings for the FM-1 itself, not for a sound: how long changes take, the clock, tuning and stereo output.
 
 ## Knobs
 
@@ -17,7 +17,7 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|---|
 | Setup 1 | fade | morph | scene time | sync |
-| Setup 2 | tuning | tune | stereo | pressure |
+| Setup 2 | tuning | tune | stereo | — |
 | Speaker (3/3) | speaker On/Off | — | — | — |
 
 ## Setup 1
@@ -33,14 +33,13 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 
 ## Setup 2
 
-<img class="shot" src="../../img/screen-setup2.png" width="240" alt="The Setup 2 page: the Tuning's ring, Tune in Hz, the stereo width and the keys' pressure">
+<img class="shot" src="../../img/screen-setup2.png" width="240" alt="The Setup 2 page: tuning ticks around the planetary cross-section and an animated stereo spacing diagram">
 
 | Knob | What it does |
 |---|---|
 | **Tuning** | the notes the pitch knobs move through ([Tunings](#tunings)) |
 | **Tune** | A's pitch: 427 to 453 Hz (440 to start) |
 | **Stereo** | mono to drone I left, drone II right |
-| **Pressure** | how hard you press the scene keys: up for a light touch, down for a firm one |
 
 ## Speaker (3/3)
 
@@ -84,5 +83,6 @@ hear is within 10 cents; otherwise the familiar name ("5th").
 - **Wander, Chord, a partner's interval and Shift** take the Tuning's notes.
 - **A sound carries its Tuning:** a scene saved on LMY brings LMY back, even with Pitch lock on. A Preset plays on
   12-tone unless it has its own. The Tuning changes half way through a scene's glide.
-- **The pictures:** on Setup 1, a row for each time, ending where its knob is; on Setup 2, the Tuning as a ring, a tick
-  a note, turned by Tune.
+- **The pictures:** on Setup 1, a row for each time, ending where its knob is; on Setup 2, note ticks from the current
+  tuning surround a planetary cross-section. The A marker follows Tune; the two wave traces show stereo separation.
+- **Pressure:** the scene-key response uses the neutral setting; it is no longer an adjustable parameter.

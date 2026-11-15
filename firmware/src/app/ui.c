@@ -206,6 +206,7 @@ static struct {
     float loop_g0[DR_NGEST];           /* each gesture's level then */
     uint8_t loop_scenes;               /* the loop moves scenes: each pass starts from the whole sound it began on */
     uint32_t morph_t0, morph_ms;
+    uint8_t morph_pct;               /* terminal progression for a targeted transition */
     int16_t morph_from[DR_NPARAMS];
     int16_t morph_to[DR_NPARAMS];      /* the scene being morphed to, as it was when its key was pressed */
     int8_t press;                      /* the scene key held in a pressure crossfade (v0.2), or -1 */
@@ -1215,6 +1216,7 @@ static float scene_s(void)
 }
 
 #define VISIT_BACK NSCENES                     /* the morph's target: ui.visit_back (a visit's way back, an undo) */
+#define MENU_TRANSITION 100                    /* a percentage of the selected bank/slot, not a scene number */
 /* UNDO (v0.3, SEL + SAVE): back to the sound before the last scene tap or blend, over the Scene time; again, forward.
  * Its first time replacing a sound of the player's own (no scene's), a tip says how */
 static void undo_keep(void)
@@ -1466,7 +1468,8 @@ static void scene_morph(void)
     x = ui.morph_ms ? (float)(plat_ms() - ui.morph_t0) / (float)ui.morph_ms : 1.0f;
     if (x > 1.0f)
         x = 1.0f;
-    sound_blend(ui.morph_from, ui.morph == VISIT_BACK ? ui.visit_back : ui.morph_to, x);
+    sound_blend(ui.morph_from, ui.morph == VISIT_BACK ? ui.visit_back : ui.morph_to,
+                ui.morph == MENU_TRANSITION ? x * (float)ui.morph_pct * 0.01f : x);
     if (x >= 1.0f)
         ui.morph = -1;
 }
@@ -2050,7 +2053,6 @@ static int rq_input(uint32_t btn)                      /* asking: SEL or HOME an
 /* SAVE browser: the same bank/slot storage as before, but no keypad shortcuts.
  * All actions require SAVE to commit; HOME always returns or closes.
  * REC opens the bank-name popup (never on the factory Presets). */
-#define MENU_TRANSITION 100              /* distinct from a scene number and VISIT_BACK */
 static const char BANK_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 static void menu_name_begin(void)
 {
@@ -2124,6 +2126,7 @@ static void menu_start_transition(int bank, int slot)
     ui.press = ui.visit = -1;
     ui.scene_at = -1;
     ui.morph = MENU_TRANSITION;
+    ui.morph_pct = ui.menu_pct;
     ui.morph_t0 = plat_ms();
     ui.morph_ms = (uint32_t)(scene_s() * 1000.0f);
     ui.save_menu = 0;

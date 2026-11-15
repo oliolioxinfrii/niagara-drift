@@ -9,6 +9,7 @@
 static struct {
     uint8_t count, position, drone, phase, enabled, paused, stopping;
     uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
+    uint16_t node_frac[SD_MAX];          /* Q16 cycle positions; K4 scale changes do not re-round their source */
     int16_t note[2][SD_MAX];
     int16_t sent[2];
     uint32_t started_ms, sent_ms, paused_ms;
@@ -33,6 +34,21 @@ static uint32_t sd_node_s(int pos)       /* elapsed seconds from step 1 */
     int i;
     for (i = 0; i < pos && i < sd.count; i++) sum += sd.gap_s[i];
     return sum;
+}
+/* K1-K3 edit actual event positions, establishing new normalized positions.
+ * K4 scales the loop using these fixed anchors, not values rounded by the
+ * previous K4 detent. A midpoint remains halfway through any loop length. */
+static void sd_capture_node_fracs(void)
+{
+    const uint32_t total = sd_total_s();
+    uint32_t elapsed = 0;
+    int i;
+    sd.node_frac[0] = 0;
+    if (!total) return;
+    for (i = 1; i < sd.count; i++) {
+        elapsed += sd.gap_s[i - 1];
+        sd.node_frac[i] = (uint16_t)(((uint64_t)elapsed * 65536u + total / 2u) / total);
+    }
 }
 static int sd_linked(void) { return proj.par[P_PLINK] != 0 || proj.par[P_PLOCK] != 0; }
 static int sd_offset(void)
@@ -84,6 +100,7 @@ static void sd_init(void)
             sd.note[g][i] = proj.par[DR_GP(g, GP_PITCH)];
     }
     sd_sync_home();
+    sd_capture_node_fracs();
     sd_reset_clock();
 }
 static void sd_restore_pitch(void)
@@ -340,6 +357,7 @@ static void sd_note_knob(int i, int32_t e)
             sd.gap_s[largest]--;
         }
         /* Changing the step count changes the loop map, not its clock. */
+        sd_capture_node_fracs();
         sd.sent[0] = sd.sent[1] = -32768;
     } else if (i == 3 && !sd_linked()) {
         v = (int)sd.phase + (int)accel(EN_K1 + i, e, 100);
@@ -399,6 +417,7 @@ static void sd_randomize(int (*between)(int lo, int hi))
             assigned += allot;
         }
     }
+    sd_capture_node_fracs();
     sd.phase = (uint8_t)between(0, 99);
     sd.position = 0;
     sd.stopping = (uint8_t)(sd.enabled && !ui.playing && dr_fade > 0.0f);
@@ -418,7 +437,7 @@ static void sd_scale_total(uint32_t new_total)
     int j;
     if (new_total == old_total || old_total == 0) return;
     for (j = 1; j < sd.count; j++) {
-        uint32_t t = (uint32_t)(((uint64_t)sd_node_s(j) * new_total + old_total / 2u) / old_total);
+        uint32_t t = (uint32_t)(((uint64_t)sd.node_frac[j] * new_total + 32768u) / 65536u);
         if (t <= prev) t = prev + 1u;
         if (t > new_total - (uint32_t)(sd.count - j))
             t = new_total - (uint32_t)(sd.count - j);
@@ -453,6 +472,7 @@ static void sd_time_knob(int i, int32_t e)
         if (delta > (int)sd.gap_s[i + 1] - 1) delta = (int)sd.gap_s[i + 1] - 1;
         sd.gap_s[i] = (uint16_t)((int)sd.gap_s[i] + delta);
         sd.gap_s[i + 1] = (uint16_t)((int)sd.gap_s[i + 1] - delta);
+        if (delta) sd_capture_node_fracs();
     } else {
         const uint32_t total = sd_total_s();
         int target = (int)total + (int)accel(EN_K1 + i, e, SD_LIMIT_S);

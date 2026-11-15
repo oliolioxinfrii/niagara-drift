@@ -80,14 +80,13 @@ static void lk_pic_seq_time(void)
 /* The wave displacement is zero at programmed notes, so the luminous strands
  * retain exact pitch markers while moving between them. The same phase shift
  * used for audio determines drone II's position along the score. */
-static float sd_curve_envelope(int g, uint32_t ms)
+static float sd_curve_envelope(int g, uint32_t ms, uint32_t len, int linked)
 {
-    const uint32_t len = sd_total_s() * 1000u;
     uint32_t t;
     int i;
     if (!len) return 1.0f;
     t = ms % len;
-    if (g && !sd_linked())
+    if (g && !linked)
         t = (t + len * (uint32_t)sd.phase / 100u) % len;
     for (i = 0; i < sd.count; i++) {
         const uint32_t interval = (uint32_t)sd.gap_s[i] * 1000u;
@@ -150,6 +149,7 @@ static void lk_pic_sequence(int timing)
 {
     const int32_t x0 = 38, width = 187;
     const uint32_t len = sd_total_s() * 1000u;
+    const int linked = sd_linked();
     const float motion = (float)(plat_ms() % 4000u) * (1.0f / 4000.0f);
     int lo = 32767, hi = -32768, g, j, k;
     char txt[16];
@@ -192,10 +192,10 @@ static void lk_pic_sequence(int timing)
         for (i = 0; i < N; i++) {
             const int32_t x = width * i / (N - 1);
             const uint32_t t = len ? (uint32_t)((uint64_t)len * (uint32_t)x / (uint32_t)width) : 0u;
-            const float taper = len ? sd_curve_envelope(g, t) :
+            const float taper = len ? sd_curve_envelope(g, t, len, linked) :
                                 fm_sinf(3.1415926f * (float)x / (float)width);
             const float wave = 5.0f * fm_sinf(6.2831853f * ((float)x / 36.5f + ph)) * taper;
-            ys[i] = (int16_t)(sd_y(sd_at(g, t), lo, hi) +
+            ys[i] = (int16_t)(sd_y(sd_at_len(g, t, len, linked), lo, hi) +
                               (int32_t)(wave + (wave >= 0.0f ? 0.5f : -0.5f)));
         }
         for (strand = 0; strand < 3; strand++) {
@@ -209,7 +209,7 @@ static void lk_pic_sequence(int timing)
             const uint32_t t = len ? sd_curve_node_ms(g, j, len) : 0u;
             const int32_t x = x0 + (len ? (int32_t)((uint64_t)t * (uint32_t)width / len) : 0);
             const int32_t y = sd_y(sd_pitch(g, j), lo, hi);
-            const int selected = j == sd.position && g == (sd_linked() ? 0 : sd.drone);
+            const int selected = j == sd.position && g == (linked ? 0 : sd.drone);
             cv_round(x - (selected ? 4 : 3), y - (selected ? 4 : 3),
                      selected ? 9 : 7, selected ? 9 : 7, selected ? 4 : 3, selected ? LK_WHITE : LK_DRONE[g]);
             cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
@@ -233,7 +233,7 @@ static void lk_pic_sequence(int timing)
         cv_text(x - 3, 108, &FONT_XS, txt, j == sd.position ? LK_WHITE : LK_LABEL);
     }
     cv_text(5, 0, &FONT_XS, "PITCH", LK_LABEL);
-    if (sd_linked())
+    if (linked)
         cv_text(130, 0, &FONT_XS, "PITCHES LINKED", LK_LABEL);
     if (sd.enabled)
         cv_text(sd.paused ? 192 : 202, 0, &FONT_XS, sd.paused ? "PAUSE" : "ON", LK_GOLD);

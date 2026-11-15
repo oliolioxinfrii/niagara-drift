@@ -1,6 +1,7 @@
 # Gesture key LEDs follow the actual effect amount, with no illumination at zero.
 # w9 = Chord, w10 = Snarl, w12 = Weight; ledwN is raw brightness (0..255).
 notips
+legacykeys
 tap PLAY
 wait 100
 expect ledw9 0

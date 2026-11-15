@@ -2007,11 +2007,14 @@ static void lk_pic_swell(void)
     float dot;
     const int32_t x0 = 12, h = 100;
     int32_t top, lo = 9999, hi = -9999;
-    int16_t y[LK_SW_N];
+    int16_t y[LK_SW_N], path[2][LK_SW_N];
     int g, i;
+    /* The peak-to-peak scan also supplies the waveform samples. The gain
+     * conversion need only run once per point, not once per scan and draw. */
     for (g = 0; g < 2; g++)
         for (i = 0; i < LK_SW_N; i++) {
-            const int32_t yi = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), 0, h);
+            const int16_t yi = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), 0, h);
+            path[g][i] = yi;
             lo = yi < lo ? yi : lo;
             hi = yi > hi ? yi : hi;
         }
@@ -2023,7 +2026,7 @@ static void lk_pic_swell(void)
     for (g = 1; g >= 0; g--) {
         const uint16_t c = on ? LK_DRONE[g] : LK_UNLIT;
         for (i = 0; i < LK_SW_N; i++)
-            y[i] = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), top, h);
+            y[i] = (int16_t)(top + path[g][i]);
         if (on && g == 1)                    /* a cyan edge stays visible where both traces align */
             for (i = 1; i < LK_SW_N; i++)
                 cv_line(x0 + 2 * (i - 1), y[i - 1] - 1, x0 + 2 * i, y[i] - 1, c);
@@ -2230,7 +2233,7 @@ static void lk_pic(void)
         }
         if (sd.enabled) h = hash(h, plat_ms() / 100u);
     }
-    if (h == ui.sig[1] && ui.frame % SCOPE_EVERY)
+    if (h == ui.sig[1] && (ui.view == V_SEQ_SHAPE || ui.frame % SCOPE_EVERY))
         return;
     ui.sig[1] = h;
     cv_begin(240, LK_PIC_H, LK_BG);

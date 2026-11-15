@@ -511,18 +511,17 @@ spin K1 7
 expect par51 32
 wait 100
 shot setup.png
-# GLO cycles Setup 1 -> Setup 2 -> Speaker -> Setup 1.
-# VOLCANO v1.5 Setup 2 has Tuning, Tune, Stereo; K4 is intentionally unused.
-# Pressure sensitivity stays at its neutral default (50), including after K4 turns.
+# GLO cycles Setup 1 -> Setup 2 -> Setup 1.
+# Setup 2 KNOB 4 toggles speaker mute, not pressure sensitivity.
 tap GLO
 expect view 12
 expect par97 50
-spin K4 -10
+spin K4 1
+expect speaker_mute 1
 expect par97 50
-spin K4 10
+spin K4 -1
+expect speaker_mute 0
 expect par97 50
-tap GLO
-expect view 17
 tap GLO
 expect view 11
 # a page button opens the page last shown there: Reverb, then home, then FX held (a peek) shows Reverb; HOME is

@@ -1,3 +1,4 @@
+legacykeys
 # the pressure crossfade (v0.2): a scene key held is a fader into its scene. Drone I's cutoff (par7) shows
 # where the sound is: scene A1 at 700, the sound before it at 300. The pressure is where the sound heads; it
 # glides there no faster than the whole way in a Scene time (here 1.1 s: Setup 1 KNOB 3 at 24), after the

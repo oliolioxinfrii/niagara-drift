@@ -10,118 +10,123 @@ static void sd_pitch_text(int g, int cents, char *out)
 {
     dr_param_text(DR_GP(g, GP_PITCH), cents, out);
 }
-/* Timing edit: the note paths deliberately give way to one proportional time
- * axis. Inactive positions remain as grey placeholders; only active intervals
- * illuminate. The right-hand marker is LOOP, not an extra pitched step. */
+/* Each page maps its entire current cycle onto the available width. The
+ * horizontal endpoint is the next return to step 1, not the four-minute cap. */
+static int32_t sd_time_x(uint32_t seconds, uint32_t total, int32_t x0, int32_t width)
+{
+    return x0 + (int32_t)((uint64_t)seconds * (uint32_t)width / total);
+}
 static void lk_pic_seq_time(void)
 {
-    const int32_t x0 = 18, x1 = 222, y0 = 56, y1 = 75;
+    const int32_t x0 = 18, width = 204, y0 = 55, y1 = 76;
     const uint32_t total = sd_total_s();
-    uint32_t now = plat_ms();
+    const int32_t x1 = x0 + width;
+    const uint32_t elapsed = sd_elapsed_ms();
     int i, g;
-    char t[20];
+    char t[24];
+
     cv_text(8, 4, &FONT_XS, "EVENT POSITIONS", LK_LABEL);
     if (sd.count < 2) {
-        cv_rect(x0, y0 + 7, x1 - x0, 1, LK_RULE);
-        for (i = 1; i <= 3; i++) {
-            int32_t x = x0 + (x1 - x0) * i / 4;
-            cv_round(x - 3, y0 + 4, 7, 7, 3, LK_UNLIT);
+        cv_rect(x0, y0 + 9, width, 1, LK_RULE);
+        cv_round(x0 - 3, y0 + 6, 7, 7, 3, LK_WHITE);
+        for (i = 1; i < SD_MAX; i++) {
+            const int32_t x = x0 + width * i / SD_MAX;
+            cv_round(x - 3, y0 + 6, 7, 7, 3, LK_UNLIT);
         }
-        cv_round(x0 - 4, y0 + 3, 9, 9, 4, LK_WHITE);
-        cv_text(20, 96, &LK_F_TAG, "1 STEP  -  NO INTERVALS", LK_LABEL);
+        cv_text(20, 96, &LK_F_TAG, "1 STEP - NO INTERVALS", LK_LABEL);
         return;
     }
-    /* A subdued ruler runs the complete four-minute range. Keeping the
-     * endpoint proportional makes actual gap changes visible immediately. */
+    /* A change to the loop time changes the ruler's units, never its endpoints.
+     * All active nodes preserve their fractional positions in this picture. */
     for (i = 0; i <= 4; i++) {
-        const int32_t x = x0 + (x1 - x0) * i / 4;
-        cv_rect(x, y0 - 9, 1, 34, LK_RULE);
+        const int32_t x = x0 + width * i / 4;
+        cv_rect(x, y0 - 11, 1, 37, LK_RULE);
     }
     for (g = 0; g < 2; g++) {
         const int32_t y = g ? y1 : y0;
-        const uint16_t c = LK_DRONE[g];
-        const int32_t endx = x0 + (int32_t)((x1 - x0) * total / SD_LIMIT_S);
-        cv_rect(x0, y, x1 - x0, 1, LK_RULE);
-        cv_round(x0, y - 1, endx - x0 + 1, 3, 1, c);
+        const uint16_t col = LK_DRONE[g];
+        cv_rect(x0, y, width + 1, 1, LK_RULE);
+        cv_round(x0, y - 1, width + 1, 3, 1, col);
         for (i = 0; i < sd.count; i++) {
-            const uint32_t event_s = sd_node_s(i);
-            const int32_t x = x0 + (int32_t)((x1 - x0) * event_s / SD_LIMIT_S);
-            cv_round(x - 3, y - 3, 7, 7, 3, c);
+            const int32_t x = sd_time_x(sd_node_s(i), total, x0, width);
+            cv_round(x - 3, y - 3, 7, 7, 3, col);
             cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
         }
         if (sd.enabled && ui.playing) {
-            const uint32_t tms = (now - sd.started_ms) % (total * 1000u);
-            const int32_t x = x0 + (int32_t)((x1 - x0) * tms / (SD_LIMIT_S * 1000u));
+            const uint32_t tms = elapsed % (total * 1000u);
+            const int32_t x = x0 + (int32_t)((uint64_t)tms * (uint32_t)width / (total * 1000u));
             cv_round(x - 3, y - 3, 7, 7, 3, LK_WHITE);
         }
-        cv_round(endx - 3, y - 3, 7, 7, 3, LK_GOLD);
+        cv_round(x1 - 3, y - 3, 7, 7, 3, LK_GOLD);
     }
+    /* Inactive positions are placeholders off the active paths. */
     for (i = sd.count; i < SD_MAX; i++) {
-        /* Future steps are ghosts at equally spaced positions, not events. */
-        const int32_t x = x0 + (x1 - x0) * i / SD_MAX;
-        cv_round(x - 2, y0 - 2, 5, 5, 2, LK_UNLIT);
-        cv_round(x - 2, y1 - 2, 5, 5, 2, LK_UNLIT);
+        const int32_t x = x0 + width * i / SD_MAX;
+        cv_round(x - 2, y0 - 16, 5, 5, 2, LK_UNLIT);
+        cv_round(x - 2, y1 + 11, 5, 5, 2, LK_UNLIT);
     }
-    cv_text(7, 28, &FONT_XS, "I", LK_DRONE[0]);
-    cv_text(7, 47, &FONT_XS, "II", LK_DRONE[1]);
-    cv_text(8, 98, &FONT_XS, "0", LK_LABEL);
-    cv_text(196, 98, &FONT_XS, "4m", LK_LABEL);
+    cv_text(7, 34, &FONT_XS, "I", LK_DRONE[0]);
+    cv_text(7, 77, &FONT_XS, "II", LK_DRONE[1]);
+    cv_text(x0, 100, &FONT_XS, "0", LK_LABEL);
     itoa_u(total, t);
     {
         char *q = t;
         while (*q) q++;
-        scopy(q, "s LOOP");
+        scopy(q, "s");
     }
-    cv_text(110 - text_w(&LK_F_TAG, t) / 2, 98, &LK_F_TAG, t, LK_WHITE);
+    cv_text(x1 - text_w(&FONT_XS, t), 100, &FONT_XS, t, LK_LABEL);
+    text_c(120, 100, &FONT_XS, sd.paused ? "PAUSED" : sd.enabled ? "RUNNING" : "LOOP", LK_LABEL);
+}
+
+/* The wave displacement is zero at programmed notes, so the luminous strands
+ * retain exact pitch markers while moving between them. The same phase shift
+ * used for audio determines drone II's position along the score. */
+static float sd_curve_envelope(int g, uint32_t ms)
+{
+    const uint32_t len = sd_total_s() * 1000u;
+    uint32_t t;
+    int i;
+    if (!len) return 1.0f;
+    t = ms % len;
+    if (g && !sd_linked())
+        t = (t + len * (uint32_t)sd.phase / 100u) % len;
+    for (i = 0; i < sd.count; i++) {
+        const uint32_t interval = (uint32_t)sd.gap_s[i] * 1000u;
+        if (t < interval)
+            return fm_sinf(3.1415926f * (float)t / (float)interval);
+        t -= interval;
+    }
+    return 0.0f;
+}
+static uint32_t sd_curve_node_ms(int g, int pos, uint32_t len)
+{
+    const uint32_t at = sd_node_s(pos) * 1000u;
+    const uint32_t offset = g && !sd_linked() ? len * (uint32_t)sd.phase / 100u : 0u;
+    return (at + len - offset) % len;
 }
 static void lk_pic_sequence(int timing)
 {
+    const int32_t x0 = 38, width = 187;
+    const uint32_t len = sd_total_s() * 1000u;
+    const float motion = (float)(plat_ms() % 4000u) * (1.0f / 4000.0f);
+    int lo = 32767, hi = -32768, g, j, k;
+    char txt[16];
     if (timing) {
         lk_pic_seq_time();
         return;
     }
-    int lo = 32767, hi = -32768, g, j, k;
-    const int32_t x0 = 38, width = 187;
-    uint32_t span[SD_MAX], total = 0;
-    int32_t px[SD_MAX + 1];
-    char txt[16];
     for (g = 0; g < 2; g++)
         for (j = 0; j < sd.count; j++) {
             const int n = sd_pitch(g, j);
             if (n < lo) lo = n;
             if (n > hi) hi = n;
         }
-    /* Preserve at least a full octave of musical context on the ruler. */
     lo = ((lo - 200) / 100 - 2) * 100;
     hi = ((hi + 200) / 100 + 2) * 100;
     if (hi - lo < 1200) {
         lo -= (1200 - (hi - lo)) / 2;
         hi = lo + 1200;
     }
-    for (j = 0; j < sd.count; j++) {
-        span[j] = timing && sd.count > 1 ? sd.gap_s[j] : 1u;
-        total += span[j];
-    }
-    if (!total) total = 1;
-    px[0] = x0;
-    for (j = 0; j < sd.count; j++)
-        px[j + 1] = x0 + (int32_t)(width * (uint32_t)(j + 1) / sd.count);
-    if (timing) {
-        /* Timing page: every potential node is visible. The final marker
-         * represents the next arrival at step 1, never another pitched node. */
-        uint32_t acc = 0;
-        for (j = 0; j < SD_MAX; j++)
-            px[j] = x0 + (int32_t)(width * (uint32_t)j / SD_MAX);
-        for (j = 0; j < sd.count && sd.count > 1; j++) {
-            acc += span[j];
-            px[j + 1] = x0 + (int32_t)(width * acc / total);
-        }
-        px[sd.count] = x0 + width;
-    } else if (sd.count == 1) {
-        px[0] = x0;
-        px[1] = x0 + width;
-    }
-    /* Each rung is a note on a common cents scale; accents denote C or A. */
     for (k = 0; k <= 12; k++) {
         const int n = lo + (hi - lo) * k / 12;
         const int32_t y = sd_y(n, lo, hi);
@@ -133,83 +138,59 @@ static void lk_pic_sequence(int timing)
             cv_text(2, y - 7, &FONT_XS, txt, LK_LABEL);
         }
     }
-    /* Two strands per drone: a subdued backing path plus the vivid melody.
-     * On the note page, slightly undulate the connecting path like Setup 2.
-     * On the timing page, one clear path per drone, as on Swell. */
+    /* Setup 2's animated three-strand waveform, bent around the actual pitch
+     * trajectory. Drone II's pitch and node positions share the audio phase. */
     for (g = 1; g >= 0; g--) {
-        const uint16_t col = LK_DRONE[g];
-        const uint16_t back = lk_mix(0x07060Bu, LK_RAMP[g][0], 0.50f);
-        for (j = 0; j < sd.count; j++) {
-            const int a = sd_pitch(g, j), b = sd_pitch(g, (j + 1) % sd.count);
-            const int dx = px[j + 1] - px[j];
-            int32_t priorx = px[j], priory = sd_y(a, lo, hi);
-            int m;
-            if (!timing) priory += (int32_t)(1.5f * fm_sinf((float)j * 2.1f + (float)g));
-            for (m = 1; m <= (dx > 1 ? dx : 1); m++) {
-                const float t = (float)m / (float)(dx > 1 ? dx : 1);
-                const float smooth = t * t * (3.0f - 2.0f * t);
-                const int n = (int)((float)a + (float)(b - a) * smooth + 0.5f);
-                const int32_t x = px[j] + m;
-                const int32_t wobble = timing ? 0 : (int32_t)(2.5f * fm_sinf(6.2831853f * t + (float)j * 1.6f + (float)g) * fm_sinf(3.1415926f * t));
-                const int32_t y = sd_y(n, lo, hi) + wobble;
-                if (!timing) cv_line(priorx, priory - 2, x, y - 2, back);
-                cv_line(priorx, priory, x, y, col);
-                priorx = x;
-                priory = y;
+        const float ph = motion + 0.5f * (float)g;
+        int strand;
+        for (strand = 0; strand < 3; strand++) {
+            const uint16_t col = lk_ramp(g, (float)strand / 2.0f);
+            const int32_t dy = 3 * (2 - strand);
+            int32_t prev = 0;
+            int x;
+            for (x = 0; x <= width; x++) {
+                const uint32_t t = len ? (uint32_t)((uint64_t)len * (uint32_t)x / (uint32_t)width) : 0u;
+                const float taper = len ? sd_curve_envelope(g, t) :
+                                    fm_sinf(3.1415926f * (float)x / (float)width);
+                const float wave = 5.0f * fm_sinf(6.2831853f * ((float)x / 36.5f + ph)) * taper;
+                const int32_t y = sd_y(sd_at(g, t), lo, hi) - dy + (int32_t)(wave + (wave >= 0.0f ? 0.5f : -0.5f));
+                if (x)
+                    cv_line(x0 + x - 1, prev, x0 + x, y, col);
+                prev = y;
             }
         }
         for (j = 0; j < sd.count; j++) {
-            const int32_t x = px[j], y = sd_y(sd_pitch(g, j), lo, hi);
-            const int chosen = !timing && j == sd.position && g == (sd_linked() ? 0 : sd.drone);
-            cv_round(x - (chosen ? 4 : 3), y - (chosen ? 4 : 3),
-                     chosen ? 9 : 7, chosen ? 9 : 7, chosen ? 4 : 3, chosen ? LK_WHITE : col);
+            const uint32_t t = len ? sd_curve_node_ms(g, j, len) : 0u;
+            const int32_t x = x0 + (len ? (int32_t)((uint64_t)t * (uint32_t)width / len) : 0);
+            const int32_t y = sd_y(sd_pitch(g, j), lo, hi);
+            const int selected = j == sd.position && g == (sd_linked() ? 0 : sd.drone);
+            cv_round(x - (selected ? 4 : 3), y - (selected ? 4 : 3),
+                     selected ? 9 : 7, selected ? 9 : 7, selected ? 4 : 3, selected ? LK_WHITE : LK_DRONE[g]);
             cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
         }
     }
-    /* Running cursor: the two drones traverse the same interval map, but
-     * drone II has an independent phase. */
-    if (sd.enabled && ui.playing && sd.count > 1) {
-        const uint32_t duration = sd_total_s() * 1000u;
+    if (sd.enabled && ui.playing && len) {
+        const uint32_t t = sd_elapsed_ms() % len;
+        const int32_t x = x0 + (int32_t)((uint64_t)t * (uint32_t)width / len);
+        /* Both dots are at the same clock position, as on Swell page 1.
+         * Drone II's phase changes its height on the displaced trace. */
         for (g = 1; g >= 0; g--) {
-            uint32_t t = (plat_ms() - sd.started_ms) % duration;
-            const int n = sd_at(g, plat_ms() - sd.started_ms);
-            if (g) t = (t + duration * sd.phase / 100u) % duration;
-            const int32_t x = x0 + (int32_t)((uint64_t)t * width / duration);
-            const int32_t y = sd_y(n, lo, hi);
+            const int32_t y = sd_y(sd_at(g, t), lo, hi);
             cv_round(x - 3, y - 3, 7, 7, 3, LK_WHITE);
             cv_round(x - 2, y - 2, 5, 5, 2, LK_DRONE[g]);
         }
     }
-    if (timing) {
-        /* A line of grey placeholders shows available nodes without
-         * implying any active interval. The active line ends at LOOP. */
-        for (j = sd.count; j < SD_MAX; j++) {
-            const int32_t x = x0 + (int32_t)((uint32_t)width * j / SD_MAX);
-            cv_round(x - 2, 116, 5, 5, 2, LK_UNLIT);
-        }
-        if (sd.count > 1) {
-            for (j = 1; j < sd.count; j++) {
-                itoa_u((uint32_t)j + 1u, txt);
-                cv_text(px[j] - 3, 108, &FONT_XS, txt, LK_LABEL);
-            }
-            cv_rect(x0, 117, width, 1, LK_RULE);
-            cv_rect(x0, 117, (int32_t)(width * (sd.enabled ? (plat_ms() - sd.started_ms) % (total * 1000u) : 0) /
-                                             (total * 1000u)), 1, LK_GOLD);
-            cv_text(203, 108, &FONT_XS, "LOOP", LK_LABEL);
-        } else {
-            cv_text(45, 108, &FONT_XS, "ADD A STEP", LK_LABEL);
-        }
-    } else {
-        for (j = 0; j < sd.count; j++) {
-            itoa_u((uint32_t)j + 1u, txt);
-            cv_text(px[j] - 3, 108, &FONT_XS, txt, j == sd.position ? LK_WHITE : LK_LABEL);
-        }
+    for (j = 0; j < sd.count; j++) {
+        const uint32_t t = len ? sd_curve_node_ms(0, j, len) : 0u;
+        const int32_t x = x0 + (len ? (int32_t)((uint64_t)t * (uint32_t)width / len) : 0);
+        itoa_u((uint32_t)j + 1u, txt);
+        cv_text(x - 3, 108, &FONT_XS, txt, j == sd.position ? LK_WHITE : LK_LABEL);
     }
-    cv_text(5, 0, &FONT_XS, timing ? "TIME" : "PITCH", LK_LABEL);
-    if (sd_linked() && !timing)
+    cv_text(5, 0, &FONT_XS, "PITCH", LK_LABEL);
+    if (sd_linked())
         cv_text(130, 0, &FONT_XS, "PITCHES LINKED", LK_LABEL);
     if (sd.enabled)
-        cv_text(202, 0, &FONT_XS, "ON", LK_GOLD);
+        cv_text(sd.paused ? 192 : 202, 0, &FONT_XS, sd.paused ? "PAUSE" : "ON", LK_GOLD);
 }
 
 /* Values use the same bottom row as the standard 0.3 pages. Inactive timing

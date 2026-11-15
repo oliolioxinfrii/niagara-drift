@@ -263,30 +263,40 @@ void project_defaults(void)
     proj.bank = BANK_PRESETS;                  /* a new FM-1: the keys play the Presets (P9-P16 in their second bank) */
 }
 
-/* User bank names travel with the project and never alter scene storage.
- * A shorter pre-v1.4 format-45 object loads with a zeroed metadata suffix. */
-const char *project_bank_name(int bank)
+/* Per-slot labels live in a trailing portion of the project object. The
+ * legacy v1.4 bank_name field stays in place so all existing scene data
+ * and saved project prefixes remain binary-compatible. */
+static int slot_bank_index(int bank)
 {
-    static const char *const fallback[NBANKS] =
-        {"A", "B", "C", "PRESETS 1-8", "D", "E", "F", "PRESETS 9-16"};
-    if (bank < 0 || bank >= NBANKS) return "?";
-    if (BANK_IS_PRESETS(bank) || !proj.bank_name[bank][0])
-        return fallback[bank];
-    return proj.bank_name[bank];
+    if (bank >= 0 && bank <= 2) return bank;
+    if (bank >= BANK_D && bank <= BANK_D + 2) return bank - BANK_D + 3;
+    return -1;
 }
 
-int project_bank_rename(int bank, const char *name)
+const char *project_slot_name(int bank, int slot)
 {
-    int i;
-    if (bank < 0 || bank >= NBANKS || BANK_IS_PRESETS(bank) || !name)
-        return -1;
-    for (i = 0; i < BANK_NAME_LEN - 1 && name[i]; i++) {
-        const char c = name[i];
+    const int i = slot_bank_index(bank);
+    if (slot < 0 || slot >= NPLAY) return 0;
+    if (BANK_IS_PRESETS(bank))
+        return preset_name(slot + (bank == BANK_PRESETS2 ? NPLAY : 0));
+    if (i < 0 || !proj.slot_name[i][slot][0]) return 0;
+    return proj.slot_name[i][slot];
+}
+
+int project_slot_rename(int bank, int slot, const char *name)
+{
+    int i, n;
+    const int b = slot_bank_index(bank);
+    if (b < 0 || slot < 0 || slot >= NPLAY || !name)
+        return -1;                          /* factory Presets cannot be renamed */
+    for (n = 0; n < BANK_NAME_LEN - 1 && name[n]; n++) {
+        const char c = name[n];
         if (!(c == ' ' || c == '-' || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
             return -1;
     }
-    memset(proj.bank_name[bank], 0, BANK_NAME_LEN);
-    memcpy(proj.bank_name[bank], name, (uint32_t)i);
+    memset(proj.slot_name[b][slot], 0, BANK_NAME_LEN);
+    for (i = 0; i < n; i++)
+        proj.slot_name[b][slot][i] = name[i];
     return 0;
 }
 

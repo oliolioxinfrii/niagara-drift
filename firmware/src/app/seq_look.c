@@ -19,7 +19,7 @@ static void lk_pic_sequence(int timing)
     char txt[16];
     for (g = 0; g < 2; g++)
         for (j = 0; j < sd.count; j++) {
-            const int n = sd.note[g][j];
+            const int n = sd_pitch(g, j);
             if (n < lo) lo = n;
             if (n > hi) hi = n;
         }
@@ -38,12 +38,20 @@ static void lk_pic_sequence(int timing)
     px[0] = x0;
     for (j = 0; j < sd.count; j++)
         px[j + 1] = x0 + (int32_t)(width * (uint32_t)(j + 1) / sd.count);
-    if (timing && sd.count > 1) {
+    if (timing) {
+        /* Timing page: every potential node is visible. The final marker
+         * represents the next arrival at step 1, never another pitched node. */
         uint32_t acc = 0;
-        for (j = 0; j < sd.count; j++) {
+        for (j = 0; j < SD_MAX; j++)
+            px[j] = x0 + (int32_t)(width * (uint32_t)j / SD_MAX);
+        for (j = 0; j < sd.count && sd.count > 1; j++) {
             acc += span[j];
             px[j + 1] = x0 + (int32_t)(width * acc / total);
         }
+        px[sd.count] = x0 + width;
+    } else if (sd.count == 1) {
+        px[0] = x0;
+        px[1] = x0 + width;
     }
     /* Each rung is a note on a common cents scale; accents denote C or A. */
     for (k = 0; k <= 12; k++) {
@@ -64,7 +72,7 @@ static void lk_pic_sequence(int timing)
         const uint16_t col = LK_DRONE[g];
         const uint16_t back = lk_mix(0x07060Bu, LK_RAMP[g][0], 0.50f);
         for (j = 0; j < sd.count; j++) {
-            const int a = sd.note[g][j], b = sd.note[g][(j + 1) % sd.count];
+            const int a = sd_pitch(g, j), b = sd_pitch(g, (j + 1) % sd.count);
             const int dx = px[j + 1] - px[j];
             int32_t priorx = px[j], priory = sd_y(a, lo, hi);
             int m;
@@ -83,8 +91,8 @@ static void lk_pic_sequence(int timing)
             }
         }
         for (j = 0; j < sd.count; j++) {
-            const int32_t x = px[j], y = sd_y(sd.note[g][j], lo, hi);
-            const int chosen = !timing && j == sd.position && g == sd.drone;
+            const int32_t x = px[j], y = sd_y(sd_pitch(g, j), lo, hi);
+            const int chosen = !timing && j == sd.position && g == (sd_linked() ? 0 : sd.drone);
             cv_round(x - (chosen ? 4 : 3), y - (chosen ? 4 : 3),
                      chosen ? 9 : 7, chosen ? 9 : 7, chosen ? 4 : 3, chosen ? LK_WHITE : col);
             cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
@@ -105,12 +113,23 @@ static void lk_pic_sequence(int timing)
         }
     }
     if (timing) {
-        for (j = 0; j < sd.count && sd.count > 1; j++) {
-            const int32_t mx = (px[j] + px[j + 1]) / 2;
-            if (px[j + 1] - px[j] >= 28) {
-                itoa_u(sd.gap_s[j], txt);
-                cv_text(mx - text_w(&FONT_XS, txt) / 2, 107, &FONT_XS, txt, LK_LABEL);
+        /* A line of grey placeholders shows available nodes without
+         * implying any active interval. The active line ends at LOOP. */
+        for (j = sd.count; j < SD_MAX; j++) {
+            const int32_t x = x0 + (int32_t)((uint32_t)width * j / SD_MAX);
+            cv_round(x - 2, 116, 5, 5, 2, LK_UNLIT);
+        }
+        if (sd.count > 1) {
+            for (j = 1; j < sd.count; j++) {
+                itoa_u((uint32_t)j + 1u, txt);
+                cv_text(px[j] - 3, 108, &FONT_XS, txt, LK_LABEL);
             }
+            cv_rect(x0, 117, width, 1, LK_RULE);
+            cv_rect(x0, 117, (int32_t)(width * (sd.enabled ? (plat_ms() - sd.started_ms) % (total * 1000u) : 0) /
+                                             (total * 1000u)), 1, LK_GOLD);
+            cv_text(203, 108, &FONT_XS, "LOOP", LK_LABEL);
+        } else {
+            cv_text(45, 108, &FONT_XS, "ADD A STEP", LK_LABEL);
         }
     } else {
         for (j = 0; j < sd.count; j++) {
@@ -119,6 +138,8 @@ static void lk_pic_sequence(int timing)
         }
     }
     cv_text(5, 0, &FONT_XS, timing ? "TIME" : "PITCH", LK_LABEL);
+    if (sd_linked() && !timing)
+        cv_text(150, 0, &FONT_XS, "LINKED", LK_LABEL);
     if (sd.enabled)
         cv_text(202, 0, &FONT_XS, "ON", LK_GOLD);
 }
@@ -136,20 +157,21 @@ static void lk_values_sequence(void)
         h = hash(h, (uint32_t)sd.gap_s[i] | ((uint32_t)(uint16_t)sd.note[0][i] << 16));
         h = hash(h, (uint32_t)(uint16_t)sd.note[1][i] | (uint32_t)lit(i) << 20);
     }
-    h = hash(h, (uint32_t)(ui.btn >> B_SEL & 1u));
+    h = hash(h, (uint32_t)(ui.btn >> B_SEL & 1u) | (uint32_t)sd_linked() << 8 |
+                (uint32_t)(uint16_t)proj.par[P_PLINK_OFF] << 12);
     if (h == ui.sig[2]) return;
     ui.sig[2] = h;
     cv_begin(240, LK_VAL_H, LK_BG);
     cv_rect(8, 0, 224, 1, LK_RULE);
     for (i = 0; i < 4; i++) {
         const int32_t cx = 36 + 56 * i;
-        const int active = !timing || (sd.count > 1 && i < sd.count);
+        const int active = !timing ? !(sd_linked() && (i == 1 || i == 3)) :
+                           (sd.count > 1 && (i == 3 || i + 1 < sd.count));
         const uint16_t col = !active ? LK_UNLIT : lit(i) ? LK_WHITE :
                              !timing && i == 1 ? LK_DRONE[sd.drone] : LK_NEUTRAL;
-        const char *name = timing ? (i == 0 ? "1 > 2" : i == 1 ? (sd.count == 2 ? "2 > 1" : "2 > 3") :
-                                           i == 2 ? (sd.count == 3 ? "3 > 1" : "3 > 4") : "4 > 1") :
-                           (i == 0 ? "Position" : i == 1 ? (ui.btn >> B_SEL & 1u ? "Pitch" : "Drone") :
-                            i == 2 ? "Steps" : "Phase");
+        const char *name = timing ? (i == 0 ? "Node 2" : i == 1 ? "Node 3" : i == 2 ? "Node 4" : "Loop") :
+                           (i == 0 ? (ui.btn >> B_SEL & 1u ? "Pitch" : "Position") :
+                            i == 1 ? "Drone" : i == 2 ? "Steps" : "Phase");
         char value[20];
         if (lit(i) && active) {
             cv_round(cx - 26, 4, 52, 81, 5, LK_DRONE[!timing && i == 1 ? sd.drone : 0]);
@@ -157,25 +179,27 @@ static void lk_values_sequence(void)
         }
         text_c(cx, 8, &FONT_T20, name, col);
         if (!active) {
-            scopy(value, "--");
+            scopy(value, !timing && i == 1 && sd_linked() ? "LINK" : "--");
         } else if (timing) {
             char *q;
-            itoa_u(sd.gap_s[i], value);
+            const uint32_t t = i == 3 ? sd_total_s() : sd_node_s(i + 1);
+            itoa_u(t, value);
             q = value;
             while (*q) q++;
             scopy(q, "s");
         } else if (i == 0) {
-            char *q;
-            itoa_u((uint32_t)sd.position + 1u, value);
-            q = value;
-            while (*q) q++;
-            *q++ = '/';
-            itoa_u(sd.count, q);
-        } else if (i == 1) {
             if (ui.btn >> B_SEL & 1u)
-                sd_pitch_text(sd.drone, sd.note[sd.drone][sd.position], value);
-            else
-                scopy(value, sd.drone ? "II" : "I");
+                sd_pitch_text(sd.drone, sd_pitch(sd_linked() ? 0 : sd.drone, sd.position), value);
+            else {
+                char *q;
+                itoa_u((uint32_t)sd.position + 1u, value);
+                q = value;
+                while (*q) q++;
+                *q++ = '/';
+                itoa_u(sd.count, q);
+            }
+        } else if (i == 1) {
+            scopy(value, sd.drone ? "II" : "I");
         } else if (i == 2) {
             itoa_u(sd.count, value);
         } else {
@@ -188,7 +212,7 @@ static void lk_values_sequence(void)
                value, active ? LK_WHITE : LK_UNLIT);
         if (active && timing) {
             cv_rect(cx - 22, 72, 44, 1, LK_RULE);
-            cv_round(cx - 22 + (int32_t)((sd.gap_s[i] - 1) * 43 / SD_LIMIT_S) - 2, 69, 5, 5, 2, col);
+            cv_round(cx - 22 + (int32_t)((i == 3 ? sd_total_s() : sd_node_s(i + 1)) * 43 / SD_LIMIT_S) - 2, 69, 5, 5, 2, col);
         } else if (active && !timing) {
             const int v = i == 0 ? sd.position : i == 1 ? sd.drone : i == 2 ? sd.count - 1 : sd.phase;
             const int max = i == 0 ? sd.count - 1 : i == 1 ? 1 : i == 2 ? 3 : 100;

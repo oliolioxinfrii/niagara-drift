@@ -105,10 +105,10 @@ static void vg_ground(int x0, int w, int base, int depth, float brightness)
     }
 }
 
-/* A seismogram of the *sounding* drone rather than a repeated noise pattern.
- * Each waveform comes from the scope capture; a faint envelope follows the
- * current filter response (including cutoff, mode and resonance). This is a
- * visual proxy, not a second filter applied to the audio. */
+/* A low-bandwidth observatory trace derived from live scope samples.
+ * A nine-tap symmetric low-pass reconstruction suppresses oscilloscope
+ * aliasing; the faint outer curve reports the current filter response.
+ * Neither trace fabricates periodic seismic packets. */
 static void vg_seismic(int drone, int x0, int y0, float level)
 {
     const int width = 104;
@@ -127,15 +127,23 @@ static void vg_seismic(int drone, int x0, int y0, float level)
         const float hz = 100.0f * (float)j / (float)(width - 1);
         const float db = filt_db(drone, dr_cut[drone], hz);
         const float response = fm_clampf((db + 36.0f) / 48.0f, 0.0f, 1.0f);
-        const float sample = dr_scope[drone][ix] / peak;
-        const float envelope = 11.0f * loud * response;
+        float weighted = 0.0f;
+        int tap, weights = 0;
+        for (tap = -4; tap <= 4; tap++) {
+            const int pos = vg_max(0, vg_min(DR_SCOPE_N - 1, ix + 2 * tap));
+            const int weight = 5 - vg_abs(tap);
+            weighted += dr_scope[drone][pos] * (float)weight;
+            weights += weight;
+        }
+        const float sample = weighted / ((float)weights * peak);
+        const float envelope = 10.0f * loud * response;
         const int x = x0 + j;
         const int ey = y0 - (int)(envelope + 0.5f);
         const int sy = y0 - (int)(envelope * sample + (sample >= 0.0f ? 0.5f : -0.5f));
         if (j) {
             cv_line(prev_x, prev_env_y, x, ey, vl_bright(color, 0.48f));
             cv_line(prev_x, prev_wave_y, x, sy,
-                    fm_fabsf(sample) > 0.88f && loud > 0.65f ? LK_WHITE : color);
+                    fm_fabsf(sample) > 0.9f && loud > 0.75f ? LK_WHITE : color);
         }
         prev_x = x; prev_env_y = ey; prev_wave_y = sy;
     }
@@ -192,7 +200,8 @@ static void vg_smoke(float level)
                                       4.0f * fm_sinf((float)i * 0.4f + (float)k * 0.34f + time));
             const int ny = vg_ridge(118) - 20 - i * 2;
             cv_line(px, py, nx, ny,
-                    vg_dim(k % 3 == 0 ? LK_LABEL : VG_STRATA[1][4 + k % 4], 0.35f + 0.5f * level));
+                    vg_dim(k % 4 == 0 ? VL_CRUST : k % 3 == 0 ? LK_LABEL :
+                           VG_STRATA[1][2 + k % 5], 0.43f + 0.56f * level));
             px = nx; py = ny;
         }
     }
@@ -201,7 +210,8 @@ static void vg_smoke(float level)
         const int yy = (int)((h >> 9) % 47u);
         const int xx = 116 + (int)(h % 57u) - 13 + (46 - yy) / 7;
         if (xx > 0 && xx < 239)
-            cv_rect(xx, yy, 1, 1, vg_dim(VG_STRATA[1][3 + i % 4], 0.46f));
+            cv_rect(xx, yy, 1, 1, vg_dim(i % 9 == 0 ? VL_SURFACE : VG_STRATA[1][2 + i % 5],
+                                        0.50f + 0.30f * level));
     }
 }
 static void vl_surface(int pitch)
@@ -274,14 +284,19 @@ static void vg_life_cone(float age, float character)
  * a separate conduit then progressively spills over the left flank. */
 static void vg_life_lava(float character)
 {
-    static const int16_t x[] = {111, 111, 111, 111, 110, 108, 105, 100,
-                                94, 86, 78, 67, 55, 42, 25, 5};
-    static const int16_t y[] = {113, 102, 90, 79, 71, 68, 72, 76,
-                                80, 85, 90, 96, 103, 110, 115, 118};
+    /* The magma enters at the bottom-most visible scanline before
+     * ascending through the full cone and spilling toward the left. */
+    static const int16_t x[] = {111, 111, 111, 111, 111, 111, 111, 110, 108, 105,
+                                100, 94, 86, 78, 67, 55, 42, 25, 5};
+    static const int16_t y[] = {123, 119, 115, 110, 103, 95, 85, 76, 70, 68,
+                                72, 76, 80, 85, 96, 103, 110, 115, 118};
     const int segments = (int)(sizeof x / sizeof x[0]) - 1;
     const float advance = fm_clampf(character, 0.0f, 1.0f) * (float)segments;
     int j;
     if (advance <= 0.0f) return;
+    /* A short magma reservoir at the base makes the origin visible. */
+    cv_line(103, 122, 120, 122, vl_bright(VL_MANTLE, 0.45f + 0.55f * character));
+    cv_rect(109, 121, 4, 2, VL_SURFACE);
     for (j = 1; j <= segments; j++) {
         const float partial = advance - (float)(j - 1);
         int xe, ye;

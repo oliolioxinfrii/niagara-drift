@@ -2810,11 +2810,14 @@ static void leds(void)
             tip(TIP_KEEP);
         }
     }
-    for (i = 0; i < 11u; i++) {                      /* the black keys: dark off, dim a first choice, lit, winking */
-        int v = sw_look(sw_layer()[i]);
-        if (sw_layer()[i].s == S_LFORESET && (ui.keys >> BLACK_K[i] & 1u))
-            v = 2;
-        k[BLACK_K[i]] = v == 1 ? LED_DIM : v == 2 || (v == 3 && blink(1000u)) ? 255 : 0;
+    {                                                  /* the black keys' active switch layer */
+        const sw_t *layer = sw_layer();
+        for (i = 0; i < 11u; i++) {
+            int v = sw_look(layer[i]);
+            if (layer[i].s == S_LFORESET && (ui.keys >> BLACK_K[i] & 1u))
+                v = 2;
+            k[BLACK_K[i]] = v == 1 ? LED_DIM : v == 2 || (v == 3 && blink(1000u)) ? 255 : 0;
+        }
     }
     if (ui.scene_keys_enabled) {                    /* legacy scene-key LEDs and glides; pads normally stay dark */
     for (i = 0; i < NPLAY; i++)

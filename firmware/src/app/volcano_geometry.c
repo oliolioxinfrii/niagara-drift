@@ -142,8 +142,8 @@ static void vg_seismic(int drone, int x0, int y0, float level, float cutoff)
 static void vg_lava_flow(float level)
 {
     /* At zero level there is no lava. At full level the front has risen
-     * through the conduit, crossed the vent and run down the right flank. */
-    static const int16_t x[15] = {119, 119, 118, 118, 117, 117, 118, 122, 131, 141, 152, 166, 185, 209, 237};
+     * through the conduit, crossed the vent and run down the left flank. */
+    static const int16_t x[15] = {119, 119, 118, 118, 117, 117, 118, 111, 101, 89, 74, 59, 41, 21, 1};
     int16_t y[15];
     const float advance = level * 14.0f;
     int j;
@@ -267,6 +267,39 @@ static void vg_life_cone(float age, float character)
         cv_rect(x, y, 1 + (k % 11 == 0), 1, k % 3 == 0 ? LK_WHITE : VL_SURFACE);
     }
 }
+/* Character is vent energy, not just sporadic ejecta: the lava rises up
+ * a separate conduit then progressively spills over the left flank. */
+static void vg_life_lava(float character)
+{
+    static const int16_t x[] = {111, 111, 111, 111, 110, 108, 105, 100,
+                                94, 86, 78, 67, 55, 42, 25, 5};
+    static const int16_t y[] = {113, 102, 90, 79, 71, 68, 72, 76,
+                                80, 85, 90, 96, 103, 110, 115, 118};
+    const int segments = (int)(sizeof x / sizeof x[0]) - 1;
+    const float advance = fm_clampf(character, 0.0f, 1.0f) * (float)segments;
+    int j;
+    if (advance <= 0.0f) return;
+    for (j = 1; j <= segments; j++) {
+        const float partial = advance - (float)(j - 1);
+        int xe, ye;
+        if (partial <= 0.0f) break;
+        if (partial >= 1.0f) {
+            xe = x[j]; ye = y[j];
+        } else {
+            xe = x[j - 1] + (int)((float)(x[j] - x[j - 1]) * partial);
+            ye = y[j - 1] + (int)((float)(y[j] - y[j - 1]) * partial);
+        }
+        cv_line(x[j - 1] - 1, y[j - 1], xe - 1, ye, VL_MANTLE);
+        cv_line(x[j - 1] + 1, y[j - 1], xe + 1, ye, VL_CRUST);
+        cv_line(x[j - 1], y[j - 1], xe, ye, VL_SURFACE);
+        if (partial < 1.0f) break;
+    }
+    if (advance > 2.0f) {
+        const int k = 2 + (int)((plat_ms() / 160u) % (uint32_t)vg_max(1, (int)advance - 1));
+        if (k <= segments) cv_rect(x[k] - 1, y[k] - 1, 3, 3, LK_WHITE);
+    }
+}
+
 static void vl_life(void)
 {
     const float feedback = vl_norm(P_FEEDBACK), drift = vl_norm(P_DRIFT);
@@ -276,6 +309,7 @@ static void vl_life(void)
     int k, i;
     cv_text(9, 1, &FONT_XS, "VENT / PLUME ACTIVITY", LK_LABEL);
     vg_life_cone(age, character);
+    vg_life_lava(character);
     for (k = strands - 1; k >= 0; k--) {
         const float offset = (float)k - 0.5f * (float)(strands - 1);
         int px = 113 + (int)offset, py = 72;
@@ -371,7 +405,7 @@ static void vl_air(void)
         for (p = 0; p < 3; p++) {
             int px = 10, py = center + p * 2 - 2;
             const float wet = k ? wet_reverb : wet_delay;
-            const float display_gain = wet > 0.0f ? 0.23f + 0.77f * fm_sqrtf(wet) : 0.0f;
+            const float display_gain = 0.50f * wet + 0.50f * fm_sqrtf(wet); /* continuous at zero; more tonal differentiation */
             for (x = 10; x <= 230; x++) {
                 const uint32_t h = vg_hash((uint32_t)((x + p * 11 + (plat_ms() / 210u) % 23u) * 89));
                 const int noise = (int)(h % 23u) - 11;

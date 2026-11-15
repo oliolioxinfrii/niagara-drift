@@ -2221,12 +2221,13 @@ static void lk_pic(void)
     if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME) {
         int j;
         h = hash(h, (uint32_t)sd.count | (uint32_t)sd.position << 8 | (uint32_t)sd.phase << 16 |
-                    (uint32_t)sd.enabled << 24 | (uint32_t)sd.paused << 25 | (uint32_t)sd_linked() << 26);
+                    (uint32_t)sd.enabled << 24 | (uint32_t)sd.paused << 25 | (uint32_t)sd_linked() << 26 |
+                    (uint32_t)sd.stopping << 27);
         for (j = 0; j < SD_MAX; j++) {
             h = hash(h, (uint32_t)(uint16_t)sd.note[0][j] | (uint32_t)(uint16_t)sd.note[1][j] << 16);
             h = hash(h, sd.gap_s[j]);
         }
-        if (sd.enabled && ui.playing) h = hash(h, plat_ms() / 100u);
+        if (sd.enabled) h = hash(h, plat_ms() / 100u);
     }
     if (h == ui.sig[1] && ui.frame % SCOPE_EVERY)
         return;

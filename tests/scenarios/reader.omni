@@ -24,9 +24,7 @@ tapkey b9
 wait 100
 said HARD_SYNC_ON
 # the Presets, P2 from its key
-press SEL
-tapkey w14
-release SEL
+bank 3
 wait 100
 said BANK_PRESETS_1-8
 wait 100

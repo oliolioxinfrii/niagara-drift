@@ -62,7 +62,7 @@ wait 16000
 expect par7 >200
 expect par7 <600
 
-# REC opens name editing on a user bank; SAVE commits, HOME cancels.
+# REC names the selected user slot, not the bank; SAVE commits, HOME cancels.
 tap SAVE
 spin K1 2
 tap REC
@@ -72,9 +72,11 @@ tap SAVE
 expect savemenu 1
 tap HOME
 expect savemenu 0
-expect name0 66
+expect slotname00 66
+expect slotname01 0
 reboot
-expect name0 66
+expect slotname00 66
+expect slotname01 0
 
 # Each filter-LFO destination cycles cutoff -> resonance -> pan -> cutoff.
 tap LFO

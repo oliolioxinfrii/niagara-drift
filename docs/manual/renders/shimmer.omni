@@ -5,9 +5,7 @@ notips
 phones 1
 set 74 0
 set 71 0
-press SEL
-tapkey w15
-release SEL
+bank 7
 tapkey w6
 tap PLAY
 wait 2500

@@ -2,11 +2,10 @@
 
 **A drone synth for the M-VAVE FM-1.**
 
-> **Custom Niagara Drift fork (Swell / UI baseline).** This repository's `main` holds the tested custom
-> firmware, based on the creator's 0.3 development work. Its three LFO pages, expanded Swell
-> controls, keyboard gestures and LED fixes are described in the [local manual](docs/manual/index.md).
-> This is **not** an official Niagara Drift release; the original project is
-> [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift).
+> **Custom Niagara Drift fork (v1.3).** The `main` branch includes the tested
+> two-drone pitch sequencer alongside the expanded Swell, three-page LFO, keyboard
+> gestures, and UI improvements. This is **not** an official Niagara Drift release;
+> the original project is [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift).
 
 Niagara Drift is open-source firmware that turns the M-VAVE
 FM-1 into a drone synthesizer: two always-on drones you tune, shape and move rather than play note by
@@ -18,13 +17,17 @@ note.
 teal drone II, lilac the LFO. The black keys are switches (lit = on; on the LFO pages they set the
 LFO's routing, and cross-mod lets drone I move drone II's filter, or the drones and their sound bend each other's pitch); white keys 1–8 hold scenes, in
 eight banks you pick with SEL and the gesture keys; keys 9–12 and the top four are gestures. The page buttons' pages, each tap the next: HOME
-Drones, Pitch · ENV Life, Tone · EDIT Osc, Sub · Drive · SEQ Partner, Pitch moves ·
-LFO Waves, Sends, Mods · ARP Swell, Swell shape · FX Space, Details · GLO Setup 1, 2, Speaker (v1.1 branch).*
+Drones, Pitch · ENV Life, Tone · EDIT Osc, Sub · Drive · SEQ Partner, Pitch moves,
+Sequence, Intervals · LFO Waves, Sends, Mods · ARP Swell, Swell shape · FX Space, Details ·
+GLO Setup 1, 2, Speaker.*
 
-**Status:** The Swell/UI baseline on `main` was compiled and its full automated test suite passed under WSL
-(November 2026); a custom build has also been installed on an FM-1. The [creator's online emulator](https://evanyerburgh.github.io/niagara-drift/)
-runs the upstream code, **not necessarily this fork**. For this exact firmware use the local web
-emulator (`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory build/emu`).
+**Status:** The v1.3 release-candidate firmware (`FM-1_8010300`) built successfully with the
+JieLi toolchain, passed the complete WSL host, OTA, and WebAssembly test suite, and was tested
+on a physical FM-1 in November 2026. Slight lag has been observed when Sequence, Swell, and
+LFO all run at very short timescales; its cause has not yet been profiled. The
+[creator's online emulator](https://evanyerburgh.github.io/niagara-drift/) runs upstream code,
+**not this fork**. For this exact source use the local web emulator
+(`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory build/emu`).
 
 ## What it does
 
@@ -49,6 +52,9 @@ emulator (`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory b
   move its own rate and lock to the Swell.
 - **Movement** (ALGORITHM): all the LFO's depths down or up together, from still to double.
 - **The Swell**: both drones breathing in time, from a slow soft swell to a hard rhythmic gate, with swing.
+- **Sequence**: a looping, keyboard-authored progression of 1–4 pitches per drone, with independent
+  event positions, linked-pitch behavior, a phase offset for drone II, and a proportional timing
+  display. Its pitch motion follows the programmed tuning; the loop can last up to four minutes.
 - **Effects**: a stereo delay of six types (Clean, Wide, Ping-pong, Tape, and the Lyra-8-like Grain and Self, whose
   own echoes move their time; the LFO can warble it too), a drive
   after it (the drones and their echoes distorted together, as on the Lyra-8), into a reverb of five (Room, Hall,
@@ -58,16 +64,28 @@ emulator (`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory b
 - **Morph**: buttons and keys never jump: the sound moves to a new setting over a time you set.
 
 
-### v1.1 development branch
+### Sequencing in v1.3
 
-The [`feature/swell-v1.1`](https://github.com/oliolioxinfrii/niagara-drift/tree/feature/swell-v1.1)
-branch adds **GLO → Speaker (3/3)**: KNOB 1 switches the *internal physical speaker* On/Off while
-USB audio recording remains active and the 3.5 mm headphone output remains usable. The choice is
-saved as a room setting and defaults to On. It also adjusts OCT−/OCT+ and ARP lights to track
-their waveform/envelope down to zero, and increases the effective low-level LED duty resolution.
-These changes have not yet been verified on physical hardware; `main` remains the stable baseline.
+SEQ cycles through **Partner**, **Pitch moves**, **Sequence**, and **Intervals**:
 
-The former `feature/usb-audio-routing` experiment is retained separately and is not part of v1.1.
+- **Sequence (page 3):** KNOB 1 selects the step; SEL + KNOB 1 retunes it on the selected
+  tuning grid; KNOB 2 selects drone I or II; KNOB 3 chooses 1–4 steps; KNOB 4 offsets drone
+  II's progression phase. Press a keyboard key on this page to enter and audition a note.
+  The animated amber and teal curves show the pitch paths; step 1 follows HOME → Pitch.
+- **Intervals (page 4):** KNOBs 1–3 move the arrival of steps 2–4, where those steps exist.
+  KNOB 4 scales the total loop length without changing the relative positions of the events.
+  Both drone timelines fill the display; drone II's markers reflect its phase offset.
+- **Transport:** SEL + PLAY starts, pauses, or resumes the pitch progression at its current
+  position, without changing the global audio level. Ordinary PLAY controls the instrument's
+  fade; the sequencer resets its pitch only after the global fade-out reaches silence.
+- **Random Start:** SEL + HOME randomizes the sound and a new 2–4-step sequence, including
+  the note pitches, step spacing, overall duration (20–240 seconds), and drone II phase.
+  Consecutive notes, including the loop return, differ by no more than one octave. Pitch
+  Lock and Pitch Link keep drone II coupled to drone I.
+
+The sequencer is kept in RAM, independently of scenes and the Motion Loop. Its notes and
+timing are not saved with a scene. The Speaker setting and improved waveform/ARP LED
+brightness from the earlier Swell/UI work are also included.
 
 ## Installing this custom build
 
@@ -80,9 +98,12 @@ see [BUILDING.md](BUILDING.md):
 tests/run_tests.sh
 ```
 
-The installable file is `build/omni.fwsc`. Keep a copy of a previously working package
-and a stock-firmware recovery route. You can use a compatible FM-1 installer such as
-[Slipway](https://discodave-glitch.github.io/slipway/app/) to select this local `.fwsc`
+The installable file is `build/omni.fwsc`; a versioned release-candidate build produces
+`build/niagara-drift-1.3-rc1.fwsc`. Keep a previously working package and a
+stock-firmware recovery route. The v1.3 candidate can be built and tested together using
+`sh tools/sequence_release_candidate.sh` (with the JieLi toolchain, AC79 SDK, and Emscripten
+available). To install on a physical FM-1, use
+[Slipway](https://discodave-glitch.github.io/slipway/app/) to select the local `.fwsc`
 package, or use the bundled CLI (`pip install mido python-rtmidi`):
 
 ```sh
@@ -91,8 +112,9 @@ python3 tools/fm1_install.py build/omni.fwsc
 
 No custom firmware binary has been published as a release from this fork.
 
-**What it replaces:** Niagara Drift takes the place of M-VAVE's firmware, so the FM-1's own sounds and
-sequencer are gone until you go back (below).
+**What it replaces:** Niagara Drift replaces M-VAVE's original sound engine and sequencer.
+The custom firmware includes its own two-drone pitch sequencer; it is not the stock FM-1
+sequencer.
 
 **Updating:** when there's a new version, run the installer again the same way. Your sound and scenes are
 kept, unless that version's notes in the [changelog](CHANGELOG.md) say otherwise.
@@ -114,7 +136,7 @@ emulator to inspect its current UI.
 
 ## Problems and ideas
 
-For problems specific to the custom Swell/UI changes, use the
+For problems specific to this custom firmware, use the
 [issues in this fork](https://github.com/oliolioxinfrii/niagara-drift/issues).
 For general upstream issues, consult the [original repository](https://github.com/evanyerburgh/niagara-drift).
 Include the commit or branch, the firmware identity, and the steps to reproduce.

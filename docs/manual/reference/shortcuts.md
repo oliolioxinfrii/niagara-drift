@@ -13,7 +13,8 @@ Every combination of keys, and every hold and tap, in one place.
 
 | Do | What it does |
 |---|---|
-| [[SEL]] + [[PLAY]] | generate a fresh randomized working sound immediately; no scene slots overwritten, current Tuning and room settings preserved. Undo with [[SEL]] + [[SAVE]] |
+| [[SEL]] + [[PLAY]] | start, pause, or resume the pitch progression immediately, without changing the global PLAY fade |
+| [[SEL]] + [[HOME]] | generate a fresh randomized working sound and sequencer; no scene slots overwritten, current Tuning and room settings preserved. Undo with [[SEL]] + [[SAVE]] for the sound parameters |
 | [[SEL]] + [[SAVE]] | back to the sound before your last scene tap or blend; again, forward. Keep SEL down until you've let go of SAVE |
 | [[SEL]] + a gesture key | picks the bank the scene keys play: [[G4]] A, [[A4]] B, [[B4]] C, [[C5]] D, [[D5]] E, [[E5]] F, [[F5]] Presets P1–P8, [[G5]] P9–P16 |
 | [[SEL]] + [[OCT−]] or [[OCT+]] | toggle drone I or drone II in/out (the previous LFO waveform remains selected) |

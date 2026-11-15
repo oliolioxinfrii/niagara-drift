@@ -1,0 +1,69 @@
+# The visible timeline occupies the whole display regardless of total duration.
+# SEL+PLAY pauses the progression without resetting the sequence clock.
+notips
+set 51 25
+tap PLAY
+wait 1200
+tap SEQ
+expect view 9
+tap SEQ
+expect view 10
+tap SEQ
+expect view 18
+spin K3 1
+expect seqcount 2
+expect seqtotal 20
+expect seqnode2 10
+tap SEQ
+expect view 19
+shot seq-transport-20s.png
+
+# K4 scales both ten-second intervals to fifteen seconds.
+turn K4 10 150
+expect seqtotal 30
+expect seqnode2 15
+shot seq-transport-30s.png
+turn K4 -10 150
+expect seqtotal 20
+expect seqnode2 10
+
+# K1 moves the second event without changing total length.
+turn K1 2 150
+expect seqtotal 20
+expect seqnode2 12
+
+# SEL+PLAY starts, pauses, and resumes without advancing while paused.
+press SEL
+tap PLAY
+release SEL
+expect playing 1
+expect seqstate 1
+wait 3500
+expect seqelapsed >3400
+press SEL
+tap PLAY
+release SEL
+expect seqstate 2
+expect playing 1
+wait 4000
+expect seqelapsed <3900
+shot seq-transport-paused.png
+press SEL
+tap PLAY
+release SEL
+expect seqstate 1
+wait 1300
+expect seqelapsed >4600
+shot seq-transport-resumed.png
+
+# Plain PLAY fades the audio while the sequence continues moving.
+# The cursor returns to step 1 only after the global fade reaches silence.
+tap PLAY
+expect playing 0
+expect seqstate 1
+wait 250
+expect seqstate 1
+shot seq-transport-fading.png
+wait 1200
+expect seqstate 0
+expect seqelapsed 0

@@ -1,0 +1,84 @@
+# Experimental SEQ 3/4: keyboard note entry, linked drone pitches and
+# unequal event timing. Screenshots are for emulator review.
+notips
+tap PLAY
+tap SEQ
+expect view 9
+tap SEQ
+expect view 10
+tap SEQ
+expect view 18
+# Step 1 is the Home Pitch note. The timeline must fill the picture at N=1.
+wait 250
+shot seq-single.png
+# Add step 2 and enter a note with the physical keyboard.
+spin K3 1
+spin K1 1
+tapkey b5
+wait 300
+shot seq-two.png
+# SEL+K1 moves the note along the current tuning.
+press SEL
+spin K1 2
+release SEL
+spin K2 1
+tapkey w5
+# Edit a third and fourth step using the keyboard.
+spin K3 2
+spin K1 1
+tapkey b7
+spin K1 1
+tapkey w9
+wait 250
+shot seq-four.png
+# With Pitch Lock off, phase translates drone II's path and note markers.
+set 74 0
+wait 250
+shot seq-phase-0.png
+turn K4 25 150
+wait 250
+shot seq-phase-25.png
+# Return to two steps, then edit Node 2 and the overall loop endpoint.
+spin K3 -2
+tap SEQ
+expect view 19
+spin K1 5
+spin K2 20
+spin K3 30
+spin K4 20
+wait 250
+shot seq-timing-two.png
+# Add nodes back, demonstrate independent placements.
+tap SEQ
+expect view 9
+tap SEQ
+expect view 10
+tap SEQ
+expect view 18
+spin K3 2
+tap SEQ
+expect view 19
+spin K2 4
+spin K3 -2
+wait 250
+shot seq-timing-four.png
+# SEL+PLAY starts, pauses, then resumes the progression.
+press SEL
+tap PLAY
+release SEL
+wait 1400
+shot seq-timing-running.png
+press SEL
+tap PLAY
+release SEL
+wait 1400
+shot seq-timing-paused.png
+press SEL
+tap PLAY
+release SEL
+wait 1400
+shot seq-timing-resumed.png
+# Plain PLAY stops. SEL+HOME remains the existing random-start.
+tap PLAY
+tap HOME
+expect view 0

@@ -1,0 +1,90 @@
+# Random Start changes the number of steps, pitches, and total duration.
+# Intervals remain positive and every pitch transition, including the wrap,
+# stays within one octave in the currently selected tuning.
+notips
+page 18
+expect view 18
+turn K3 3 120
+expect seqcount 4
+expect seqtotal 40
+page 19
+expect view 19
+spin K4 80
+expect seqtotal 120
+expect seqnode2 30
+spin K4 -80
+expect seqtotal 40
+expect seqnode2 10
+page 18
+expect view 18
+
+# Compare actual state, not just valid bounds.
+seqsnap
+press SEL
+tap HOME
+release SEL
+expect view 18
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapschanged 1
+expect seqcount >1
+expect seqcount <5
+expect seqtotal >19
+expect seqtotal <241
+expect seqgapmin >0
+expect seqmaxjump <1201
+expect seqnonhome 1
+shot seq-random-unlinked.png
+
+seqsnap
+press SEL
+tap HOME
+release SEL
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapschanged 1
+expect seqgapmin >0
+expect seqmaxjump <1201
+
+# Pitch Lock couples Drone II's progression to Drone I.
+set 74 1
+seqsnap
+press SEL
+tap HOME
+release SEL
+expect par74 1
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapmin >0
+expect seqmaxjump <1201
+shot seq-random-locked.png
+
+# Pitch Link remains enabled and derives Drone II's notes.
+set 74 0
+set 45 1
+seqsnap
+press SEL
+tap HOME
+release SEL
+expect par45 1
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapmin >0
+expect seqmaxjump <1201
+
+# Both interval pictures share the same values; only Drone II moves in phase.
+set 45 0
+page 18
+spin K4 -100
+expect seqphase 0
+page 19
+shot seq-interval-phase0.png
+page 18
+spin K4 25
+expect seqphase 25
+page 19
+shot seq-interval-phase25.png

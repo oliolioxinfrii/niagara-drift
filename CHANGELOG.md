@@ -1,13 +1,40 @@
 # Changelog
 
-## v1.1 development (feature/swell-v1.1; unreleased)
+## Custom fork v1.3 (2026-11-14; not an upstream release)
+
+The `sequencing-v1.3` source passed the full WSL host, DSP, OTA, browser-emulator
+and scenario test suite. The FM-1 build was checked against the image, RAM and
+memory-pool limits, and version `1.3-rc1` (identity `FM-1_8010300`) was tested on
+physical hardware.
+
+- **SEQ pages 3–4:** a RAM-only, 1–4-step pitch progression for both drones,
+  separate from scenes and the motion loop. Keyboard entry and audition,
+  tuning-aware pitch selection, linked pitches and drone-II phase offset.
+- **Pitch and interval graphs:** animated stereo-colored pitch paths and a
+  full-width interval timeline. Duration can be scaled without changing the
+  normalized event positions; the second drone's markers reflect its phase.
+- **Transport:** SEL + PLAY starts, pauses and resumes the progression without
+  fading the instrument. Ordinary PLAY fades the audio, preserving the moving
+  sequence pitch until the fade-out has completed.
+- **Random Start:** SEL + HOME selects a new 2–4-step progression, pitch values,
+  event times, overall 20–240-second duration and drone-II phase. Its
+  tuning-aware pitch walk constrains adjacent and closing jumps to one octave.
+- Regression coverage for timing normalization, transport, fade-out, randomization,
+  and pitch coupling. Existing shortcut documentation was updated.
+
+**Observed on hardware:** slight lag can occur when the progression, Swell and
+LFO are all set to very short timescales. No bottleneck has yet been measured.
+This custom fork's firmware package is built locally; no binary release is
+published here.
+
+## Earlier v1.1 development (incorporated in the custom baseline)
 
 - **GLO 3/3 — Speaker:** KNOB 1 turns the physical built-in speaker On/Off, default On; does not mute USB recording or the headphone output.
 - The existing unused Speaker filter parameter is repurposed as a binary, saved room setting, without changing the project format.
 - **OCT− / OCT+:** LED wave levels are normalized so their pulses can reach zero brightness even when LFO amplitude is below 100%.
 - **ARP:** LED now follows the actual Swell envelope, including its shape, skew, width and swing, rather than a separate cosine.
 - **LED PWM:** fractional 1/256 duty steps replace the former minimum 1/32 duty for any nonzero brightness.
-- Added GLO Speaker page regression scenario. Host tests and physical hardware validation are pending.
+- Added GLO Speaker page regression scenario.
 
 This does not implement USB host audio. The separate USB-host branch is not merged.
 

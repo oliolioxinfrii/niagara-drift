@@ -9,7 +9,8 @@
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
  *   SELECT         LFO rate      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
  *   PRESETS        GESTURE TIME: every gesture's speed, x0.1 .. x10 (v0.2)
- *   PLAY           the drone fades in / out; SEL + PLAY randomizes the working sound (no scene overwritten)
+ *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
+ *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
  *   MASTER         volume      SAVE   saves
  * One button away (tap: the knobs stay on its page, pressed again its second page; hold: they switch
  * only while it's held, and the page you were on comes back when it's let go):
@@ -51,9 +52,9 @@
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
 enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO_WAVES, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
-       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, NVIEWS };
+       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, V_SEQ_NOTES, V_SEQ_TIME, NVIEWS };
 static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO waves", "LFO sends",
-                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker"};
+                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker", "Sequence", "Intervals"};
 /* what each knob moves on each page: a drone's parameter (g 0 or 1, GP_*), a global one (g G, P_*), or
  * nothing (g NONE) */
 #define G 2
@@ -86,6 +87,8 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{G, P_DLY_REPEATS}, {G, P_DLY_MIX}, {G, P_REV_LEN}, {G, P_REV_MIX}},
     {{G, P_DLY_DRIVE}, {G, P_DLY_TIME}, {G, P_REV_DAMP}, {G, P_REV_TYPE}},
     {{G, P_SPEAKER}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO 3: internal speaker only */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* sequence edit controls are custom */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* unequal interval controls */
 };
 /* A KNOB's SECOND JOB with SEL held, on the pages that have one (its card shows both, the second "+ SEL"): the
  * choices set before playing, so a player who never finds them loses nothing. FX's KNOB 4: the delay's type, what goes
@@ -106,7 +109,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 2}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 4}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -518,10 +521,14 @@ static int knob_list(int p)
            p == P_CLK_SYNC;                    /* Sync: On, Off, On */
 }
 
+#include "seq_drift.c"
+
 static void knob_turn(int i, int32_t e)
 {
     int p = knob_param(i);
     knob_t k = VIEW_KNOB[ui.view][i];
+    if (ui.view == V_SEQ_NOTES) { sd_note_knob(i, e); return; }
+    if (ui.view == V_SEQ_TIME) { sd_time_knob(i, e); return; }
     if (p < 0)
         return;
     if (sel_job(ui.view, i) >= 0) {                  /* which half of the knob's card lights */
@@ -736,21 +743,36 @@ static int on_pages(int i)
 {
     if (PAGE_BTN[i].btn == B_GLO)
         return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_SPEAKER;
+    if (PAGE_BTN[i].btn == B_SEQ)
+        return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
     return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
 }
 static int page_step(int i, int v)
 {
+    if (PAGE_BTN[i].btn == B_SEQ)
+        return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v - V_PARTNER;
     return PAGE_BTN[i].btn == B_GLO && v == V_SPEAKER ? 2 : v - PAGE_BTN[i].first;
 }
 static int page_target(int i, int step)
 {
+    if (PAGE_BTN[i].btn == B_SEQ)
+        return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : V_PARTNER + step;
     return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_SPEAKER : PAGE_BTN[i].first + step;
 }
 static void set_view(int v)
 {
     uint32_t i;
+    if (ui.view == V_SEQ_NOTES && v != V_SEQ_NOTES && sd.preview_key >= 0) {
+        sd.preview_key = -1;
+        sd.preview_active = 0;
+        if (sd.preview_sounded && !ui.playing) {
+            dr_play(0);
+            sd.preview_sounded = 0;
+        }
+        if (!sd.enabled) sd_restore_pitch();
+    }
     ui.view = (uint8_t)v;
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 4; i++ )
         ui.touch_t[i] = 0;
     if (v == V_PLAY)
         tip(TIP_KN_DRONES);
@@ -783,6 +805,7 @@ static int page_btn(int b)                             /* the index in PAGE_BTN,
 /* a page button pressed: the page of its last shown at once (the review: Reverb, Life, Moves couldn't be peeked;
  * HOME always Drones and FX always Space, the pages played: v0.3), unless already on its pages (then the next on a
  * tap) */
+static void fresh_sound(void);
 static void page_down(int b)
 {
     int i = page_btn(b);
@@ -791,8 +814,8 @@ static void page_down(int b)
     ui.hold_turned = 0;
     ui.hold_from = ui.view;
     ui.hold_cycle = (uint8_t)on_pages(i);
-    if (b == B_ARP)
-        return;   /* a hold must not briefly open the Swell pages */
+    if (b == B_ARP || (b == B_HOME && (ui.btn >> B_SEL & 1u)))
+        return;   /* Swell toggle or SEL+HOME randomize: don't open another page */
     if (!ui.hold_cycle)
         set_view(page_target(i, b == B_HOME || b == B_FX ? 0 : ui.page_last[i]));   /* HOME and FX: the page played */
 }
@@ -803,6 +826,12 @@ static void page_up(int b)
     if (ui.hold_btn != b)
         return;
     peek = ui.hold_turned || plat_ms() - ui.hold_t >= HOLD_MS;
+    if (b == B_HOME && (ui.btn >> B_SEL & 1u)) {
+        ui.btn_used |= 1u << B_SEL;
+        fresh_sound();
+        ui.hold_btn = -1;
+        return;
+    }
     if (b == B_ARP) {
         if (plat_ms() - ui.hold_t >= HOLD_MS) {
             param_set(P_PULSE, !proj.par[P_PULSE]);
@@ -1216,7 +1245,7 @@ static void fresh_sound(void)
         {P_DLY_DRIVE, 0, 45}, {P_DLY_ROUTE, 0, DR_NROUTE - 1}
     };
     uint32_t i;
-    int g;
+    int g, was_linked = proj.par[P_PLINK];
     if (ui.loop != L_IDLE || ui.press >= 0 || ui.keys) {
         say_c("STOP LOOP / RELEASE KEYS", "BEFORE RANDOM START", K_GOLD);
         return;
@@ -1268,10 +1297,16 @@ static void fresh_sound(void)
         param_set(b + GP_NCOLOR, fresh_between(0, 100));
         param_set(g ? P_SUBW_1 : P_SUBW_0, fresh_between(0, DR_NSUBW - 1));
     }
+    /* Keep an explicitly linked pair linked, using the new home's interval. */
+    if (was_linked) {
+        param_set(P_PLINK_OFF, proj.par[DR_GP(1, GP_PITCH)] - proj.par[DR_GP(0, GP_PITCH)]);
+        param_set(P_PLINK, 1);
+    }
     /* One filter always explores resonance, the other cutoff: both routes are audible. */
     param_set(DR_GP(0, GP_FLFO_DEST), fresh_between(DR_TO_CUTOFF, DR_TO_RESO));
     param_set(DR_GP(1, GP_FLFO_DEST), 1 - proj.par[DR_GP(0, GP_FLFO_DEST)]);
     ui.scene_at = -1;
+    sd_randomize(fresh_between);
     dr_lfo_reset();
     mark_dirty();
     say_c("RANDOM START", ui.playing ? "NEW SOUND" : "TAP [PLAY] TO HEAR", K_GOLD);
@@ -2057,9 +2092,8 @@ static void input(void)
                 }
             }
             if (i == B_PLAY && (btn >> B_SEL & 1u)) {
-                /* An explicit new beginning: do not toggle playback or any drone mute. */
                 ui.btn_used |= 1u << B_SEL;
-                fresh_sound();
+                sd_toggle();              /* independent transport; only plain PLAY fades audio */
             } else if (i == B_PLAY) {                  /* PLAY responds immediately, as before */
                 static uint8_t seeded;
                 if (!seeded) {
@@ -2068,6 +2102,7 @@ static void input(void)
                 }
                 ui.playing = (uint8_t)!ui.playing;
                 dr_play(ui.playing);
+                sd_global_play(ui.playing);
             }
         } else if (i == B_OCTDN || i == B_OCTUP) {
             const int w = i == B_OCTUP;
@@ -2085,6 +2120,14 @@ static void input(void)
     }
     ch = keys ^ ui.keys;                               /* the black keys: switches, on the press */
     ui.keys = keys;
+    if (ui.view == V_SEQ_NOTES) {
+        /* All 27 physical keys belong to pitch entry on the sequence page.
+         * SEL+K1 remains a knob-only modifier; holding SEL here must not
+         * recall scenes, banks, or the black-key settings. */
+        sd_keys(keys, ch & keys);
+        if (btn >> B_SEL & 1u && keys)
+            ui.btn_used |= 1u << B_SEL;
+    } else {
     for (i = 0; i < 11u; i++) {
         sw_t w = sw_layer()[i];
         if (ui.btn >> B_SEL & 1u) {                   /* SEL held: a key touched names itself on the map, and
@@ -2185,9 +2228,11 @@ static void input(void)
     for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go (one that picked a bank: nothing) */
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
             gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+    }
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();
+    sd_run();
     midi_in();
     clk_feed();
 #ifdef OM_CLOCK_TEST
@@ -2201,13 +2246,16 @@ static void input(void)
         mtime_turn(e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
+            const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
             knob_turn((int)i, e);
             if (ui.btn >> B_SEL & 1u)
                 ui.btn_used |= 1u << B_SEL;            /* SEL + a knob: SEL used (no map after it) */
-            ui.scene_at = -1;                          /* the sound is no longer the scene's */
-            ui.morph = -1;                             /* a hand on a knob: the morph stops where it is */
-            ui.visit = -1;                             /* ... and a visit held becomes a stay (no way back) */
-            ui.press = -1;                             /* ... a crossfade too, where it is */
+            if (!seq_edit) {
+                ui.scene_at = -1;                          /* the sound is no longer the scene's */
+                ui.morph = -1;                             /* a hand on a knob: the morph stops where it is */
+                ui.visit = -1;                             /* ... and a visit held becomes a stay (no way back) */
+                ui.press = -1;                             /* ... a crossfade too, where it is */
+            }
             if (ui.hold_btn >= 0)
                 ui.hold_turned = 1;                    /* a peek: let go of the button, back to the page */
             ui.touch_t[i] = plat_ms() + 1200u;
@@ -2579,6 +2627,8 @@ static void leds(void)
                                                         * the banks, the one playing lit (as the map draws them) */
         for (i = 0; i < 8u; i++)
             k[WHITE_K[NPLAY + i]] = proj.bank == KEY_BANK[i] ? 255 : LED_DIM;
+    if (ui.view == V_SEQ_NOTES)
+        sd_key_leds(k);
     boxed_blink(b, k);
     plat_leds(b, k);
 }
@@ -2617,6 +2667,7 @@ void ui_init(void)
     plat_speaker_mute(proj.par[P_SPEAKER] != 0);
     dr_phones = (uint8_t)(ui.jack || plat_speaker_muted());   /* restore user preference; default speaker ON */
     ui.save_q = -2;
+    sd_init();
     ui.splash_t0 = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);
 }

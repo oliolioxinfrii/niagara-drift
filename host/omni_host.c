@@ -442,6 +442,23 @@ static int key_of(const char *s)
     return atoi(s);
 }
 
+/* Snapshot a programmed sequence so randomization tests can check actual
+ * changes rather than merely accepting valid ranges. */
+static struct {
+    int valid, count;
+    uint32_t total;
+    int16_t note[2][SD_MAX];
+    uint16_t gap[SD_MAX];
+} seq_snapshot;
+static void sequence_snapshot(void)
+{
+    seq_snapshot.valid = 1;
+    seq_snapshot.count = sd.count;
+    seq_snapshot.total = sd_total_s();
+    memcpy(seq_snapshot.note, sd.note, sizeof sd.note);
+    memcpy(seq_snapshot.gap, sd.gap_s, sizeof sd.gap_s);
+}
+
 static int expect(const char *what, const char *val)
 {
     int got;
@@ -461,6 +478,48 @@ static int expect(const char *what, const char *val)
         got = ui.dirty;
     else if (!strcmp(what, "loop"))                /* the motion loop: 0 idle, 1 recording, 2 playing */
         got = ui.loop;
+    else if (!strcmp(what, "seqstate"))            /* pitch sequence: 0 off, 1 running, 2 paused */
+        got = sd.enabled ? (sd.paused ? 2 : 1) : 0;
+    else if (!strcmp(what, "seqcount"))
+        got = sd.count;
+    else if (!strcmp(what, "seqcountchanged"))
+        got = seq_snapshot.valid && sd.count != seq_snapshot.count;
+    else if (!strcmp(what, "seqtimechanged"))
+        got = seq_snapshot.valid && sd_total_s() != seq_snapshot.total;
+    else if (!strcmp(what, "seqnoteschanged"))
+        got = seq_snapshot.valid && memcmp(sd.note, seq_snapshot.note, sizeof sd.note) != 0;
+    else if (!strcmp(what, "seqgapschanged"))
+        got = seq_snapshot.valid && memcmp(sd.gap_s, seq_snapshot.gap, sizeof sd.gap_s) != 0;
+    else if (!strcmp(what, "seqnonhome")) {
+        int i, g;
+        got = 0;
+        for (g = 0; g < 2; g++)
+            for (i = 1; i < sd.count; i++)
+                if (sd_pitch(g, i) != sd_pitch(g, 0)) got = 1;
+    }
+    else if (!strcmp(what, "seqtotal"))            /* total length in seconds */
+        got = (int)sd_total_s();
+    else if (!strcmp(what, "seqnode2"))
+        got = (int)sd_node_s(1);
+    else if (!strcmp(what, "seqelapsed"))          /* includes completed loops; frozen while paused */
+        got = sd.enabled ? (int)sd_elapsed_ms() : 0;
+    else if (!strcmp(what, "seqphase"))
+        got = sd.phase;
+    else if (!strcmp(what, "seqgapmin")) {
+        int i;
+        got = sd.count < 2 ? 0 : SD_LIMIT_S;
+        for (i = 0; i < sd.count && sd.count > 1; i++)
+            if (sd.gap_s[i] < got) got = sd.gap_s[i];
+    }
+    else if (!strcmp(what, "seqmaxjump")) {
+        int i, g;
+        got = 0;
+        for (g = 0; g < 2; g++)
+            for (i = 0; i < sd.count && sd.count > 1; i++) {
+                const int delta = sd_pitch(g, i) - sd_pitch(g, (i + 1) % sd.count);
+                if (abs(delta) > got) got = abs(delta);
+            }
+    }
     else if (!strcmp(what, "scene_at"))            /* the scene the sound is (its key blinks), or -1 */
         got = ui.scene_at;
     else if (!strcmp(what, "scenes"))              /* the scene slots in use, as a bit mask */
@@ -607,6 +666,8 @@ int main(int argc, char **argv)
             continue;
         if (!strcmp(cmd, "wait"))
             run_ms((uint32_t)atoi(a));
+        else if (!strcmp(cmd, "seqsnap"))
+            sequence_snapshot();
         else if (!strcmp(cmd, "press") || !strcmp(cmd, "release") || !strcmp(cmd, "tap")) {
             int i = find_name(BTN_N, NB, a);
             if (i < 0) {

@@ -31,6 +31,13 @@ spin K1 1
 tapkey w9
 wait 250
 shot seq-four.png
+# With Pitch Lock off, phase translates drone II's path and note markers.
+set 74 0
+wait 250
+shot seq-phase-0.png
+turn K4 25 150
+wait 250
+shot seq-phase-25.png
 # Return to two steps, then edit Node 2 and the overall loop endpoint.
 spin K3 -2
 tap SEQ

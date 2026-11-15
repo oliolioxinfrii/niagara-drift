@@ -1846,7 +1846,10 @@ static void lk_pic_setup1(void)
         cv_rect(x, low + 2, 1, 3, LK_LABEL);
     }
     for (r = 0; r < 3; r++) {
-        int32_t prev = low;
+        /* Offset coincident trajectories by three pixels so a longer
+         * yellow plateau cannot conceal the red and orange traces. */
+        const int32_t offset = (r - 1) * 3;
+        int32_t prev = low + offset;
         for (i = 0; i <= x1 - x0; i++) {
             const float t = (float)i / (float)(x1 - x0);
             const float u = frac[r] > 0.001f ? fm_clampf(t / frac[r], 0.0f, 1.0f) : 1.0f;
@@ -1855,7 +1858,7 @@ static void lk_pic_setup1(void)
             const float v = r == 0 ? u * u :
                             r == 1 ? lk_ease(u) :
                             0.5f - 0.5f * fm_cosf(3.14159265f * u);
-            const int32_t yy = low - (int32_t)(v * (float)(low - high) + 0.5f);
+            const int32_t yy = low - (int32_t)(v * (float)(low - high) + 0.5f) + offset;
             const int32_t x = x0 + i;
             if (i) cv_line(x - 1, prev, x, yy, color[r]);
             prev = yy;
@@ -1863,7 +1866,7 @@ static void lk_pic_setup1(void)
         {
             const int32_t marker = x0 + (int32_t)(frac[r] * (float)(x1 - x0) + 0.5f);
             const uint16_t ink = lit(r) ? LK_WHITE : color[r];
-            cv_round(marker - 2, high - 2, 5, 5, 2, ink);
+            cv_round(marker - 2, high + offset - 2, 5, 5, 2, ink);
         }
     }
     cv_text(x0, 109, &FONT_XS, "0", LK_LABEL);

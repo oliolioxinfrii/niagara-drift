@@ -551,7 +551,9 @@ page 15
 expect view 15
 tap HOME
 # SELECT: the LFO rate; PRESETS: nothing yet (the macro to come), the waves stay
+press SEL
 spin SELECT 10
+release SEL
 expect par47 108
 spin PRESET 2
 expect par48 1

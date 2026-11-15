@@ -49,7 +49,7 @@ The FM-1's knobs and buttons, and the header at the top of the screen.
 - **HOME and FX** always open Drones and Space; the other buttons open the page you last used there.
 - **GLO** cycles Setup 1, Setup 2, Speaker (3/3). Speaker KNOB 1 mutes the built-in speaker without muting USB audio or headphones.
 - **The drone pages:** Drones, Tone, Osc, Sub · Drive, Partner, LFO sends; their knob names underlined amber and teal.
-- **SEL + PLAY** creates a new randomized sound immediately without switching PLAY on or off. For a fresh start, stop playback first; during playback the new sound replaces the current sound. The current Tuning, global settings, and saved scene slots are preserved. **SEL + SAVE** undoes it over the Scene time. The individual drone on/off shortcuts are **SEL + OCT−** (I) and **SEL + OCT+** (II).
+- **SEL + HOME** creates a new randomized sound and sequencer without switching global PLAY on or off. The current Tuning, global settings, and saved scene slots are preserved. **SEL + SAVE** undoes the sound-parameter changes over the Scene time. **SEL + PLAY** starts, pauses, or resumes the sequencer without changing the global audio fade. The individual drone on/off shortcuts are **SEL + OCT−** (I) and **SEL + OCT+** (II).
 - **SAVE** saves at once (the sound dips for about 50 ms while playing), and glows dimly while something isn't saved.
 - **SEL** gives a pitch knob single cents and cutoff/resonance tenths, although cutoff and resonance are displayed as whole numbers. It glows when it can keep what you're holding.
 - **REC:** tap to record, tap to loop, tap to stop; up to 5 minutes, the time in the header. See

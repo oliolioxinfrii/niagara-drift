@@ -89,7 +89,9 @@ int32_t plat_enc(int role)
     return v;
 }
 uint32_t plat_master(void) { return master; }
-static uint8_t legacy_scene_keys;            /* old-pad regression scenarios only */
+#ifndef OM_WEB
+static uint8_t legacy_scene_keys;            /* only the host script runner can opt into old pads */
+#endif
 static uint8_t pressure_v[NKEYS];              /* the script's "pressure KEY V": the 20 lower keys sense it */
 static int has_pressure;                       /* none until a script uses it (the emulator has none): 0.1's visit */
 int plat_pressure(uint32_t k)

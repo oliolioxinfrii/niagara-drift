@@ -331,15 +331,44 @@ static void sd_note_knob(int i, int32_t e)
     }
 }
 
-/* Timing page controls note ARRIVAL positions rather than interval lengths.
- * K1 moves node 2, K2 node 3, K3 node 4: add time to the preceding
- * interval and subtract it from the following one, preserving all other
- * positions and total length. K4 moves the end of the loop (the next
- * step 1), changing only the final wrap interval and overall length. */
+/* K4 rescales every interval, preserving event positions as fractions of
+ * the complete loop. Integer-second boundaries stay ordered and at least one
+ * second apart. The phase of a running or paused cursor also stays fixed. */
+static void sd_scale_total(uint32_t new_total)
+{
+    const uint32_t old_total = sd_total_s();
+    const uint32_t elapsed = sd_elapsed_ms();
+    uint32_t at[SD_MAX + 1], prev = 0, running_ms;
+    int j;
+    if (new_total == old_total || old_total == 0) return;
+    for (j = 1; j < sd.count; j++) {
+        uint32_t t = (uint32_t)(((uint64_t)sd_node_s(j) * new_total + old_total / 2u) / old_total);
+        if (t <= prev) t = prev + 1u;
+        if (t > new_total - (uint32_t)(sd.count - j))
+            t = new_total - (uint32_t)(sd.count - j);
+        at[j] = t;
+        prev = t;
+    }
+    at[0] = 0;
+    at[sd.count] = new_total;
+    for (j = 0; j < sd.count; j++)
+        sd.gap_s[j] = (uint16_t)(at[j + 1] - at[j]);
+    running_ms = (uint32_t)((uint64_t)(elapsed % (old_total * 1000u)) * new_total / old_total) +
+                 (elapsed / (old_total * 1000u)) * new_total * 1000u;
+    if (sd.paused)
+        sd.paused_ms = running_ms;
+    else if (sd.enabled)
+        sd.started_ms = plat_ms() - running_ms;
+    sd.sent[0] = sd.sent[1] = -32768;
+    sd.sent_ms = 0;
+}
+
+/* K1-K3 move node 2/3/4 without moving their neighbors or the loop end.
+ * K4 changes the duration of the whole loop without moving the normalized
+ * event positions; the time ruler stretches to match the new duration. */
 static void sd_time_knob(int i, int32_t e)
 {
-    int delta, oldgap;
-    uint32_t total;
+    int delta;
     if (sd.count < 2) return;
     if (i < 3) {
         if (i + 1 >= sd.count) return;
@@ -349,11 +378,10 @@ static void sd_time_knob(int i, int32_t e)
         sd.gap_s[i] = (uint16_t)((int)sd.gap_s[i] + delta);
         sd.gap_s[i + 1] = (uint16_t)((int)sd.gap_s[i + 1] - delta);
     } else {
-        total = sd_total_s();
-        oldgap = (int)sd.gap_s[sd.count - 1];
-        delta = (int)accel(EN_K1 + i, e, SD_LIMIT_S);
-        if (delta < 1 - oldgap) delta = 1 - oldgap;
-        if (delta > (int)(SD_LIMIT_S - total)) delta = (int)(SD_LIMIT_S - total);
-        sd.gap_s[sd.count - 1] = (uint16_t)(oldgap + delta);
+        const uint32_t total = sd_total_s();
+        int target = (int)total + (int)accel(EN_K1 + i, e, SD_LIMIT_S);
+        if (target < sd.count) target = sd.count;
+        if (target > (int)SD_LIMIT_S) target = (int)SD_LIMIT_S;
+        sd_scale_total((uint32_t)target);
     }
 }

@@ -3123,7 +3123,7 @@ static void lk_save_menu(void)
     cv_rect(8, 0, 224, 1, LK_RULE);
     text_c(60, 8, &FONT_T20, "K2: ACTION", LK_LABEL);
     text_c(174, 8, &FONT_T20, "K1: SLOT", LK_LABEL);
-    text_c(120, 30, &FONT_N2, ui.menu_load ? "LOAD SCENE" : "SAVE SCENE",
+    text_c(120, 30, &FONT_N2, ui.menu_load == 2 ? "SELECT BANK" : ui.menu_load ? "LOAD SCENE" : "SAVE SCENE",
            !ui.menu_load && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_GOLD);
     cv_text(11, 63, &FONT_XS, "SELECT: BANK", LK_LABEL);
     cv_text(11, 75, &FONT_XS, "[SAVE] APPLY   [HOME] BACK", LK_LABEL);

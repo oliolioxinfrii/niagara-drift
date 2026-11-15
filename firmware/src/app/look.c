@@ -3090,13 +3090,13 @@ static void lk_keymap(void)
     cv_blit(0, LK_VAL_Y);
 }
 
-/* SAVE browser and bank naming popup. Three bands as on other Niagara
+/* SAVE browser and scene-slot naming popup. Three bands as on other Niagara
  * pages; the actual bank/slot/action/amount are the four bottom readouts. */
 static void lk_save_menu(void)
 {
     const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
     const int filled = scene_has(bank, slot);
-    const char *name = project_bank_name(bank);
+    const char *name = project_slot_name(bank, slot);
     uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
                                                      (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),
                       (uint32_t)ui.menu_pct | (uint32_t)ui.save_menu << 8 | (uint32_t)ui.name_pos << 16);
@@ -3105,8 +3105,9 @@ static void lk_save_menu(void)
     if (ui.save_menu == 2)
         for (i = 0; i < BANK_NAME_LEN; i++)
             h = hash(h, (uint8_t)ui.name_draft[i]);
-    for (i = 0; name[i]; i++)
-        h = hash(h, (uint8_t)name[i]);
+    if (name)
+        for (i = 0; name[i]; i++)
+            h = hash(h, (uint8_t)name[i]);
     if (plat_ms() < ui.msg_until) h = hash(h, ui.msg_until);
     if (ui.sig[0] == h) return;
     ui.sig[0] = h;
@@ -3115,13 +3116,14 @@ static void lk_save_menu(void)
     { char *q = pct; while (*q) q++; scopy(q, "%"); }
 
     cv_begin(240, LK_BAR_H, LK_BG);
-    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 2 ? "NAME BANK" : "SCENES", LK_WHITE);
+    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 2 ? "NAME SLOT" : "SCENES", LK_WHITE);
     cv_blit(0, 0);
 
     cv_begin(240, LK_PIC_H, LK_BG);
     cv_rect(8, 4, 224, 1, LK_RULE);
     if (ui.save_menu == 2) {
-        cv_text(12, 11, &LK_F_SMALL, "EDIT BANK NAME", LK_LABEL);
+        cv_text(12, 11, &LK_F_SMALL, "EDIT SLOT NAME", LK_LABEL);
+        cv_text(195, 11, &FONT_XS, key, LK_GOLD);
         for (i = 0; i < BANK_NAME_LEN - 1; i++) {
             const char ch[2] = {ui.name_draft[i], 0};
             const int32_t cx = 20 + 20 * i;
@@ -3132,14 +3134,12 @@ static void lk_save_menu(void)
         cv_text(12, 108, &FONT_XS, "[SAVE] YES      [HOME] BACK", LK_LABEL);
     } else {
         cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
-        cv_text(74, 9, &FONT_T20, name, LK_GOLD);
+        cv_text(74, 9, &FONT_T20, BANK_N[bank], LK_GOLD);
         cv_text(12, 46, &LK_F_SMALL, "SLOT", LK_LABEL);
         cv_text(74, 39, &FONT_N2, key, LK_WHITE);
-        if (BANK_IS_PRESETS(bank))
-            cv_text(12, 79, &FONT_T20,
-                    preset_name(slot + (bank == BANK_PRESETS2 ? NPLAY : 0)), LK_WHITE);
-        else
-            cv_text(12, 79, &FONT_T20, filled ? "STORED" : "EMPTY", filled ? LK_WHITE : LK_UNLIT);
+        cv_text(12, 79, &FONT_T20,
+                name ? name : filled ? "STORED" : "EMPTY",
+                name ? LK_WHITE : filled ? LK_WHITE : LK_UNLIT);
         cv_text(12, 108, &FONT_XS, "[SAVE] YES  [HOME] BACK  [REC] NAME", LK_LABEL);
     }
     if (plat_ms() < ui.msg_until)

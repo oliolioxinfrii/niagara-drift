@@ -458,7 +458,13 @@ static void sd_randomize(int (*between)(int lo, int hi))
         sd.gap_s[i] = (uint16_t)(1u + allot);
         assigned += allot;
     }
+    /* Include the shape of every transition in Random Start, including
+     * the final interval returning to step 1. Previously they remained at
+     * sd_init's sine default even when the notes and durations changed. */
+    for (i = 0; i < sd.count; i++)
+        sd.shape[i] = (int8_t)between(-100, 100);
     for (i = sd.count; i < SD_MAX; i++) {
+        sd.shape[i] = 0;
         sd.gap_s[i] = SD_DEFAULT_S;
         for (g = 0; g < 2; g++)
             sd.note[g][i] = sd.note[g][sd.count - 1];

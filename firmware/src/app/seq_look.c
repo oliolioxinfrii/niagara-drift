@@ -233,8 +233,10 @@ static void lk_pic_sequence(int timing)
         cv_text(x - 3, 108, &FONT_XS, txt, j == sd.position ? LK_WHITE : LK_LABEL);
     }
     cv_text(5, 0, &FONT_XS, "PITCH", LK_LABEL);
+    /* Reserve the right-hand status region when playback is active.
+     * The old "PITCHES LINKED" caption ran beneath "ON". */
     if (linked)
-        cv_text(130, 0, &FONT_XS, "PITCHES LINKED", LK_LABEL);
+        cv_text(145, 0, &FONT_XS, "LINKED", LK_LABEL);
     if (sd.enabled)
         cv_text(sd.paused ? 192 : 202, 0, &FONT_XS, sd.paused ? "PAUSE" : "ON", LK_GOLD);
 }

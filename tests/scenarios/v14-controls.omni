@@ -5,12 +5,12 @@ spin SELECT 1
 expect view 1
 spin SELECT -1
 expect view 0
-expect par47 48
+expect par47 74
 press SEL
 spin SELECT 1
 release SEL
 expect view 0
-expect par47 49
+expect par47 75
 
 # SAVE browses existing banks and slots. The bank-only action can choose
 # an empty bank without attempting to load a non-existent scene.

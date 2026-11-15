@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PATTERN = re.compile(
     r"host: (\d+) ms simulated, (\d+) blits, render ([\d.]+)% of real time"
 )
+UI_RE = re.compile(r"^ui: ([\d.]+) us/frame mean, ([\d.]+) us max", re.M)
+PAGE_RE = re.compile(r"^ui page (\d+) [^:]+: ([\d.]+) us/frame", re.M)
 
 
 def run(exe, profile, output):
@@ -36,8 +38,13 @@ def run(exe, profile, output):
     match = PATTERN.search(proc.stdout)
     if not match:
         raise RuntimeError(f"{profile.name}: missing host statistics\n{proc.stdout}")
+    ui_match = UI_RE.search(proc.stdout)
+    if not ui_match:
+        raise RuntimeError(f"{profile.name}: missing UI timings\n{proc.stdout}")
     sim_ms, blits, audio_percent = match.groups()
-    return elapsed, int(sim_ms), int(blits), float(audio_percent)
+    ui_mean, ui_max = ui_match.groups()
+    pages = {int(n): float(us) for n, us in PAGE_RE.findall(proc.stdout)}
+    return elapsed, int(sim_ms), int(blits), float(audio_percent), float(ui_mean), float(ui_max), pages
 
 
 def main():
@@ -59,7 +66,7 @@ def main():
             results[name].append(run(exe, profile, output))
 
     print(f"Host simulator, {args.repeats} runs per workload")
-    print("Workload    Wall seconds       Simulated s   Blits   Audio render*")
+    print("Workload    Wall seconds       Simulated s   Blits   Audio render*   UI us/frame")
     for name in ("slow", "fast"):
         samples = results[name]
         times = [r[0] for r in samples]
@@ -68,7 +75,8 @@ def main():
             raise RuntimeError(f"{name}: simulated durations differed: {sim}")
         print(f"{name:8} {statistics.mean(times):12.3f} "
               f"{sim[0] / 1000.0:12.2f} {samples[0][2]:7} "
-              f"{statistics.mean(r[3] for r in samples):13.2f}%")
+              f"{statistics.mean(r[3] for r in samples):13.2f}%"
+              f"{statistics.mean(r[4] for r in samples):14.1f}")
     slow = results["slow"][0][1]
     fast = results["fast"][0][1]
     if slow != fast:
@@ -79,7 +87,15 @@ def main():
             r[0] for r in results["slow"]
         )
         print(f"Fast / slow host wall-time ratio: {ratio:.3f}x")
+    print("UI timing by screen (mean us/frame):")
+    for view, label in ((18, "Sequence"), (19, "Intervals"), (13, "Swell"), (6, "LFO waves")):
+        values = []
+        for name in ("slow", "fast"):
+            samples = [r[6][view] for r in results[name] if view in r[6]]
+            values.append(f"{statistics.mean(samples):.1f}" if samples else "not visited")
+        print(f"  {label:12} slow {values[0]:>10}   fast {values[1]:>10}")
     print("*Audio render is host dr_render time / its audio budget, not device CPU.")
+    print("Host UI timings exclude physical LCD transfer latency.")
     print("Run on the same machine with the same build; compare commits separately.")
 
 

@@ -18,7 +18,7 @@
  *   .. pink) · EDIT Osc (X-Wave, PW), Sub · Drive (Osc/Sub, Drive) · LFO LFO sends (each drone's two sends), Mods
  *   (Speed mod, Source, Delay mod, Cross-mod) · SEQ Partner, Pitch moves · FX Space (Repeats, Mix, Length, Mix),
  *   Details (Drive, Time, Damp, Type) · GLO Setup 1 (Fade, Morph, Scene time),
- *   Setup 2 (Tuning, Tune, Stereo, Pressure) (global). The top bar shows a dot for each of a
+ *   Setup 2 (Tuning, Tune, Stereo, Speaker) (global). The top bar shows a dot for each of a
  *   button's pages.
  *   OCT- / OCT+    the LFO's Wave I / Wave II (LFO I and II on screen): a tap is the next shape, round and
  *                  round; SEL + OCT the one before; lit while its wave is up
@@ -271,7 +271,7 @@ static const char *const TIP_TEXT[NTIPS] = {   /* one line, the banner's width (
     "PRESS HARDER: BLEND", "HOLD [SEL]: KEY NAMES", "HOLD: IN · TAP: LATCH", "TAP [FX]: TIME, TYPES",
     "[SEL]+KNOB 4: INTO REV", "[F#5]: PITCH, SNARL", "SWELL KNOB 1: DIVISION", "[SEL] + [SAVE]: UNDO",
     /* the knobs 0.3 moved (Evan, 2026-11-01), the first time a player from 0.2 opens their page (SEEN1_MOVED) */
-    "FEEDBACK NOW KNOB 1", "X-MOD NOW KNOB 4", "TUNE NOW KNOB 2",
+    "FEEDBACK NOW KNOB 1", "X-MOD NOW KNOB 4", "SPEAKER NOW KNOB 4",
     "TAP [SEL]: KEEP IT",                      /* SEL glowing while a blend or a gesture can be kept */
     "PITCH: TAP [HOME] AGAIN", "DRIVE, TIME: TAP [FX]"};   /* the pages 0.3 rearranged (2026-11-08), as the knobs */
 /* (a button or key in [ ]: the new look draws it in a box, the spec's rule 19; the old screen drops the brackets) */
@@ -395,7 +395,7 @@ static int32_t accel(int role, int32_t s, int range)
  * smooth curve: 70 detents a second; Evan, on the FM-1, 4x went too far); with SEL held, 1 cent.
  * Each step slides over the time since the last detent (15..600 ms): the next one is due about then, so a steady turn
  * is one slide through the grid's notes, as an analog knob's; a first detent after a pause slides over 300 ms. */
-/* THE TUNING (v0.3, Setup 2 KNOB 4; Evan, 2026-10-30): every detent moves the pitch to the grid's next step, so the
+/* THE TUNING (Setup 2 KNOB 1; moved in v0.3, Evan 2026-10-30): every detent moves the pitch to the grid's next step, so the
  * screen shows the note it goes to (#61 glided 60 cents a detent and landed once stopped: on the uneven grids a detent
  * could land back on the same note, and the card showed the cents in between). A pitch SEL has fine-tuned off the
  * grid keeps that offset: +3 cents over a semitone steps to +3 over the next. A pitch off the grid (an old sound, a
@@ -1527,8 +1527,7 @@ static void press_start(int n, const int16_t *sc)
     loop_note(LP_BLEND, proj.bank << 4 | n, 0);
 }
 
-/* a key's pressure at the player's sensitivity (Setup 2, KNOB 3): a curve, light .. firm, 50 as tuned; a full press
- * is always all the way (QA 2026-10-20: as a gain, at 0 a full press went only 38 % in) */
+/* Scene-key pressure is a neutral linear blend; sensitivity is not a Setup control. */
 static float press_curve(float x) { return fm_clampf(x, 0.0f, 1.0f); }  /* neutral response */
 static int press_scaled(int p)
 {

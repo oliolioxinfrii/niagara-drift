@@ -1653,7 +1653,7 @@ static void lk_pic_lfo(void)
         else
             scopy(scopy(t, g ? "II " : "I "),
                   osc ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "wave" : "pitch")
-                      : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff"));
+                      : (gpar(g, GP_FLFO_DEST) == DR_TO_PAN ? "pan" : gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff"));
 
         ax = 232 - text_w(&FONT_S, t);
         for (w = 0; w < 2; w++) {
@@ -2593,6 +2593,8 @@ cents:
             lk_swing(t2, fm_fabsf(c) * 100.0f, "%");
         else if (gp == GP_OLFO_DEPTH)
             fm_fabsf(c) * 24.0f < 1.0f ? lk_swing(t2, fm_fabsf(c) * 2400.0f, "c") : lk_swing(t2, fm_fabsf(c) * 24.0f, " st");
+        else if (gpar(g, GP_FLFO_DEST) == DR_TO_PAN)
+            lk_swing(t2, fm_fabsf(d) * mv * 100.0f, "%");
         else if (gpar(g, GP_FLFO_DEST) == DR_TO_RESO)
             lk_swing(t2, fm_fabsf(d) * mv * 100.0f, "%");
         else

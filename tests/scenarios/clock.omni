@@ -1,3 +1,4 @@
+legacykeys
 # MIDI CLOCK IN (v0.3, step 3): the tempo and the jitter of a clock from a DAW, as the test build shows them.
 # clkbpm is the tempo x 10, clkjit / clkmax the jitter (RMS / largest) in us
 tap PLAY

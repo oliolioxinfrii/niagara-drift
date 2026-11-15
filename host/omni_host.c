@@ -342,6 +342,10 @@ static void wav_close(void)
 /* --------------------------------------------------------- the device --- */
 static double audio_due_ms, render_ns_total, render_budget_ns_total;
 static uint32_t ui_due;
+#ifndef OM_WEB
+static double ui_ns_total, ui_ns_peak, ui_ns_page[NVIEWS];
+static uint32_t ui_count, ui_count_page[NVIEWS];
+#endif
 static double now_ns(void)
 {
     struct timespec t;
@@ -415,7 +419,20 @@ static void run_ms(uint32_t ms)
         }
         if (now_ms >= ui_due) {
             ui_due = now_ms + 16;
+#ifndef OM_WEB
+            const double t0 = now_ns();
+#endif
             ui_frame();
+#ifndef OM_WEB
+            const double dt = now_ns() - t0;
+            ui_ns_total += dt;
+            if (dt > ui_ns_peak) ui_ns_peak = dt;
+            ui_count++;
+            if (ui.view < NVIEWS) {
+                ui_ns_page[ui.view] += dt;
+                ui_count_page[ui.view]++;
+            }
+#endif
         } else {
             ui_input_only();
         }
@@ -892,6 +909,15 @@ int main(int argc, char **argv)
     printf("host: %u ms simulated, %u blits, render %.1f%% of real time (host CPU)%s\n", now_ms, blits,
            render_budget_ns_total > 0 ? 100.0 * render_ns_total / render_budget_ns_total : 0.0,
            fails ? ", EXPECTATIONS FAILED" : "");
+    if (ui_count) {
+        int v;
+        printf("ui: %.1f us/frame mean, %.1f us max (%u frames)\n",
+               ui_ns_total / (double)ui_count / 1000.0, ui_ns_peak / 1000.0, ui_count);
+        for (v = 0; v < NVIEWS; v++)
+            if (ui_count_page[v] >= 10u)
+                printf("ui page %d %s: %.1f us/frame (%u frames)\n", v, VIEW_NAME[v],
+                       ui_ns_page[v] / (double)ui_count_page[v] / 1000.0, ui_count_page[v]);
+    }
     return fails ? 1 : 0;
 }
 #endif /* OM_WEB */

@@ -187,29 +187,35 @@ static float sd_interp(int seg, float x)
 
 /* Smoothly interpolate across unequal event intervals. In Pitch Link mode,
  * drone II follows drone I at the saved offset, with no phase disagreement. */
-static int sd_at(int g, uint32_t elapsed_ms)
+/* Screen traces sample many times per frame. Reuse the frame's cycle length
+ * and link state rather than recomputing them for each plotted point. */
+static int sd_at_len(int g, uint32_t elapsed_ms, uint32_t len_ms, int linked)
 {
-    const uint32_t len_ms = sd_total_s() * 1000u;
     uint32_t t;
-    int i, base = g && sd_linked() ? 0 : g;
+    const int base = g && linked ? 0 : g;
+    int i;
     if (!len_ms) return sd_pitch(g, 0);
     t = elapsed_ms % len_ms;
-    if (g && !sd_linked())
+    if (g && !linked)
         t = (t + (uint32_t)sd.phase * len_ms / 100u) % len_ms;
     for (i = 0; i < sd.count; i++) {
         const uint32_t gap = (uint32_t)sd.gap_s[i] * 1000u;
         if (t < gap) {
             const int a = sd.note[base][i];
-            const int b = sd.note[base][(i + 1) % sd.count];
+            const int b = sd.note[base][i + 1 < sd.count ? i + 1 : 0];
             const float x = (float)t / (float)gap;
             const float smooth = sd_interp(i, x);
             const float v = (float)a + (float)(b - a) * smooth +
-                            (g && sd_linked() ? (float)sd_offset() : 0.0f);
+                            (g && linked ? (float)sd_offset() : 0.0f);
             return (int)(v + (v >= 0.0f ? 0.5f : -0.5f));
         }
         t -= gap;
     }
     return sd_pitch(g, 0);
+}
+static int sd_at(int g, uint32_t elapsed_ms)
+{
+    return sd_at_len(g, elapsed_ms, sd_total_s() * 1000u, sd_linked());
 }
 static void sd_note_set(int pos, int g, int cents)
 {

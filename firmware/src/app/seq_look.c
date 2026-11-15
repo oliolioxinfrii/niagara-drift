@@ -250,7 +250,7 @@ static void lk_values_sequence(void)
     int i;
     for (i = 0; i < 4; i++) {
         h = hash(h, (uint32_t)(uint8_t)sd.shape[i] | (uint32_t)sd.gap_s[i] << 8);
-        h = hash(h, (uint32_t)sd.gap_s[i] | ((uint32_t)(uint16_t)sd.note[0][i] << 16));
+        h = hash(h, (uint32_t)(uint16_t)sd.note[0][i]);
         h = hash(h, (uint32_t)(uint16_t)sd.note[1][i] | (uint32_t)lit(i) << 20);
     }
     h = hash(h, (uint32_t)(ui.btn >> B_SEL & 1u) | (uint32_t)sd_linked() << 8 |

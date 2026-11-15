@@ -12,10 +12,10 @@ JIELI_TOOLCHAIN="${JIELI_TOOLCHAIN:-$HOME/.jieli/toolchain}"
 AC79_SDK="${AC79_SDK:-$HOME/fw-AC79_AIoT_SDK}"
 export JIELI_TOOLCHAIN AC79_SDK
 
-[ "$(git branch --show-current)" = sequencing-v1.3 ] || {
-    echo "FAIL: switch to sequencing-v1.3 before packaging" >&2
-    exit 1
-}
+case "$(git branch --show-current)" in
+    main|sequencing-v1.3) ;;
+    *) echo "FAIL: build the v1.3 candidate from main or sequencing-v1.3" >&2; exit 1 ;;
+esac
 [ -z "$(git status --porcelain --untracked-files=no)" ] || {
     echo "FAIL: tracked source changes are not committed" >&2
     exit 1

@@ -1,0 +1,56 @@
+# VOLCANO v1.5: graphics/navigation smoke test. No changes to DSP or stored scenes.
+# Run by tests/run_tests.sh, screenshots under build/scenarios/volcano-ui/.
+notips
+expect view 0
+wait 150
+shot surface.png
+page 1
+wait 150
+shot pitch.png
+page 2
+wait 150
+shot life.png
+page 3
+wait 150
+shot tone.png
+page 4
+wait 150
+shot mantle-osc.png
+page 5
+wait 150
+shot mantle-drive.png
+page 6
+wait 150
+shot deep-mantle-lfo.png
+# Holding HOME opens the temporary atlas, then returns to the prior page.
+press HOME
+expect view 0
+wait 600
+shot geological-atlas.png
+release HOME
+expect view 6
+page 7
+wait 150
+shot deep-mantle-routing.png
+page 9
+wait 150
+shot crust-partner.png
+page 18
+wait 150
+shot crust-sequence.png
+page 13
+wait 150
+shot crust-swell.png
+page 15
+wait 150
+shot atmosphere.png
+page 11
+wait 150
+shot planet-setup.png
+# The orbit browser is a separate overlay; HOME exits without saving.
+tap SAVE
+expect savemenu 1
+wait 150
+shot orbit-memory.png
+tap HOME
+expect savemenu 0

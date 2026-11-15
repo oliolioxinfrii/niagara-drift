@@ -2959,7 +2959,7 @@ static void draw_splash(uint32_t ms)
                 const int y = sp_rock_height(x) + band * (4 + band / 3) + 2 +
                               (int)((h >> 12) % 8u);
                 cv_rect(x, y - y0, 1 + (j % 37 == 0), 1,
-                        (j % 5 == 0 ? BED[vg_min(band + 1, 10)] : DARK));
+                        (j % 5 == 0 ? BED[band < 10 ? band + 1 : 10] : DARK));
             }
         }
         /* A steep, slightly wandering vent and incandescent fractured rock. */

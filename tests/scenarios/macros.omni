@@ -9,7 +9,7 @@ set 7 700
 set 28 680
 set 11 75
 set 32 61
-# a new FM-1 plays the Presets; these scenes go in bank A (SEL + G4)
+# A new FM-1 starts on Presets; scene tests select bank A explicitly.
 expect bank 3
 bank 0
 expect bank 0

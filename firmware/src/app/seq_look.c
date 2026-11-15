@@ -114,30 +114,31 @@ static void lk_pic_seq_shape(void)
     for (i = 0; i < SD_MAX; i++) {
         const int active = sd.count > 1 && i < sd.count;
         const uint16_t c = active ? LK_DRONE[i & 1] : LK_UNLIT;
-        const int32_t y = y0 + slot_h * i, low = y + 17, high = y + 3;
+        const int32_t y = y0 + slot_h * i, low = y + 15, high = y + 3;
         int32_t prev = low;
         itoa_u((uint32_t)i + 1u, t);
         cv_text(2, y + 5, &FONT_XS, t, c);
         cv_rect(xs, y + 15, xe - xs + 1, 1, LK_RULE);
         if (!active) continue;
-        /* Draw every pixel column rather than 36 widely separated samples.
-         * Vertical spans join steep ramps, including the exact saw endpoints.
-         * Endpoints share the same x coordinate as their note markers. */
+        /* The 240px framebuffer is often shown at <240 CSS pixels. A one-row
+         * staircase can vanish for an entire plateau when that framebuffer
+         * row is discarded by downscaling. Two-row strokes prevent these
+         * false gaps, and the late plateau now overlays its baseline. */
         for (j = xs; j <= xe; j++) {
             const float x = (float)(j - xs) / (float)(xe - xs);
             const int32_t yy = low - (int32_t)(sd_interp(i, x) * 14.0f + 0.5f);
             if (j > xs && yy != prev) {
                 const int32_t a = yy < prev ? yy : prev;
-                cv_rect(j, a, 1, (yy < prev ? prev - yy : yy - prev) + 1, c);
+                cv_rect(j, a, 1, (yy < prev ? prev - yy : yy - prev) + 2, c);
             } else {
-                cv_rect(j, yy, 1, 1, c);
+                cv_rect(j, yy, 1, 2, c);
             }
             prev = yy;
         }
         /* A discontinuity is vertical at the node itself, not a diagonal
          * extending into the adjacent segment. */
-        if (sd.shape[i] <= -100) cv_rect(xe, high, 1, low - high + 1, c);
-        if (sd.shape[i] >= 100) cv_rect(xs, high, 1, low - high + 1, c);
+        if (sd.shape[i] <= -100) cv_rect(xe, high, 1, low - high + 2, c);
+        if (sd.shape[i] >= 100) cv_rect(xs, high, 1, low - high + 2, c);
         cv_round(xs - 1, low - 1, 3, 3, 1, LK_WHITE);
         cv_round(xe - 1, high - 1, 3, 3, 1, LK_WHITE);
     }

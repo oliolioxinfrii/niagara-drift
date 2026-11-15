@@ -4,7 +4,7 @@
 notips
 page 18
 expect view 18
-spin K3 3
+turn K3 3 120
 expect seqcount 4
 expect seqtotal 40
 spin K4 80
@@ -53,6 +53,7 @@ expect seqmaxjump <1201
 # The interval page shows Drone II's phase displacement with identical times.
 set 45 0
 page 18
+spin K4 -100
 spin K4 25
 expect seqphase 25
 expect seqtotal 40

@@ -459,7 +459,6 @@ static void vl_planet(void)
     static const uint16_t layers[5] = {RGB(246, 208, 62), RGB(242, 156, 47),
                                        RGB(225, 88, 43), RGB(173, 47, 39), RGB(106, 29, 36)};
     int k, i;
-    char t[16];
     lk_circle(cx, cy, r, LK_LABEL);
     /* Ticks on the periphery follow the real selected tuning, not 12 fixed spokes. */
     for (k = 0; k < n; k++) {
@@ -512,10 +511,8 @@ static void vl_planet(void)
             }
             text_c(xc, 105, &FONT_XS, k ? "R" : "L", LK_LABEL);
         }
-        cv_text(129, 118, &FONT_U2, "STEREO FIELD", LK_LABEL);
     } else {
         cv_text(129, 48, &FONT_T20, ui.view == V_SETUP ? "CLOCK" : "SPEAKER", LK_WHITE);
         cv_text(129, 78, &FONT_XS, ui.view == V_SETUP ? "TIME / SYNC" : "OUTPUT", LK_LABEL);
     }
-    (void)t;
 }

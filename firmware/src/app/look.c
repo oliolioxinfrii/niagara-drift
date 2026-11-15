@@ -1813,51 +1813,62 @@ static void lk_pic_mods(void)
 }
 
 /* ---------------------------------------------------- Setup 1's picture --- */
-/* a row per time (the board, GLO 130:1852; the spec, 2026-11-01): its title, the knob's word bold ("Time to fade in /
- * out on PLAY"), and a symbol across the row ending where its knob is: the knob's whole range is the row (Evan,
- * 2026-11-07: turned all the way, it reaches the end), so the change takes the row's first part and the rest is its
- * new setting. Fade one thick line up from silence (the board's); Morph and Scene a crossfade, a out as b comes in (he
- * liked Morph's better than Scene's straight lines). The knob being turned marks its time with a dot where the change
- * ends; on a MIDI clock Scene's knob is its bars */
+/* One graph, three independently calibrated fixed horizontal time domains.
+ * Each trace starts low, rises over its current Fade/Morph/Scene duration,
+ * and remains at the upper baseline until that parameter's maximum time.
+ * The horizontal extent never rescales when a knob changes. */
 static float lk_ease(float u) { u = fm_clampf(u, 0.0f, 1.0f); return u * u * (3.0f - 2.0f * u); }
 static void lk_pic_setup1(void)
 {
-    static const char *const PRE[3] = {"Time to ", "Time to ", "Time to switch "},
-                             *const BOLD[3] = {"fade", "morph", "scenes"},
-                             *const POST[3] = {" in / out on [PLAY]", " keys and LFOs", ""};   /* PLAY in its box (rule 19) */
-    const float frac[3] = {(float)proj.par[P_FADE] * 0.01f, (float)proj.par[P_MORPH] * 0.01f,
-                           dr_ext_spb > 0.0f ? (float)proj.par[P_SCENE_BARS] / (float)(DR_NBARS - 1)
-                                             : (float)proj.par[P_SCENE_T] * 0.01f};
-    int r, i, s;
-    for (r = 0; r < 3; r++) {
-        const int32_t base = 16 + 40 * r, top = base + 7, bot = base + 21;
-        const int32_t xe = 20 + (int32_t)(fm_clampf(frac[r], 0.0f, 1.0f) * 200.0f + 0.5f);
-        int16_t y[101];
-        int32_t x = 12;                        /* words at 18, the knob's in bold (19: the one bold near it); the
-                                                * longest, morph's, 215 px */
-        x = cv_text(x, base - LK_B(LK_F_SMALL), &LK_F_SMALL, PRE[r], LK_LABEL);
-        x = cv_text(x, base - LK_B(FONT_B), &FONT_B, BOLD[r], LK_INK);
-        lk_ktext(x, base - LK_B(LK_F_SMALL), &LK_F_SMALL, POST[r], LK_LABEL);
-        for (s = r ? 0 : 1; s < 2; s++) {     /* s 0: a going out; 1: b coming in (Fade's rise) */
-            for (i = 0; i <= 100; i++) {
-                const int32_t xi = 20 + 2 * i;
-                const float u = xi >= xe ? 1.0f : lk_ease((float)(xi - 20) / (float)(xe > 20 ? xe - 20 : 1));
-                y[i] = (int16_t)(s ? bot - (int32_t)((float)(bot - top) * u + 0.5f) : top + (int32_t)((float)(bot - top) * u + 0.5f));
-            }
-            lk_plot(20, y, 101, s ? LK_WHITE : LK_UNLIT);
-            if (!r) {                          /* Fade: one thick line, 3 px */
-                for (i = 0; i <= 100; i++)
-                    y[i]++;
-                lk_plot(20, y, 101, LK_WHITE);
-            }
-        }
-        if (r) {
-            cv_text(10, top - LK_B(LK_F_SMALL) + 5, &LK_F_SMALL, "a", LK_LABEL);   /* beside where each starts */
-            cv_text(10, bot - LK_B(LK_F_SMALL) + 5, &LK_F_SMALL, "b", LK_WHITE);
-        }
-        if (lit(r))                            /* the knob's time: where the change ends */
-            cv_round(xe - 3, top - 3 + (r ? 0 : 1), 7, 7, 3, LK_WHITE);
+    static const uint16_t color[3] = {
+        RGB(213, 62, 52), RGB(248, 147, 37), RGB(248, 216, 71)
+    };
+    static const char *const label[3] = {"FADE", "MORPH", "SCENE"};
+    const int32_t x0 = 15, x1 = 230, high = 23, low = 103;
+    float frac[3];
+    int r, i;
+    frac[0] = dr_time_s(P_FADE, proj.par[P_FADE]) / dr_time_s(P_FADE, 100);
+    frac[1] = dr_time_s(P_MORPH, proj.par[P_MORPH]) / dr_time_s(P_MORPH, 100);
+    frac[2] = dr_ext_spb > 0.0f ?
+              (float)proj.par[P_SCENE_BARS] / (float)(DR_NBARS - 1) :
+              dr_time_s(P_SCENE_T, proj.par[P_SCENE_T]) / dr_time_s(P_SCENE_T, 100);
+    for (r = 0; r < 3; r++)
+        frac[r] = fm_clampf(frac[r], 0.0f, 1.0f);
+
+    /* Three colors, but one coordinate system and no duplicate fade-out lines. */
+    for (r = 0; r < 3; r++)
+        cv_text(15 + r * 73, 2, &FONT_XS, label[r], color[r]);
+    cv_rect(x0, low, x1 - x0 + 1, 1, LK_RULE);
+    cv_rect(x0, high, x1 - x0 + 1, 1, LK_RULE);
+    for (i = 0; i <= 4; i++) {
+        const int32_t x = x0 + (x1 - x0) * i / 4;
+        cv_rect(x, high, 1, low - high + 1, LK_RULE);
+        cv_rect(x, low + 2, 1, 3, LK_LABEL);
     }
+    for (r = 0; r < 3; r++) {
+        int32_t prev = low;
+        for (i = 0; i <= x1 - x0; i++) {
+            const float t = (float)i / (float)(x1 - x0);
+            const float u = frac[r] > 0.001f ? fm_clampf(t / frac[r], 0.0f, 1.0f) : 1.0f;
+            /* Draw smooth transition trajectories rather than a scope wave.
+             * Their differing interpolants keep coincident durations legible. */
+            const float v = r == 0 ? u * u :
+                            r == 1 ? lk_ease(u) :
+                            0.5f - 0.5f * fm_cosf(3.14159265f * u);
+            const int32_t yy = low - (int32_t)(v * (float)(low - high) + 0.5f);
+            const int32_t x = x0 + i;
+            if (i) cv_line(x - 1, prev, x, yy, color[r]);
+            prev = yy;
+        }
+        {
+            const int32_t marker = x0 + (int32_t)(frac[r] * (float)(x1 - x0) + 0.5f);
+            const uint16_t ink = lit(r) ? LK_WHITE : color[r];
+            cv_round(marker - 2, high - 2, 5, 5, 2, ink);
+        }
+    }
+    cv_text(x0, 109, &FONT_XS, "0", LK_LABEL);
+    cv_text(155, 109, &FONT_XS, "MAX TIME", LK_LABEL);
+    cv_text(x1 - 21, 109, &FONT_XS, "100%", LK_LABEL);
 }
 
 /* ---------------------------------------------------- Setup 2's picture --- */
@@ -2291,7 +2302,7 @@ static void lk_pic(void)
     case V_SEQ_SHAPE: lk_pic_seq_shape(); break;
     case V_PULSE: lk_pic_swell(); break;
     case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
-    case V_SETUP: vl_planet(); break;
+    case V_SETUP: lk_pic_setup1(); break;
     case V_SETUP2: vl_planet(); break;
     case V_SPEAKER: vl_planet(); break;
     case V_FX:

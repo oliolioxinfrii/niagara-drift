@@ -7,10 +7,16 @@ expect view 18
 turn K3 3 120
 expect seqcount 4
 expect seqtotal 40
+page 19
+expect view 19
 spin K4 80
 expect seqtotal 120
+expect seqnode2 30
 spin K4 -80
 expect seqtotal 40
+expect seqnode2 10
+page 18
+expect view 18
 press SEL
 tap HOME
 release SEL

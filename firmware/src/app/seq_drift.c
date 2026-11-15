@@ -7,7 +7,7 @@
 #define SD_LIMIT_S 240u
 #define SD_DEFAULT_S 10u
 static struct {
-    uint8_t count, position, drone, phase, enabled, running, paused;
+    uint8_t count, position, drone, phase, enabled, paused;
     uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
     int16_t note[2][SD_MAX];
     int16_t sent[2];
@@ -15,7 +15,6 @@ static struct {
     int8_t preview_key;                  /* most recently pressed keyboard key; -1: none */
     uint8_t preview_sounded;             /* audition temporarily started PLAY's audio */
     uint8_t preview_active;              /* audible preview replaced the normal pitch */
-    uint8_t link_was;
     uint8_t lock_was;
     int16_t lock_offset;                  /* Pitch Lock without Pitch Link: retain initial interval */
 } sd;
@@ -72,7 +71,6 @@ static void sd_sync_home(void)
     if (link)
         for (i = 1; i < SD_MAX; i++)
             sd.note[1][i] = (int16_t)(sd.note[0][i] + offset);
-    sd.link_was = (uint8_t)link;
 }
 static void sd_init(void)
 {
@@ -101,7 +99,6 @@ static void sd_restore_pitch(void)
 static void sd_stop(void)
 {
     sd.enabled = 0;
-    sd.running = 0;
     sd_reset_clock();
     if (sd.preview_key < 0) sd_restore_pitch();
 }
@@ -111,7 +108,6 @@ static void sd_toggle(void)
     if (!sd.enabled) {
         sd_sync_home();
         sd.enabled = 1;
-        sd.running = 1;
         sd_reset_clock();
         /* Pitch Link applies to the authored notes; the audio engine follows
          * the sequence's two independently calculated cursor pitches. */

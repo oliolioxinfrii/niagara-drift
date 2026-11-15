@@ -151,10 +151,10 @@ static const sw_t SW_LFO[11] = {{S_OTAP, 0}, {S_ODEST, 0}, {S_FTAP, 0}, {S_FDEST
 /* who a message is from, for its banner's color (lk_msg_col in look.c): the drones (K_DRONE), the LFO (K_LFO), the
  * scenes, Presets, saves and the Swell (K_GOLD); 0 the system, neutral. The old screen's palette went with it (0.3's
  * new look, PR H); K_BG is the start's animation's black, the site's */
-#define K_BG RGB(20, 0, 15)
-#define K_LFO RGB(220, 188, 255)
-#define K_GOLD RGB(255, 214, 240)
-static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(255, 176, 74), RGB(69, 227, 211)};
+#define K_BG RGB(8, 8, 10)
+#define K_LFO RGB(207, 75, 63)
+#define K_GOLD RGB(247, 210, 70)
+static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(247, 210, 70), RGB(233, 99, 48)};
 
 static struct {
     uint8_t view;

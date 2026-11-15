@@ -2240,8 +2240,21 @@ static void input(void)
 #ifdef OM_CLOCK_TEST
     clk_show();
 #endif
-    if ((e = plat_enc(EN_SELECT)) != 0)              /* SELECT: the LFO rate */
-        global_turn(EN_SELECT, dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE, dr_ext_spb > 0.0f ? "LFO CYCLE" : "LFO RATE", e);
+    if ((e = plat_enc(EN_SELECT)) != 0) {
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            global_turn(EN_SELECT, dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE,
+                        dr_ext_spb > 0.0f ? "LFO CYCLE" : "LFO RATE", e);
+        } else {
+            /* SELECT traverses the full cyclic page order, including the
+             * sequencer editors. Page buttons remain direct shortcuts. */
+            int next = (int)ui.view + (int)e;
+            next %= NVIEWS;
+            if (next < 0) next += NVIEWS;
+            set_view(next);
+        }
+    }
     if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */
         global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
     if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */

@@ -11,14 +11,13 @@ Settings for the FM-1 itself, not for a sound: how long changes take, the clock,
 
 ## Knobs
 
-[[GLO]] opens Setup 1, then Setup 2, then Speaker (3/3); the next tap returns to Setup 1.
+[[GLO]] alternates between Setup 1 and Setup 2. Speaker mute is KNOB 4 on Setup 2.
 These settings belong to the FM-1, not to a sound: scenes don't change them, except the Tuning.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|---|
 | Setup 1 | fade | morph | scene time | sync |
-| Setup 2 | tuning | tune | stereo | — |
-| Speaker (3/3) | speaker On/Off | — | — | — |
+| Setup 2 | tuning | tune | stereo | speaker On/Off |
 
 ## Setup 1
 
@@ -40,10 +39,11 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 | **Tuning** | the notes the pitch knobs move through ([Tunings](#tunings)) |
 | **Tune** | A's pitch: 427 to 453 Hz (440 to start) |
 | **Stereo** | mono to drone I left, drone II right |
+| **Speaker** | **On** (default) or **Off**: mute the built-in FM-1 speaker |
 
-## Speaker (3/3)
+### Speaker output
 
-- **KNOB 1** sets **On** (default) or **Off** (mute the FM-1's built-in speaker).
+- **KNOB 4 on Setup 2** selects **On** or **Off** for the FM-1's built-in speaker.
 - USB audio recording continues to transmit the full stereo master mix, including MASTER volume changes.
   With Speaker Off, the speaker-specific bass cut is bypassed so the USB signal is full-range.
 - Headphones connected through the 3.5 mm jack remain audible even with Speaker Off.

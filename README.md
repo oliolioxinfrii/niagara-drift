@@ -8,7 +8,7 @@
 > the original project is [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift).
 
 > **Experimental v1.4 branch:** This branch changes SELECT navigation, the
-> SAVE browser, per-segment sequencer curves, and bank naming. Keys 1–8 are
+> SAVE browser, per-segment sequencer curves, and per-slot scene naming. Keys 1–8 are
 > reserved (unassigned) outside SEQ note entry; the controls illustrated
 > below describe the stable **v1.3** layout. For the v1.4 control map,
 > including **SAVE = yes**, **HOME = back**, and **REC = rename** inside

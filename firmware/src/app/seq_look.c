@@ -146,7 +146,8 @@ static void lk_values_sequence(void)
         const int active = !timing || (sd.count > 1 && i < sd.count);
         const uint16_t col = !active ? LK_UNLIT : lit(i) ? LK_WHITE :
                              !timing && i == 1 ? LK_DRONE[sd.drone] : LK_NEUTRAL;
-        const char *name = timing ? (i == 0 ? "1 > 2" : i == 1 ? "2 > 3" : i == 2 ? "3 > 4" : "4 > 1") :
+        const char *name = timing ? (i == 0 ? "1 > 2" : i == 1 ? (sd.count == 2 ? "2 > 1" : "2 > 3") :
+                                           i == 2 ? (sd.count == 3 ? "3 > 1" : "3 > 4") : "4 > 1") :
                            (i == 0 ? "Position" : i == 1 ? (ui.btn >> B_SEL & 1u ? "Pitch" : "Drone") :
                             i == 2 ? "Steps" : "Phase");
         char value[20];

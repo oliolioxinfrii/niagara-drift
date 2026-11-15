@@ -279,7 +279,7 @@ static void sd_run(void)
         if (!sd.enabled || !ui.playing)
             sd_restore_pitch();
     }
-    if (!sd.enabled || (!ui.playing && !sd.stopping))
+    if (!sd.enabled)
         return;
     if (sd.paused && sd.sent[0] != -32768 && sd.sent[1] != -32768)
         return;

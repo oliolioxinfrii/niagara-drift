@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Experimental four-position pitch progression for the two existing drones.
+/* Four-position pitch progression for the two existing drones.
  * The sequence edits notes, not synthesis voices or scene states. RAM only.
  * Step 1 always follows the live pitches of HOME > Pitch (the second HOME
  * page), even when the sequencer is running. */

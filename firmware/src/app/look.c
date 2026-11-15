@@ -1703,7 +1703,7 @@ static void lk_pic_lfo(void)
             cv_line(sx, sy, ex, ay, lc);
             cv_round(ex - 2, ay - 2, 5, 5, 2, lc);
         }
-        cv_text(ax, ny, &FONT_S, t, heard ? col : route == DR_LFO_OFF ? dim : lk_mix(0x260A22u, col, 0.7f));
+        cv_text(ax, ny, &FONT_S, t, heard ? col : dim); /* inactive targets, including zero depth, stay neutral */
     }
 
     /* Rate at the bottom left, as on 0.2. External sync still shows its division. */
@@ -2276,7 +2276,7 @@ static void lk_pic(void)
     ui.sig[1] = h;
     cv_begin(240, LK_PIC_H, LK_BG);
     switch (ui.view) {
-    case V_PLAY2: vl_surface(1); break;
+    case V_PLAY2: lk_pic_drones2(); break;
     case V_LIFE: vl_life(); break;
     case V_TONE: vl_tone(); break;
     case V_OSC: lk_pic_osc(); break;
@@ -2728,6 +2728,12 @@ static int lk_readout(void)
         cv_round(9 + i, 4 + i, 222 - 2 * i, 81 - 2 * i, 5, edge);
     }
     cv_round(16, 11, 208, 67, 4, LK_BG);
+    /* The thermal ruler makes the popup's actual value legible separately
+     * from its radial hue. All typography remains warm white. */
+    for (i = 0; i < 190; i++)
+        cv_rect(25 + i, 76, 1, 2,
+                lk_mix(LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], (float)i / 189.0f));
+    cv_rect(25 + (int)(magnitude * 189.0f + 0.5f) - 1, 74, 3, 6, LK_WHITE);
     text_c(120, 10, &FONT_T20, ui.glab[0], LK_WHITE);
     fb = text_w(&FONT_N1, ui.glab[1]) <= 210 ? &FONT_N1 : &FONT_N2;
     text_c(120, 9 + (int32_t)FONT_T20.h + (62 - (int32_t)FONT_T20.h - (int32_t)fb->h) / 2,

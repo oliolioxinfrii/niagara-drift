@@ -18,7 +18,7 @@ expect par74 0
 # Pages: 0 Drones 1 Pitch 2 Life 3 Tone 4 Osc 5 Sub · Drive 6 LFO sends 7 Mods 8 Partner 9 Pitch moves
 # 10 Setup 1 11 Setup 2 12 Swell 13 Space 14 Details. "page V" goes to page V at once, in no time: since v0.3 moved
 # the knobs, the script turns each on its new page and comes back, its timing (and its sound) as before.
-# a new FM-1 plays the Presets; these scenes go in bank A (SEL + G4)
+# a new FM-1 plays the Presets; the host fixture selects bank A for scene tests
 expect bank 3
 bank 0
 expect bank 0
@@ -678,7 +678,7 @@ expect scene_at -1
 tapkey w0
 wait 1500
 expect par7 650
-# banks: SEL + one of the eight gesture keys (G4 .. G5: A B C D E F, the Presets' two) picks the bank; keys 1-8 play it
+# The host fixture selects a bank; the first eight white keys recall its scenes.
 expect bank 0
 bank 1
 expect bank 1
@@ -704,7 +704,7 @@ release SAVE
 wait 300
 expect bscenes 255
 # P16 (Bare): one oscillator, drone II out on its own; SEL + OCT+ brings it in, and out again (playing). P9-P16 are
-# the Presets' second bank (SEL + G5), keys 1-8
+# The Presets' second bank (P9-P16) uses the same eight scene keys.
 tap PLAY
 wait 1600
 expect playing 1

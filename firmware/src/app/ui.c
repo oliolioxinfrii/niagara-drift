@@ -2054,16 +2054,21 @@ static int rq_input(uint32_t btn)                      /* asking: SEL or HOME an
 
 /* SAVE browser: the same bank/slot storage as before, but no keypad shortcuts.
  * All actions require SAVE to commit; HOME always returns or closes.
- * REC opens the bank-name popup (never on the factory Presets). */
+ * REC opens the selected slot's name popup (never on factory Presets). */
 static const char BANK_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
 static void menu_name_begin(void)
 {
-    const int bank = BANK_ORDER[ui.menu_bank];
-    const char *name = project_bank_name(bank);
+    const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+    char fallback[12];
+    const char *name = project_slot_name(bank, slot);
     int i;
     if (BANK_IS_PRESETS(bank)) {
         say("FACTORY PRESET", "NAME IS FIXED");
         return;
+    }
+    if (!name) {
+        scene_name(fallback, bank, slot);
+        name = fallback;
     }
     for (i = 0; i < BANK_NAME_LEN - 1; i++)
         ui.name_draft[i] = ' ';
@@ -2095,13 +2100,13 @@ static void menu_name_input(uint32_t released)
     if (released >> B_HOME & 1u)
         ui.save_menu = 1;
     else if (released >> B_SAVE & 1u) {
-        int bank = BANK_ORDER[ui.menu_bank];
+        const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
         int end = BANK_NAME_LEN - 1;
         while (end > 0 && ui.name_draft[end - 1] == ' ')
             ui.name_draft[--end] = 0;
-        if (project_bank_rename(bank, ui.name_draft) == 0) {
+        if (project_slot_rename(bank, slot, ui.name_draft) == 0) {
             mark_dirty();
-            save_ask(-1);              /* names persist through existing ducked flash path */
+            save_ask(-1);              /* slot names persist through existing ducked flash path */
             ui.save_menu = 1;
         }
     }

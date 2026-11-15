@@ -550,7 +550,7 @@ tap FX
 page 15
 expect view 15
 tap HOME
-# SELECT: the LFO rate; PRESETS: nothing yet (the macro to come), the waves stay
+# SEL+SELECT: the LFO rate; PRESETS: gesture time, waves unchanged
 press SEL
 spin SELECT 10
 release SEL
@@ -562,7 +562,10 @@ expect par49 1
 midi 91 3C 64
 wait 20
 expect par21 6000
-# SAVE while playing: the output dips out (20 ms), the write, back (30 ms); one write: the project
+# SAVE SOUND in the bank browser persists the current project through the existing ducked write.
+tap SAVE
+spin K2 -1
+expect menuaction 3
 tap SAVE
 wait 150
 expect store_writes 1

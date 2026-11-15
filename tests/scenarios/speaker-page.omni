@@ -1,5 +1,5 @@
-# V1.1: GLO's third page mutes the physical speaker, not USB audio.
-# Existing view IDs are intentionally unchanged; V_SPEAKER is appended as 17.
+# VOLCANO v1.5: internal speaker is GLO Setup 2, knob 4.
+# Speaker mute affects the physical output, not USB audio.
 notips
 expect speaker_mute 0
 expect phones 0
@@ -7,32 +7,29 @@ tap GLO
 expect view 11
 tap GLO
 expect view 12
-tap GLO
-expect view 17
 wait 250
 shot speaker-on.png
-spin K1 1
+spin K4 1
 expect speaker_mute 1
 expect phones 1
 wait 250
 shot speaker-off.png
-# Other knobs are not assigned; this is a simple single-setting page.
+# The other three Setup 2 controls do not toggle speaker state.
 spin K2 5
 expect speaker_mute 1
+spin K2 -5
 tap HOME
 expect view 0
 tap GLO
-expect view 17
-spin K1 -1
+expect view 12
+spin K4 -1
 expect speaker_mute 0
 expect phones 0
+# GLO now cycles only Setup 1 and Setup 2.
 tap GLO
 expect view 11
 tap GLO
 expect view 12
-tap GLO
-expect view 17
-# Swell and FX retain existing view IDs despite three GLO pages.
 tap ARP
 expect view 13
 tap FX

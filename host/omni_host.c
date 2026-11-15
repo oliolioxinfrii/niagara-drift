@@ -530,6 +530,10 @@ static int expect(const char *what, const char *val)
         got = ui.save_menu;
     else if (!strcmp(what, "menuaction"))
         got = ui.menu_load;
+    else if (!strcmp(what, "menupct"))
+        got = ui.menu_pct;
+    else if (!strncmp(what, "name", 4))
+        got = (unsigned char)project_bank_name(atoi(what + 4))[0];
     else if (!strncmp(what, "seqshape", 8))
         got = sd.shape[atoi(what + 8) & 3];
     else if (!strcmp(what, "bscenes")) {           /* the current bank's slots in use, as a bit mask */
@@ -674,6 +678,10 @@ int main(int argc, char **argv)
             run_ms((uint32_t)atoi(a));
         else if (!strcmp(cmd, "seqsnap"))
             sequence_snapshot();
+        else if (!strcmp(cmd, "save")) {       /* project persistence fixture, not a button gesture */
+            save_ask(-1);
+            run_ms(150);
+        }
         else if (!strcmp(cmd, "press") || !strcmp(cmd, "release") || !strcmp(cmd, "tap")) {
             int i = find_name(BTN_N, NB, a);
             if (i < 0) {

@@ -48,6 +48,11 @@ spin K3 30
 spin K4 20
 wait 250
 shot seq-timing-two.png
+# The new fifth page has four independent transition curves.
+tap SEQ
+expect view 20
+wait 250
+shot seq-shapes.png
 # Add nodes back, demonstrate independent placements.
 tap SEQ
 expect view 9

@@ -30,6 +30,11 @@ tap SAVE
 expect savemenu 0
 expect bank 0
 expect scenes 1
+# Keys 1-8 are unassigned on ordinary pages; they do not recall the slot.
+set 7 200
+tapkey w0
+wait 200
+expect par7 200
 
 # Factory Presets cannot be overwritten, but they remain valid LOAD targets.
 tap SAVE

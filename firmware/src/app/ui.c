@@ -2891,58 +2891,111 @@ void ui_init(void)
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 
-/* ------------------------------------------------------- VOLCANO wake --- */
-/* Two 120-row blits: static mineral strata and a vent, then an eruptive column.
- * Deliberately flat and pixel-drawn; no image assets or retained framebuffer. */
+/* A volcanic cross-section composed within the LCD strip buffer. The title
+ * remains legible throughout the startup interval; the fissure and ejecta
+ * vary by only a few pixels while it is displayed. */
 #if defined(OM_HOST) && !defined(OM_WEB) && !defined(OM_SPLASH)
 #define SPLASH_MS 0u
 #else
 #define SPLASH_MS 3500u
 #endif
+static uint32_t sp_hash(uint32_t x)
+{
+    x ^= x >> 16; x *= 0x7feb352du;
+    x ^= x >> 15; x *= 0x846ca68bu;
+    return x ^ (x >> 16);
+}
+static int sp_rock_height(int x)
+{
+    static const int16_t PX[12] = {0, 19, 39, 58, 78, 96, 113, 128, 147, 174, 209, 239};
+    static const int16_t PY[12] = {168, 165, 156, 154, 130, 119, 104, 106, 130, 153, 157, 166};
+    int j;
+    for (j = 1; j < 12; j++)
+        if (x <= PX[j])
+            return PY[j-1] + (PY[j] - PY[j-1]) * (x - PX[j-1]) / (PX[j] - PX[j-1]);
+    return PY[11];
+}
 static void draw_splash(uint32_t ms)
 {
-    const uint16_t RED = RGB(221, 30, 24), LAVA = RGB(253, 81, 25),
-                   ORANGE = RGB(255, 157, 34), SULFUR = RGB(255, 214, 64),
-                   ROCK = RGB(69, 17, 19), DARK = RGB(119, 24, 22),
-                   PAPER = RGB(255, 242, 222);
-    const int32_t flicker = (int32_t)((ms / 170u) % 3u), px[8] = {0, 32, 55, 77, 99, 137, 190, 239};
-    const int32_t py[8] = {160, 152, 145, 112, 115, 150, 155, 160};
-    int half, i, y;
+    static const uint16_t BED[11] = {
+        RGB(54, 13, 20), RGB(255, 195, 50), RGB(245, 124, 29),
+        RGB(178, 44, 29), RGB(103, 21, 25), RGB(253, 88, 31),
+        RGB(244, 151, 36), RGB(138, 32, 25), RGB(89, 19, 25),
+        RGB(243, 99, 31), RGB(80, 17, 26)
+    };
+    const uint16_t RED = RGB(230, 27, 24), DARK = RGB(111, 18, 25),
+                   BLACK = RGB(46, 14, 21), LAVA = RGB(255, 175, 45),
+                   SULFUR = RGB(255, 222, 80), PAPER = RGB(255, 243, 227);
+    const int drift = (int)((ms / 280u) % 5u);
+    int half, band, i, j;
     for (half = 0; half < 2; half++) {
-        const int y0 = half * 120;
+        const int y0 = 120 * half;
         cv_begin(240, 120, RED);
-        /* Hot suspended ash marks: deterministic rather than noisy redraw. */
-        for (i = 0; i < 70; i++) {
-            const int x = (i * 71 + 19) % 240, sy = (i * 47 + 11) % 240;
-            cv_rect(x, sy - y0, 1 + (i % 13 == 0), 1,
-                    i % 5 == 0 ? SULFUR : ORANGE);
+        /* Fixed, film-grain-like fire and ash, with localized darkening
+         * around the upper-right plume. No random state is mutated. */
+        for (i = 0; i < 1300; i++) {
+            const uint32_t h = sp_hash((uint32_t)(i * 157u + 31u));
+            const int x = (int)(h % 240u);
+            const int y = (int)((h >> 11) % 240u);
+            const int ash = x > 118 && y < 91;
+            const uint16_t c = ash && i % 5 != 0 ? DARK :
+                               i % 11 == 0 ? SULFUR :
+                               i & 1 ? RGB(255, 83, 31) : RGB(196, 27, 24);
+            cv_rect(x, y - y0, (h & 63u) == 0u ? 2 : 1, 1, c);
         }
-        /* Central conduit and rising plume, with vertical dramatic scale. */
-        cv_line(100, 118 - y0, 95, 90 - y0, SULFUR);
-        cv_line(106, 117 - y0, 109, 82 - y0, LAVA);
-        cv_line(99, 91 - y0, 116 + flicker, 58 - y0, ORANGE);
-        cv_line(111, 92 - y0, 92 - flicker, 37 - y0, DARK);
-        cv_line(112, 65 - y0, 129, 20 - y0, ROCK);
-        cv_line(124, 43 - y0, 113, 5 - y0, ROCK);
-        cv_line(115, 39 - y0, 141, 5 - y0, DARK);
-        /* Cone's sharp silhouette. */
-        for (i = 1; i < 8; i++) {
-            cv_line(px[i-1], py[i-1] - y0, px[i], py[i] - y0, ROCK);
-            cv_line(px[i-1], py[i-1] + 3 - y0, px[i], py[i] + 3 - y0, ORANGE);
-            cv_line(px[i-1], py[i-1] + 15 - y0, px[i], py[i] + 15 - y0, DARK);
+        /* Broad geological bands are cut by one central magma conduit. */
+        for (band = 10; band >= 0; band--) {
+            int px = 0, py = sp_rock_height(0) + band * (4 + band / 3);
+            for (i = 2; i <= 238; i += 2) {
+                const int y = sp_rock_height(i) + band * (4 + band / 3) +
+                              (int)(sp_hash((uint32_t)(i / 9 + band * 31)) % 3u) - 1;
+                cv_line(px, py - y0, i, y - y0, BED[band]);
+                if (band <= 2) cv_line(px, py + 1 - y0, i, y + 1 - y0, DARK);
+                px = i; py = y;
+            }
+            for (j = 0; j < 80; j++) {
+                const uint32_t h = sp_hash((uint32_t)(band * 509 + j * 79));
+                const int x = (int)(h % 239u);
+                const int y = sp_rock_height(x) + band * (4 + band / 3) + 2 +
+                              (int)((h >> 12) % 8u);
+                cv_rect(x, y - y0, 1 + (j % 37 == 0), 1,
+                        (j % 5 == 0 ? BED[vg_min(band + 1, 10)] : DARK));
+            }
         }
-        /* Abstract flowing rock below the cone. */
-        for (i = 0; i < 6; i++) {
-            const int sy = 170 + i * 13;
-            cv_line(0, sy - y0, 78, sy - 5 - y0, i & 1 ? DARK : ROCK);
-            cv_line(78, sy - 5 - y0, 156, sy + 5 - y0, i & 1 ? DARK : ROCK);
-            cv_line(156, sy + 5 - y0, 239, sy - y0, i & 1 ? DARK : ROCK);
-            cv_line(79, sy + 2 - y0, 105, sy - 8 - y0, ORANGE);
+        /* A steep, slightly wandering vent and incandescent fractured rock. */
+        for (band = 0; band < 5; band++) {
+            const int x = 111 + band * 2;
+            cv_line(x, 105 - y0, 116 + band + (band & 1 ? -4 : 2), 184 - y0,
+                    band % 3 == 0 ? SULFUR : band & 1 ? LAVA : BED[5]);
+            cv_line(116 + band, 184 - y0, 110 + 3 * band, 236 - y0,
+                    band == 2 ? SULFUR : BED[5]);
         }
-        /* Paper-white condensed lettering over the intense vermilion field. */
-        cv_text(15, 72 - y0, &FONT_L, "VOLCANO", PAPER);
-        cv_text(17, 112 - y0, &FONT_S, "M-VAVE FM-1", ROCK);
-        cv_text(17, 216 - y0, &FONT_S, "VOLCANO  " OM_VERSION, ROCK);
+        /* Interlocking smoke/tremor strands create a denser plume than
+         * a single zigzag. Ash grains escape into the upper background. */
+        for (band = 0; band < 9; band++) {
+            int px = 114 + band, py = 103;
+            for (i = 1; i <= 30; i++) {
+                const float t = (float)i / 30.0f;
+                const int x = 114 + band + (int)(27.0f * t * t +
+                              6.0f * fm_sinf((float)i * 0.39f + (float)band * 0.37f +
+                                             (float)drift * 0.13f));
+                const int y = 103 - (int)(108.0f * t);
+                cv_line(px, py - y0, x, y - y0,
+                        band == 0 ? BLACK : band & 1 ? DARK : RGB(252, 87, 35));
+                px = x; py = y;
+            }
+        }
+        for (i = 0; i < 160; i++) {
+            uint32_t h = sp_hash((uint32_t)(i * 199 + 71));
+            int y = (int)((h >> 7) % 109u);
+            int x = 116 + (int)((h >> 15) % 83u) - 24 + (109 - y) / 7;
+            if (x > 0 && x < 240)
+                cv_rect(x, y - y0, 1, 1, i % 17 == 0 ? SULFUR : DARK);
+        }
+        /* Type is printed last, over the mineral texture. */
+        cv_text(18, 53 - y0, &FONT_L, "VOLCANO", PAPER);
+        cv_text(21, 91 - y0, &FONT_S, "M-VAVE FM-1", SULFUR);
+        cv_text(14, 216 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER);
         cv_blit(0, (uint32_t)y0);
     }
 }

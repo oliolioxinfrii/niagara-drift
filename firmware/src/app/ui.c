@@ -154,7 +154,7 @@ static const sw_t SW_LFO[11] = {{S_OTAP, 0}, {S_ODEST, 0}, {S_FTAP, 0}, {S_FDEST
 #define K_BG RGB(8, 8, 10)
 #define K_LFO RGB(207, 75, 63)
 #define K_GOLD RGB(247, 210, 70)
-static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(247, 210, 70), RGB(233, 99, 48)};
+static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(247, 210, 70), RGB(246, 76, 60)};
 
 static struct {
     uint8_t view;

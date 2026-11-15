@@ -221,7 +221,7 @@ static void lk_pic_sequence(int timing)
         /* Both dots are at the same clock position, as on Swell page 1.
          * Drone II's phase changes its height on the displaced trace. */
         for (g = 1; g >= 0; g--) {
-            const int32_t y = sd_y(sd_at(g, t), lo, hi);
+            const int32_t y = sd_y(sd_at_len(g, t, len, linked), lo, hi);
             cv_round(x - 3, y - 3, 7, 7, 3, LK_WHITE);
             cv_round(x - 2, y - 2, 5, 5, 2, LK_DRONE[g]);
         }

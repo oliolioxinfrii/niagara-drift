@@ -2236,7 +2236,11 @@ static void lk_pic(void)
         }
         if (sd.enabled) h = hash(h, plat_ms() / 100u);
     }
-    if (h == ui.sig[1] && (ui.view == V_SEQ_SHAPE || ui.frame % SCOPE_EVERY))
+    /* These views have no autonomous animation while stopped or paused.
+     * Redraw them only when their state changes, not on the scope cadence. */
+    const int still = ui.view == V_SEQ_SHAPE || ui.view == V_SPEAKER ||
+                      (ui.view == V_SEQ_TIME && (!sd.enabled || sd.paused));
+    if (h == ui.sig[1] && (still || ui.frame % SCOPE_EVERY))
         return;
     ui.sig[1] = h;
     cv_begin(240, LK_PIC_H, LK_BG);
@@ -2599,9 +2603,7 @@ cents:
             lk_swing(t2, fm_fabsf(c) * 100.0f, "%");
         else if (gp == GP_OLFO_DEPTH)
             fm_fabsf(c) * 24.0f < 1.0f ? lk_swing(t2, fm_fabsf(c) * 2400.0f, "c") : lk_swing(t2, fm_fabsf(c) * 24.0f, " st");
-        else if (gpar(g, GP_FLFO_DEST) == DR_TO_PAN)
-            lk_swing(t2, fm_fabsf(d) * mv * 100.0f, "%");
-        else if (gpar(g, GP_FLFO_DEST) == DR_TO_RESO)
+        else if (gpar(g, GP_FLFO_DEST) == DR_TO_PAN || gpar(g, GP_FLFO_DEST) == DR_TO_RESO)
             lk_swing(t2, fm_fabsf(d) * mv * 100.0f, "%");
         else
             lk_swing(t2, fm_fabsf(c) * 5.0f, " oct");

@@ -1,6 +1,6 @@
 # VOLCANO v1.5 — geological UI overhaul
 
-Status: **first implementation for web-emulator review; not yet validated on the physical FM-1.**
+Status: **web-emulator review build; physical FM-1 performance remains unverified.**
 The v1.4 synthesis, scene memory, sequencing, and encoder assignments remain unchanged.
 The new drawings are composed at native **240 × 240 pixels** by the existing RGB565
 strip renderer; no photograph, full-screen framebuffer, or additional DSP layer is required.
@@ -17,8 +17,10 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
   sound layers. They use gold/neutral accents and deliberately avoid a
   misleading extra geological-depth rung.
 - Continuous-parameter indicators use a dark-red → yellow thermal gradient.
-  Numeric values remain readable white. Categorical and bipolar controls
-  preserve their original selection/zero semantics.
+  Numeric values remain readable white. The two audio sources have independent
+  sulfur-yellow and lava-red line palettes; peaks and saturated values receive
+  off-white, not warning red. Categorical and bipolar controls retain their
+  original selection/zero semantics.
 - Graphs showing pitch over time **remain pitch graphs**, not simulated
   seismogram amplitudes.
 
@@ -26,14 +28,14 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 
 | Button | Existing views | New graphical treatment |
 | --- | --- | --- |
-| HOME | Drones, Pitch | Twin buckling stratigraphic sections; layer displacement responds to cutoff/resonance/pitch; output level affects brightness |
+| HOME | Drones, Pitch | Full-width volcanic cross-section and event-like seismic trace on Drones; distinct, buckling, nine-band geological sections on Pitch |
 | ENV | Life, Tone | Volcano/plume observatory; separate per-drone ash/particulate fans |
-| EDIT | Osc, Sub · Drive | Two layered rock sections with distinct intrusions and controls |
+| EDIT | Osc, Sub · Drive | Dual, dense stratigraphic sections with isolated seams, texture, subharmonic intrusions, and distinct source hues |
 | LFO | Waves, Sends, Mods | Existing informative wave/route diagrams, recolored in the Deep Mantle family |
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
-| FX | Space, Details | Cyan-accented atmospheric volcanic plume / diffusion |
-| GLO | Setup 1, Setup 2, Speaker | Simplified concentric planetary cross-section, with the standard parameter readout band |
+| FX | Space, Details | Two cyan seismograph-inspired channels: discrete delay arrivals above a decaying reverberant coda, with off-white saturation highlights |
+| GLO | Setup 1, Setup 2, Speaker | A compact planetary cutaway: muted observation meridians and warm internal arcs; the standard four-parameter readout remains |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
 
 ## ENV visual mappings
@@ -67,12 +69,17 @@ independent of brightness.
 
 ## Implementation locations
 
-- `firmware/src/app/volcano_look.c`: new graphics, layered colors, atmospheric
-  and volcanic diagrams, Orbit browser, and temporary atlas.
-- `firmware/src/app/look.c`: existing UI renderer, new page dispatch,
-  layer header and meter colors.
-- `firmware/src/app/ui.c`: VOLCANO wake screen and message colors; DSP,
-  parameter selection, and persistence untouched.
+- `firmware/src/app/volcano_look.c`: layer palette and shared brightening, normalization,
+  and depth-marker helpers.
+- `firmware/src/app/volcano_geometry.c`: procedural stratigraphic panels, volcanic
+  cross-sections, plume, ash, seismographic traces and planetary cutaway.
+- `firmware/src/app/volcano_system.c`: Orbit scene browser, overwrite/rename panels,
+  and activity-driven HOME navigation atlas.
+- `firmware/src/app/look.c`: existing UI renderer, page dispatch, depth-coded
+  header and intensity meters. Source-gradient rendering is independent from
+  intensity meters.
+- `firmware/src/app/ui.c`: procedural, textured VOLCANO wake screen and message
+  colors; DSP, parameter selection, and persistence untouched.
 - `tests/scenarios/volcano-ui.omni`: host screenshot smoke scenario.
 
 ## Emulator review

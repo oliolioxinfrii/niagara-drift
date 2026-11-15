@@ -51,9 +51,9 @@
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
 enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO_WAVES, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
-       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, NVIEWS };
+       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, V_SEQ_NOTES, V_SEQ_TIME, NVIEWS };
 static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO waves", "LFO sends",
-                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker"};
+                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker", "Sequence", "Intervals"};
 /* what each knob moves on each page: a drone's parameter (g 0 or 1, GP_*), a global one (g G, P_*), or
  * nothing (g NONE) */
 #define G 2
@@ -86,6 +86,8 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{G, P_DLY_REPEATS}, {G, P_DLY_MIX}, {G, P_REV_LEN}, {G, P_REV_MIX}},
     {{G, P_DLY_DRIVE}, {G, P_DLY_TIME}, {G, P_REV_DAMP}, {G, P_REV_TYPE}},
     {{G, P_SPEAKER}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO 3: internal speaker only */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* sequence edit controls are custom */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* unequal interval controls */
 };
 /* A KNOB's SECOND JOB with SEL held, on the pages that have one (its card shows both, the second "+ SEL"): the
  * choices set before playing, so a player who never finds them loses nothing. FX's KNOB 4: the delay's type, what goes
@@ -106,7 +108,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 2}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 4}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -518,10 +520,14 @@ static int knob_list(int p)
            p == P_CLK_SYNC;                    /* Sync: On, Off, On */
 }
 
+#include "seq_drift.c"
+
 static void knob_turn(int i, int32_t e)
 {
     int p = knob_param(i);
     knob_t k = VIEW_KNOB[ui.view][i];
+    if (ui.view == V_SEQ_NOTES) { sd_note_knob(i, e); return; }
+    if (ui.view == V_SEQ_TIME) { sd_time_knob(i, e); return; }
     if (p < 0)
         return;
     if (sel_job(ui.view, i) >= 0) {                  /* which half of the knob's card lights */
@@ -736,14 +742,20 @@ static int on_pages(int i)
 {
     if (PAGE_BTN[i].btn == B_GLO)
         return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_SPEAKER;
+    if (PAGE_BTN[i].btn == B_SEQ)
+        return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
     return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
 }
 static int page_step(int i, int v)
 {
+    if (PAGE_BTN[i].btn == B_SEQ)
+        return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v - V_PARTNER;
     return PAGE_BTN[i].btn == B_GLO && v == V_SPEAKER ? 2 : v - PAGE_BTN[i].first;
 }
 static int page_target(int i, int step)
 {
+    if (PAGE_BTN[i].btn == B_SEQ)
+        return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : V_PARTNER + step;
     return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_SPEAKER : PAGE_BTN[i].first + step;
 }
 static void set_view(int v)
@@ -786,6 +798,12 @@ static int page_btn(int b)                             /* the index in PAGE_BTN,
 static void page_down(int b)
 {
     int i = page_btn(b);
+    if (b == B_SEQ && (ui.btn >> B_SEL & 1u)) {
+        sd_toggle();
+        ui.btn_used |= 1u << B_SEL;
+        ui.hold_btn = -1;
+        return;
+    }
     ui.hold_btn = (int8_t)b;
     ui.hold_t = plat_ms();
     ui.hold_turned = 0;
@@ -2188,6 +2206,7 @@ static void input(void)
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();
+    sd_run();
     midi_in();
     clk_feed();
 #ifdef OM_CLOCK_TEST
@@ -2201,13 +2220,16 @@ static void input(void)
         mtime_turn(e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
+            const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
             knob_turn((int)i, e);
             if (ui.btn >> B_SEL & 1u)
                 ui.btn_used |= 1u << B_SEL;            /* SEL + a knob: SEL used (no map after it) */
-            ui.scene_at = -1;                          /* the sound is no longer the scene's */
-            ui.morph = -1;                             /* a hand on a knob: the morph stops where it is */
-            ui.visit = -1;                             /* ... and a visit held becomes a stay (no way back) */
-            ui.press = -1;                             /* ... a crossfade too, where it is */
+            if (!seq_edit) {
+                ui.scene_at = -1;                          /* the sound is no longer the scene's */
+                ui.morph = -1;                             /* a hand on a knob: the morph stops where it is */
+                ui.visit = -1;                             /* ... and a visit held becomes a stay (no way back) */
+                ui.press = -1;                             /* ... a crossfade too, where it is */
+            }
             if (ui.hold_btn >= 0)
                 ui.hold_turned = 1;                    /* a peek: let go of the button, back to the page */
             ui.touch_t[i] = plat_ms() + 1200u;
@@ -2617,6 +2639,7 @@ void ui_init(void)
     plat_speaker_mute(proj.par[P_SPEAKER] != 0);
     dr_phones = (uint8_t)(ui.jack || plat_speaker_muted());   /* restore user preference; default speaker ON */
     ui.save_q = -2;
+    sd_init();
     ui.splash_t0 = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);
 }

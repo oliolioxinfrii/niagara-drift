@@ -12,10 +12,7 @@ static void sd_pitch_text(int g, int cents, char *out)
 }
 /* Each page maps its entire current cycle onto the available width. The
  * horizontal endpoint is the next return to step 1, not the four-minute cap. */
-static int32_t sd_time_x(uint32_t seconds, uint32_t total, int32_t x0, int32_t width)
-{
-    return x0 + (int32_t)((uint64_t)seconds * (uint32_t)width / total);
-}
+static uint32_t sd_curve_node_ms(int g, int pos, uint32_t len);
 static void lk_pic_seq_time(void)
 {
     const int32_t x0 = 18, width = 204, y0 = 55, y1 = 76;
@@ -48,7 +45,8 @@ static void lk_pic_seq_time(void)
         cv_rect(x0, y, width + 1, 1, LK_RULE);
         cv_round(x0, y - 1, width + 1, 3, 1, col);
         for (i = 0; i < sd.count; i++) {
-            const int32_t x = sd_time_x(sd_node_s(i), total, x0, width);
+            const uint32_t t = sd_curve_node_ms(g, i, total * 1000u);
+            const int32_t x = x0 + (int32_t)((uint64_t)t * (uint32_t)width / (total * 1000u));
             cv_round(x - 3, y - 3, 7, 7, 3, col);
             cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
         }

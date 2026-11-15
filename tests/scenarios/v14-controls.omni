@@ -1,9 +1,17 @@
-# SELECT traverses the existing pages; SEL+SELECT retains the LFO rate.
+# SELECT navigates only the pages in the current family.
 notips
 expect view 0
 spin SELECT 1
 expect view 1
+spin SELECT 1
+expect view 0
+tap SEQ
+expect view 9
 spin SELECT -1
+expect view 20
+spin SELECT 1
+expect view 9
+tap HOME
 expect view 0
 expect par47 74
 press SEL
@@ -12,32 +20,54 @@ release SEL
 expect view 0
 expect par47 75
 
-# SAVE browses existing banks and slots. The bank-only action can choose
-# an empty bank without attempting to load a non-existent scene.
+# SAVE is the confirmation for an explicit action; HOME cancels.
+# K1 selects the bank and K2 the slot, K3 the action, K4 the target %.
 expect bank 3
 tap SAVE
 expect savemenu 1
-spin SELECT 2
-spin K2 -2
-expect menuaction 2
+spin K1 2
 tap SAVE
 expect savemenu 0
 expect bank 0
+expect scenes 1
+
+# Factory Presets are always valid LOAD targets.
 tap SAVE
-spin K2 1
+spin K1 -2
+spin K3 1
 expect menuaction 1
 tap SAVE
-expect savemenu 1
-spin K2 -1
-expect menuaction 0
+expect savemenu 0
+expect bank 3
+wait 16000
+
+# A partial transition approaches a stored preset over Scene time, preserving
+# the source sound's remaining percentage.
+set 7 200
+tap SAVE
+spin K3 2
+expect menuaction 2
+spin K4 -60
+expect menupct 40
 tap SAVE
 expect savemenu 0
-expect scenes 1
+wait 16000
+expect par7 >200
+expect par7 <600
+
+# REC opens name editing on a user bank; SAVE commits, HOME cancels.
 tap SAVE
+spin K1 2
+tap REC
+expect savemenu 2
 spin K2 1
 tap SAVE
+expect savemenu 1
+tap HOME
 expect savemenu 0
-expect bank 0
+expect name0 66
+reboot
+expect name0 66
 
 # Each filter-LFO destination cycles cutoff -> resonance -> pan -> cutoff.
 tap LFO

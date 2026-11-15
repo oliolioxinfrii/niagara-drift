@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Experimental SEQ pages: a continuous two-drone score rather than note blocks.
- * Shared pitch scale, amber/cyan paths, little node circles and a playhead.
+/* SEQ pages: continuous two-drone pitch paths and a proportional event timeline.
+ * Shared pitch scale, amber/cyan paths, note markers, and a playhead.
  * Picture is 240 x 124, the four values remain in the normal bottom band. */
 static int32_t sd_y(int cents, int lo, int hi)
 {

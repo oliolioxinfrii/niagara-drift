@@ -827,9 +827,7 @@ static void page_up(int b)
     peek = ui.hold_turned || plat_ms() - ui.hold_t >= HOLD_MS;
     if (b == B_HOME && (ui.btn >> B_SEL & 1u)) {
         ui.btn_used |= 1u << B_SEL;
-        sd_stop();
         fresh_sound();
-        sd_sync_home();
         ui.hold_btn = -1;
         return;
     }
@@ -1246,7 +1244,7 @@ static void fresh_sound(void)
         {P_DLY_DRIVE, 0, 45}, {P_DLY_ROUTE, 0, DR_NROUTE - 1}
     };
     uint32_t i;
-    int g;
+    int g, was_linked = proj.par[P_PLINK];
     if (ui.loop != L_IDLE || ui.press >= 0 || ui.keys) {
         say_c("STOP LOOP / RELEASE KEYS", "BEFORE RANDOM START", K_GOLD);
         return;
@@ -1298,10 +1296,16 @@ static void fresh_sound(void)
         param_set(b + GP_NCOLOR, fresh_between(0, 100));
         param_set(g ? P_SUBW_1 : P_SUBW_0, fresh_between(0, DR_NSUBW - 1));
     }
+    /* Keep an explicitly linked pair linked, using the new home's interval. */
+    if (was_linked) {
+        param_set(P_PLINK_OFF, proj.par[DR_GP(1, GP_PITCH)] - proj.par[DR_GP(0, GP_PITCH)]);
+        param_set(P_PLINK, 1);
+    }
     /* One filter always explores resonance, the other cutoff: both routes are audible. */
     param_set(DR_GP(0, GP_FLFO_DEST), fresh_between(DR_TO_CUTOFF, DR_TO_RESO));
     param_set(DR_GP(1, GP_FLFO_DEST), 1 - proj.par[DR_GP(0, GP_FLFO_DEST)]);
     ui.scene_at = -1;
+    sd_randomize(fresh_between);
     dr_lfo_reset();
     mark_dirty();
     say_c("RANDOM START", ui.playing ? "NEW SOUND" : "TAP [PLAY] TO HEAR", K_GOLD);

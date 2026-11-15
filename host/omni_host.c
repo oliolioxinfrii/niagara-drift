@@ -535,6 +535,14 @@ static int expect(const char *what, const char *val)
         got = ui.menu_load;
     else if (!strcmp(what, "menupct"))
         got = ui.menu_pct;
+    else if (!strncmp(what, "sceneparam", 10)) {
+        int bank, slot, param;
+        const int16_t *stored = 0;
+        if (sscanf(what + 10, "%d_%d_%d", &bank, &slot, &param) == 3 &&
+            param >= 0 && param < DR_NPARAMS)
+            stored = scene_get(bank, slot);
+        got = stored ? stored[param] : -999;   /* check flash slot contents, not live sound */
+    }
     else if (!strncmp(what, "slotname", 8)) {
         const int bank = what[8] - '0', slot = what[9] - '0';
         const char *nm = project_slot_name(bank, slot);

@@ -2958,10 +2958,10 @@ static void lk_values(void)
 }
 
 /* ---------------------------------------------------- SEL held: the key map --- */
-/* the keyboard in the picture's place (the board 321:284): the white keys dark, each black key lit in its group's
+/* the keyboard in the picture's place: the white keys dark, each black key lit in its group's
  * color when on (drone I amber, the global two neutral, drone II cyan, the links green; on the LFO pages the LFO's
- * routing), the groups named above a bracket each, the one touched outlined in white with a mark under it; the top
- * four whites the banks (A B C P), the one playing in gold. In the values' place the key touched, its group and
+ * routing), the groups named above a bracket each, the one touched outlined in white with a mark under it.
+ * In the values' place the key touched, its group and
  * setting ("LINKS · [D#5]", "HARD SYNC ON"); none yet, how to ask. The header "KEYS [SEL] held" */
 typedef struct {
     uint8_t k0, n;
@@ -3020,20 +3020,6 @@ static void lk_keymap(void)
     for (i = 0; i < 16; i++)                   /* the white keys, 15 px each, as outlines on the ground (Evan, 2026-11-07:
                                                 * the filled slate keyboard was the one big flat fill on any screen) */
         lk_box(i * 15, LK_KEY_Y, 14, LK_KEY_WH, LK_WHITE_KEY);
-    {                                          /* G4-G5 with SEL: the banks, in a row (A .. F, the Presets' two) */
-        const int32_t base = LK_KEY_Y + 87;
-        cv_text(NPLAY * 15 - 4 - text_w(&LK_F_SMALL, "banks"), base - LK_B(LK_F_SMALL), &LK_F_SMALL, "banks", LK_LABEL);
-        for (i = 0; i < 8; i++) {
-            const int bk = KEY_BANK[i], on = proj.bank == bk;
-            const int32_t cx = (NPLAY + i) * 15 + 7;
-            const felucca_font_t *f = BANK_IS_PRESETS(bk) ? &FONT_U2 : &LK_F_SMALL;   /* "P1", "P2" at the units' size */
-            char l[3] = {BANK_L[bk], bk == BANK_PRESETS ? '1' : bk == BANK_PRESETS2 ? '2' : 0, 0};
-            if (on)
-                cv_round(cx - 7, base - 13, 14, 17, 2, LK_GOLD);
-            cv_text(cx - text_w(f, l) / 2, base - (BANK_IS_PRESETS(bk) ? LK_B(FONT_U2) : LK_B(LK_F_SMALL)), f, l,
-                    on ? LK_BG : LK_LABEL);
-        }
-    }
     for (i = 0; i < 11; i++) {                 /* the black keys, lit as the panel's */
         const int32_t x = LK_KX[i];
         const int on = lk_key_on(i);
@@ -3092,7 +3078,7 @@ static void lk_keymap(void)
         text_c(120, 59 - lk_fbase(f), f, v, LK_WHITE);   /* on the board's line (y 382-432) */
     }
     {                                          /* what SEL does with the white keys and OCT */
-        const char *hint = "[G4]-[G5] bank \xC2\xB7 [OCT] wave back";
+        const char *hint = "[SAVE] bank and scenes \xC2\xB7 [OCT] wave back";
         lk_ktext(120 - lk_ktext_w(&LK_F_SMALL, hint) / 2, 70, &LK_F_SMALL, hint, LK_LABEL);
     }
     cv_blit(0, LK_VAL_Y);

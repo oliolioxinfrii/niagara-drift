@@ -1,6 +1,6 @@
-# Random Start updates the sequence without changing its selected length.
-# All notes follow the current tuning; adjacent pitches, including wrap, stay
-# within an octave. Active intervals remain >= 1 s and sum to the original loop.
+# Random Start changes the number of steps, pitches, and total duration.
+# Intervals remain positive and every pitch transition, including the wrap,
+# stays within one octave in the currently selected tuning.
 notips
 page 18
 expect view 18
@@ -17,56 +17,74 @@ expect seqtotal 40
 expect seqnode2 10
 page 18
 expect view 18
+
+# Compare actual state, not just valid bounds.
+seqsnap
 press SEL
 tap HOME
 release SEL
 expect view 18
-expect seqcount 4
-expect seqtotal 40
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapschanged 1
+expect seqcount >1
+expect seqcount <5
+expect seqtotal >19
+expect seqtotal <241
 expect seqgapmin >0
 expect seqmaxjump <1201
+expect seqnonhome 1
 shot seq-random-unlinked.png
+
+seqsnap
 press SEL
 tap HOME
 release SEL
-expect seqcount 4
-expect seqtotal 40
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapschanged 1
 expect seqgapmin >0
 expect seqmaxjump <1201
 
-# Global Pitch Lock couples Drone II's random path to Drone I.
+# Pitch Lock couples Drone II's progression to Drone I.
 set 74 1
+seqsnap
 press SEL
 tap HOME
 release SEL
 expect par74 1
-expect seqcount 4
-expect seqtotal 40
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapmin >0
 expect seqmaxjump <1201
 shot seq-random-locked.png
 
-# Pitch Link remains enabled and keeps its derived Drone II notes.
+# Pitch Link remains enabled and derives Drone II's notes.
 set 74 0
 set 45 1
+seqsnap
 press SEL
 tap HOME
 release SEL
 expect par45 1
-expect seqcount 4
-expect seqtotal 40
+expect seqcountchanged 1
+expect seqtimechanged 1
+expect seqnoteschanged 1
+expect seqgapmin >0
 expect seqmaxjump <1201
 
-# The interval page shows Drone II's phase displacement with identical times.
+# Both interval pictures share the same values; only Drone II moves in phase.
 set 45 0
 page 18
 spin K4 -100
 expect seqphase 0
 page 19
 shot seq-interval-phase0.png
-expect seqtotal 40
 page 18
 spin K4 25
 expect seqphase 25
 page 19
 shot seq-interval-phase25.png
-expect seqtotal 40

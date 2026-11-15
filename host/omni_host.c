@@ -89,6 +89,7 @@ int32_t plat_enc(int role)
     return v;
 }
 uint32_t plat_master(void) { return master; }
+static uint8_t legacy_scene_keys;            /* old-pad regression scenarios only */
 static uint8_t pressure_v[NKEYS];              /* the script's "pressure KEY V": the 20 lower keys sense it */
 static int has_pressure;                       /* none until a script uses it (the emulator has none): 0.1's visit */
 int plat_pressure(uint32_t k)
@@ -678,6 +679,10 @@ int main(int argc, char **argv)
             run_ms((uint32_t)atoi(a));
         else if (!strcmp(cmd, "seqsnap"))
             sequence_snapshot();
+        else if (!strcmp(cmd, "legacykeys")) { /* test legacy scene pressure/recall separately from v1.4 defaults */
+            legacy_scene_keys = 1;
+            ui.scene_keys_enabled = 1;
+        }
         else if (!strcmp(cmd, "save")) {       /* project persistence fixture, not a button gesture */
             save_ask(-1);
             run_ms(150);
@@ -860,6 +865,7 @@ int main(int argc, char **argv)
         } else if (!strcmp(cmd, "reboot")) {
             memset(&proj, 0, sizeof proj);
             boot();
+            ui.scene_keys_enabled = legacy_scene_keys;
         } else if (!strcmp(cmd, "echo"))
             printf("%s", line + 5);
         else {

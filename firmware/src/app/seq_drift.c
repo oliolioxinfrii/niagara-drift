@@ -326,9 +326,11 @@ static void sd_note_knob(int i, int32_t e)
         sd.count = (uint8_t)(v < 1 ? 1 : v > SD_MAX ? SD_MAX : v);
         if (sd.position >= sd.count) sd.position = sd.count - 1;
         if (sd.count > old) {
-            const int step = sd.count - 1;
-            sd.note[0][step] = sd.note[0][step - 1];
-            sd.note[1][step] = sd.note[1][step - 1];
+            int step;
+            for (step = old; step < sd.count; step++) {
+                sd.note[0][step] = sd.note[0][step - 1];
+                sd.note[1][step] = sd.note[1][step - 1];
+            }
         }
         while (sd_total_s() > SD_LIMIT_S) {
             int largest = 0, j;
@@ -399,7 +401,7 @@ static void sd_randomize(int (*between)(int lo, int hi))
     }
     sd.phase = (uint8_t)between(0, 99);
     sd.position = 0;
-    sd.stopping = 0;
+    sd.stopping = (uint8_t)(sd.enabled && !ui.playing && dr_fade > 0.0f);
     sd_reset_clock();
     /* Preserve the previous transport state: Random Start changes the
      * composition, not whether the progression is enabled. */

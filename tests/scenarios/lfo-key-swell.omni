@@ -12,6 +12,8 @@ tapkey b4
 expect par39 1
 expect par67 0
 tapkey b4
+expect par39 2
+tapkey b4
 expect par39 0
 tapkey b8
 expect par67 1

@@ -52,9 +52,9 @@
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
 enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO_WAVES, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
-       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, V_SEQ_NOTES, V_SEQ_TIME, NVIEWS };
+       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, V_SEQ_NOTES, V_SEQ_TIME, V_SEQ_SHAPE, NVIEWS };
 static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO waves", "LFO sends",
-                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker", "Sequence", "Intervals"};
+                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker", "Sequence", "Intervals", "Transitions"};
 /* what each knob moves on each page: a drone's parameter (g 0 or 1, GP_*), a global one (g G, P_*), or
  * nothing (g NONE) */
 #define G 2
@@ -89,6 +89,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{G, P_SPEAKER}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO 3: internal speaker only */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* sequence edit controls are custom */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* unequal interval controls */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* segment curves */
 };
 /* A KNOB's SECOND JOB with SEL held, on the pages that have one (its card shows both, the second "+ SEL"): the
  * choices set before playing, so a player who never finds them loses nothing. FX's KNOB 4: the delay's type, what goes
@@ -109,7 +110,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 4}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 5}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -529,6 +530,7 @@ static void knob_turn(int i, int32_t e)
     knob_t k = VIEW_KNOB[ui.view][i];
     if (ui.view == V_SEQ_NOTES) { sd_note_knob(i, e); return; }
     if (ui.view == V_SEQ_TIME) { sd_time_knob(i, e); return; }
+    if (ui.view == V_SEQ_SHAPE) { sd_shape_knob(i, e); return; }
     if (p < 0)
         return;
     if (sel_job(ui.view, i) >= 0) {                  /* which half of the knob's card lights */
@@ -744,19 +746,19 @@ static int on_pages(int i)
     if (PAGE_BTN[i].btn == B_GLO)
         return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_SPEAKER;
     if (PAGE_BTN[i].btn == B_SEQ)
-        return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
+        return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
     return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
 }
 static int page_step(int i, int v)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
-        return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v - V_PARTNER;
+        return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v == V_SEQ_SHAPE ? 4 : v - V_PARTNER;
     return PAGE_BTN[i].btn == B_GLO && v == V_SPEAKER ? 2 : v - PAGE_BTN[i].first;
 }
 static int page_target(int i, int step)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
-        return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : V_PARTNER + step;
+        return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : step == 4 ? V_SEQ_SHAPE : V_PARTNER + step;
     return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_SPEAKER : PAGE_BTN[i].first + step;
 }
 static void set_view(int v)
@@ -2246,7 +2248,7 @@ static void input(void)
         mtime_turn(e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
-            const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
+            const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
             knob_turn((int)i, e);
             if (ui.btn >> B_SEL & 1u)
                 ui.btn_used |= 1u << B_SEL;            /* SEL + a knob: SEL used (no map after it) */

@@ -276,7 +276,7 @@ static void sd_run(void)
             dr_play(0);
             sd.preview_sounded = 0;
         }
-        if (!sd.enabled || !ui.playing)
+        if (!sd.enabled || (!ui.playing && !sd.stopping))
             sd_restore_pitch();
     }
     if (!sd.enabled)

@@ -1,0 +1,18 @@
+# Factory presets are synthesis snapshots, not multi-step compositions.
+# Recalling a preset clears the RAM-only sequence to one step.
+notips
+expect bank 3
+page 18
+expect view 18
+spin K3 3
+expect seqcount 4
+tap SAVE
+expect savemenu 1
+spin K3 1
+expect menuaction 1
+tap SAVE
+expect savemenu 0
+expect seqcount 1
+page 18
+wait 250
+shot factory-preset-one-step.png

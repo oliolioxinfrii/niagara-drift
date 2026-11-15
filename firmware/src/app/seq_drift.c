@@ -461,8 +461,14 @@ static void sd_randomize(int (*between)(int lo, int hi))
     /* Include the shape of every transition in Random Start, including
      * the final interval returning to step 1. Previously they remained at
      * sd_init's sine default even when the notes and durations changed. */
-    for (i = 0; i < sd.count; i++)
-        sd.shape[i] = (int8_t)between(-100, 100);
+    for (i = 0; i < sd.count; i++) {
+        int shape = between(-100, 100);
+        /* Avoid imperceptibly near-sine rolls, while preserving both
+         * early and late transitions over the complete range. */
+        if (shape > -12 && shape < 12)
+            shape = shape < 0 ? -12 : 12;
+        sd.shape[i] = (int8_t)shape;
+    }
     for (i = sd.count; i < SD_MAX; i++) {
         sd.shape[i] = 0;
         sd.gap_s[i] = SD_DEFAULT_S;

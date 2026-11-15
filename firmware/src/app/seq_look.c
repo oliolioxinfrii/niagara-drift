@@ -50,7 +50,7 @@ static void lk_pic_seq_time(void)
             cv_round(x - 3, y - 3, 7, 7, 3, col);
             cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
         }
-        if (sd.enabled && ui.playing) {
+        if (sd.enabled) {
             const uint32_t tms = elapsed % (total * 1000u);
             const int32_t x = x0 + (int32_t)((uint64_t)tms * (uint32_t)width / (total * 1000u));
             cv_round(x - 3, y - 3, 7, 7, 3, LK_WHITE);
@@ -171,7 +171,7 @@ static void lk_pic_sequence(int timing)
             cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
         }
     }
-    if (sd.enabled && ui.playing && len) {
+    if (sd.enabled && len) {
         const uint32_t t = sd_elapsed_ms() % len;
         const int32_t x = x0 + (int32_t)((uint64_t)t * (uint32_t)width / len);
         /* Both dots are at the same clock position, as on Swell page 1.

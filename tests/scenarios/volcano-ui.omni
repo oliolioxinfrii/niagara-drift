@@ -32,6 +32,9 @@ expect view 6
 page 7
 wait 150
 shot deep-mantle-routing.png
+page 8
+wait 150
+shot deep-mantle-modulation.png
 page 9
 wait 150
 shot crust-partner.png
@@ -47,6 +50,9 @@ shot atmosphere.png
 page 11
 wait 150
 shot planet-setup.png
+page 12
+wait 150
+shot planet-tuning-stereo.png
 # The orbit browser is a separate overlay; HOME exits without saving.
 tap SAVE
 expect savemenu 1

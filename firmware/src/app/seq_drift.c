@@ -345,6 +345,66 @@ static void sd_note_knob(int i, int32_t e)
     }
 }
 
+/* Random Start derives each event from the preceding pitch, not from an
+ * independent full-range draw. Constraining every event to within an octave
+ * of step 1 also bounds the closing interval back to the first event.
+ * Timing weights vary but preserve the chosen step count and loop duration. */
+static void sd_randomize(int (*between)(int lo, int hi))
+{
+    const uint32_t duration = sd_total_s();
+    uint32_t weights[SD_MAX], weight_sum = 0, assigned = 0;
+    int i, g;
+    sd.lock_was = 0;                     /* capture the new random home interval */
+    sd_sync_home();
+    for (g = 0; g < 2; g++) {
+        int prev;
+        const int p = DR_GP(g, GP_PITCH);
+        const dr_param_t *info = dr_param_info(p);
+        const int home = sd.note[g][0];
+        if (g && sd_linked()) continue;
+        prev = home;
+        for (i = 1; i < sd.count; i++) {
+            int candidate = prev + between(-450, 450);
+            int snapped;
+            if (candidate < home - 1100) candidate = home - 1100;
+            if (candidate > home + 1100) candidate = home + 1100;
+            if (candidate < info->lo) candidate = info->lo;
+            if (candidate > info->hi) candidate = info->hi;
+            snapped = grid_near(p, candidate);
+            /* The grid can be nonchromatic; retain the preceding legal note
+             * if the nearest tuning step falls outside the bounded path. */
+            if (snapped < info->lo || snapped > info->hi ||
+                snapped - prev > 1200 || prev - snapped > 1200 ||
+                snapped - home > 1200 || home - snapped > 1200)
+                snapped = prev;
+            sd.note[g][i] = (int16_t)snapped;
+            prev = snapped;
+        }
+    }
+    if (sd_linked())
+        for (i = 1; i < sd.count; i++)
+            sd.note[1][i] = (int16_t)(sd.note[0][i] + sd_offset());
+    if (sd.count > 1 && duration >= sd.count) {
+        const uint32_t extra = duration - sd.count;
+        for (i = 0; i < sd.count; i++) {
+            weights[i] = (uint32_t)between(70, 130);
+            weight_sum += weights[i];
+        }
+        for (i = 0; i < sd.count; i++) {
+            const uint32_t allot = i == sd.count - 1 ? extra - assigned :
+                                   (uint32_t)((uint64_t)extra * weights[i] / weight_sum);
+            sd.gap_s[i] = (uint16_t)(1u + allot);
+            assigned += allot;
+        }
+    }
+    sd.phase = (uint8_t)between(0, 99);
+    sd.position = 0;
+    sd.stopping = 0;
+    sd_reset_clock();
+    /* Preserve the previous transport state: Random Start changes the
+     * composition, not whether the progression is enabled. */
+}
+
 /* K4 rescales every interval, preserving event positions as fractions of
  * the complete loop. Integer-second boundaries stay ordered and at least one
  * second apart. The phase of a running or paused cursor also stays fixed. */

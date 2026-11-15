@@ -105,53 +105,57 @@ static void vg_ground(int x0, int w, int base, int depth, float brightness)
     }
 }
 
-/* Tremor-like arrival packets. The trace is intentionally event-driven rather
- * than a conventional repeating oscilloscope waveform. */
-/* Each half is its own seismometer channel: level sets amplitude and cutoff
- * sets the horizontal extent of active signal. The quiet region retains ticks. */
-static void vg_seismic(int drone, int x0, int y0, float level, float cutoff)
+/* A seismogram of the *sounding* drone rather than a repeated noise pattern.
+ * Each waveform comes from the scope capture; a faint envelope follows the
+ * current filter response (including cutoff, mode and resonance). This is a
+ * visual proxy, not a second filter applied to the audio. */
+static void vg_seismic(int drone, int x0, int y0, float level)
 {
-    static const uint8_t events[4] = {13, 35, 61, 82};
-    const int width = 104, active = (int)(cutoff * (float)width + 0.5f);
-    const int tick = (int)((plat_ms() / 140u + (uint32_t)drone * 19u) % 83u);
-    const uint16_t col = LK_DRONE[drone];
-    int j, lastx = x0, lasty = y0;
+    const int width = 104;
+    const uint16_t color = LK_DRONE[drone];
+    const float loud = fm_clampf(level, 0.0f, 1.0f);
+    float peak = 0.015f;
+    int j, i;
+    int prev_wave_y = y0, prev_env_y = y0, prev_x = x0;
+    for (i = 0; i < DR_SCOPE_N; i++)
+        peak = fm_maxf(peak, fm_fabsf(dr_scope[drone][i]));
     cv_rect(x0, y0, width, 1, LK_RULE);
     for (j = 0; j <= width; j += 12)
         cv_rect(x0 + j, y0 - 3, 1, 7, LK_RULE);
-    for (j = 0; j < width; j++) {
-        uint32_t h = vg_hash((uint32_t)((j + tick) * 59 + drone * 173));
-        int env = 3, k, amp, yy = y0;
-        for (k = 0; k < 4; k++) {
-            const int d = vg_abs(j - (int)events[k]);
-            const int reach = 4 + (k % 3) * 4;
-            if (d < reach)
-                env += (reach - d) * (k % 2 ? 7 : 5) / 2;
+    for (j = 0; j < width; j += 2) {
+        const int ix = j * (DR_SCOPE_N - 1) / (width - 1);
+        const float hz = 100.0f * (float)j / (float)(width - 1);
+        const float db = filt_db(drone, dr_cut[drone], hz);
+        const float response = fm_clampf((db + 36.0f) / 48.0f, 0.0f, 1.0f);
+        const float sample = dr_scope[drone][ix] / peak;
+        const float envelope = 11.0f * loud * response;
+        const int x = x0 + j;
+        const int ey = y0 - (int)(envelope + 0.5f);
+        const int sy = y0 - (int)(envelope * sample + (sample >= 0.0f ? 0.5f : -0.5f));
+        if (j) {
+            cv_line(prev_x, prev_env_y, x, ey, vl_bright(color, 0.48f));
+            cv_line(prev_x, prev_wave_y, x, sy,
+                    fm_fabsf(sample) > 0.88f && loud > 0.65f ? LK_WHITE : color);
         }
-        if (j < active && level > 0.0f) {
-            const int soften = active - j < 7 ? vg_max(0, active - j) : 7;
-            amp = ((int)(h % 23u) - 11) * env * (int)(2.0f + level * 12.0f) / 128;
-            amp = amp * soften / 7;
-            yy = y0 - vg_max(-11, vg_min(11, amp));
-        }
-        cv_line(lastx, lasty, x0 + j, yy,
-                vg_abs(y0 - yy) >= 9 ? LK_WHITE : col);
-        lastx = x0 + j; lasty = yy;
+        prev_x = x; prev_env_y = ey; prev_wave_y = sy;
     }
 }
 static void vg_lava_flow(float level)
 {
     /* At zero level there is no lava. At full level the front has risen
      * through the conduit, crossed the vent and run down the left flank. */
-    static const int16_t x[15] = {119, 119, 118, 118, 117, 117, 118, 111, 101, 89, 74, 59, 41, 21, 1};
-    int16_t y[15];
-    const float advance = level * 14.0f;
+    static const int16_t x[] = {119, 119, 119, 119, 119, 118, 118, 118, 117, 117,
+                                118, 118, 111, 101, 89, 74, 59, 41, 21, 1};
+    const int n = (int)(sizeof x / sizeof x[0]);
+    int16_t y[sizeof x / sizeof x[0]];
+    const float advance = level * (float)(n - 1);
     int j;
     if (level <= 0.0f) return;
-    y[0] = 91; y[1] = 81; y[2] = 70; y[3] = 58; y[4] = 48;
-    y[5] = 37; y[6] = vg_ridge(118) - 18;
-    for (j = 7; j < 15; j++) y[j] = (int16_t)(vg_ridge(x[j]) - 17);
-    for (j = 1; j < 15; j++) {
+    y[0] = 122; y[1] = 112; y[2] = 103; y[3] = 94; y[4] = 85;
+    y[5] = 76; y[6] = 67; y[7] = 58; y[8] = 49; y[9] = 40;
+    y[10] = 32; y[11] = (int16_t)(vg_ridge(118) - 18);
+    for (j = 12; j < n; j++) y[j] = (int16_t)(vg_ridge(x[j]) - 17);
+    for (j = 1; j < n; j++) {
         const float remaining = advance - (float)(j - 1);
         int xe, ye;
         if (remaining <= 0.0f) break;
@@ -169,7 +173,7 @@ static void vg_lava_flow(float level)
     /* Small incandescent front moves only within the exposed flow. */
     if (advance > 2.0f) {
         const int k = 2 + (int)((plat_ms() / 140u) % (uint32_t)vg_max(1, (int)advance - 1));
-        if (k < 15) cv_rect(x[k] - 1, y[k] - 1, 3, 3, LK_WHITE);
+        if (k < n) cv_rect(x[k] - 1, y[k] - 1, 3, 3, LK_WHITE);
     }
 }
 static void vg_smoke(float level)
@@ -214,9 +218,8 @@ static void vl_surface(int pitch)
         for (g = 0; g < 2; g++) {
             const int x0 = g ? 127 : 9;
             const float level = vl_norm(DR_GP(g, GP_LEVEL)) * dr_fade;
-            const float cutoff = vl_norm(DR_GP(g, GP_CUTOFF));
             cv_text(x0 + 2, 93, &FONT_XS, g ? "II" : "I", LK_DRONE[g]);
-            vg_seismic(g, x0, 112, level, cutoff);
+            vg_seismic(g, x0, 112, level);
         }
         return;
     }

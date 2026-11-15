@@ -7,7 +7,7 @@
 #define SD_LIMIT_S 240u
 #define SD_DEFAULT_S 10u
 static struct {
-    uint8_t count, position, drone, phase, enabled, paused;
+    uint8_t count, position, drone, phase, enabled, paused, stopping;
     uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
     int16_t note[2][SD_MAX];
     int16_t sent[2];
@@ -99,8 +99,21 @@ static void sd_restore_pitch(void)
 static void sd_stop(void)
 {
     sd.enabled = 0;
+    sd.stopping = 0;
     sd_reset_clock();
     if (sd.preview_key < 0) sd_restore_pitch();
+}
+/* PLAY fades the complete instrument before releasing the sequencer's pitch
+ * cursor. Restoring step 1 while dr_fade is audible causes a pitch jump. */
+static void sd_global_play(int on)
+{
+    if (on) {
+        sd.stopping = 0;             /* an interrupted fade-out keeps its cursor */
+    } else if (sd.enabled && dr_fade > 0.0f) {
+        sd.stopping = 1;             /* let DSP's configured PLAY fade finish */
+    } else {
+        sd_stop();
+    }
 }
 static int sd_at(int g, uint32_t elapsed_ms);
 static void sd_toggle(void)
@@ -108,6 +121,7 @@ static void sd_toggle(void)
     if (!sd.enabled) {
         sd_sync_home();
         sd.enabled = 1;
+        sd.stopping = 0;
         sd_reset_clock();
         /* Pitch Link applies to the authored notes; the audio engine follows
          * the sequence's two independently calculated cursor pitches. */
@@ -228,12 +242,16 @@ static void sd_run(void)
     uint32_t now = plat_ms();
     int g;
     sd_sync_home();
+    if (sd.stopping && dr_fade <= 0.0f) {
+        sd_stop();                   /* engine is silent; no audible pitch reset */
+        return;
+    }
     /* When any note is held, audition the exact programmed pitch, including
      * the linked drone. The normal progression resumes on release. */
     if (sd.preview_key >= 0) {
         const int audible_g = sd_linked() ? 0 : sd.drone;
         const int v = sd_pitch(audible_g, sd.position);
-        if (!ui.playing && !sd.preview_sounded) {
+        if (!ui.playing && !sd.preview_sounded && !sd.stopping) {
             dr_play(1);
             sd.preview_sounded = 1;
         }
@@ -261,7 +279,7 @@ static void sd_run(void)
         if (!sd.enabled || !ui.playing)
             sd_restore_pitch();
     }
-    if (!sd.enabled || !ui.playing)
+    if (!sd.enabled || (!ui.playing && !sd.stopping))
         return;
     if (sd.paused && sd.sent[0] != -32768 && sd.sent[1] != -32768)
         return;

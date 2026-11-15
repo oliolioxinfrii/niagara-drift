@@ -142,22 +142,26 @@ static void lk_pic_sequence(int timing)
      * trajectory. Drone II's pitch and node positions share the audio phase. */
     for (g = 1; g >= 0; g--) {
         const float ph = motion + 0.5f * (float)g;
-        int strand;
+        enum { N = 95 };
+        int16_t ys[N];
+        int strand, i;
+        /* Compute the moving centerline once; the three strands share it.
+         * Two-pixel sampling matches Setup 2's stereo animation budget. */
+        for (i = 0; i < N; i++) {
+            const int32_t x = width * i / (N - 1);
+            const uint32_t t = len ? (uint32_t)((uint64_t)len * (uint32_t)x / (uint32_t)width) : 0u;
+            const float taper = len ? sd_curve_envelope(g, t) :
+                                fm_sinf(3.1415926f * (float)x / (float)width);
+            const float wave = 5.0f * fm_sinf(6.2831853f * ((float)x / 36.5f + ph)) * taper;
+            ys[i] = (int16_t)(sd_y(sd_at(g, t), lo, hi) +
+                              (int32_t)(wave + (wave >= 0.0f ? 0.5f : -0.5f)));
+        }
         for (strand = 0; strand < 3; strand++) {
             const uint16_t col = lk_ramp(g, (float)strand / 2.0f);
             const int32_t dy = 3 * (2 - strand);
-            int32_t prev = 0;
-            int x;
-            for (x = 0; x <= width; x++) {
-                const uint32_t t = len ? (uint32_t)((uint64_t)len * (uint32_t)x / (uint32_t)width) : 0u;
-                const float taper = len ? sd_curve_envelope(g, t) :
-                                    fm_sinf(3.1415926f * (float)x / (float)width);
-                const float wave = 5.0f * fm_sinf(6.2831853f * ((float)x / 36.5f + ph)) * taper;
-                const int32_t y = sd_y(sd_at(g, t), lo, hi) - dy + (int32_t)(wave + (wave >= 0.0f ? 0.5f : -0.5f));
-                if (x)
-                    cv_line(x0 + x - 1, prev, x0 + x, y, col);
-                prev = y;
-            }
+            for (i = 1; i < N; i++)
+                cv_line(x0 + width * (i - 1) / (N - 1), ys[i - 1] - dy,
+                        x0 + width * i / (N - 1), ys[i] - dy, col);
         }
         for (j = 0; j < sd.count; j++) {
             const uint32_t t = len ? sd_curve_node_ms(g, j, len) : 0u;

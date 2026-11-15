@@ -471,6 +471,23 @@ static int expect(const char *what, const char *val)
         got = (int)sd_node_s(1);
     else if (!strcmp(what, "seqelapsed"))          /* includes completed loops; frozen while paused */
         got = sd.enabled ? (int)sd_elapsed_ms() : 0;
+    else if (!strcmp(what, "seqphase"))
+        got = sd.phase;
+    else if (!strcmp(what, "seqgapmin")) {
+        int i;
+        got = sd.count < 2 ? 0 : SD_LIMIT_S;
+        for (i = 0; i < sd.count && sd.count > 1; i++)
+            if (sd.gap_s[i] < got) got = sd.gap_s[i];
+    }
+    else if (!strcmp(what, "seqmaxjump")) {
+        int i, g;
+        got = 0;
+        for (g = 0; g < 2; g++)
+            for (i = 0; i < sd.count && sd.count > 1; i++) {
+                const int delta = sd_pitch(g, i) - sd_pitch(g, (i + 1) % sd.count);
+                if (abs(delta) > got) got = abs(delta);
+            }
+    }
     else if (!strcmp(what, "scene_at"))            /* the scene the sound is (its key blinks), or -1 */
         got = ui.scene_at;
     else if (!strcmp(what, "scenes"))              /* the scene slots in use, as a bit mask */

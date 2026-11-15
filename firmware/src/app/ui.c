@@ -169,7 +169,7 @@ static struct {
                                         * autosave, N scene N */
     uint32_t save_t;                   /* ... asked then */
     uint8_t save_menu;                /* modal bank / slot save and recall */
-    uint8_t menu_bank, menu_slot, menu_load;  /* action: save, load, select bank */
+    uint8_t menu_bank, menu_slot, menu_load;  /* action: save scene, load scene, select bank, save sound */
     uint8_t page_last[8];              /* each page button's page last shown (0: its first): opened again there */
     uint32_t sel_t;                    /* when SEL went down (held 0.4 s: the black keys' map) */
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
@@ -2061,8 +2061,8 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
         ui.menu_slot = (uint8_t)n;
     }
     if ((step = plat_enc(EN_K2)) != 0) {
-        int action = ((int)ui.menu_load + (int)step) % 3;
-        if (action < 0) action += 3;
+        int action = ((int)ui.menu_load + (int)step) % 4;
+        if (action < 0) action += 4;
         ui.menu_load = (uint8_t)action;
     }
     for (i = 0; i < NE; i++)
@@ -2072,7 +2072,10 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
         ui.save_menu = 0;
     } else if (released >> B_SAVE & 1u) {
         const int bank = ui.menu_bank, slot = ui.menu_slot;
-        if (ui.menu_load == 1 && !scene_has(bank, slot)) {
+        if (ui.menu_load == 3) {
+            save_ask(-1);
+            ui.save_menu = 0;
+        } else if (ui.menu_load == 1 && !scene_has(bank, slot)) {
             say("EMPTY SLOT", "CHOOSE ANOTHER");
         } else if (ui.menu_load == 0 && BANK_IS_PRESETS(bank)) {
             say("PRESETS ARE FIXED", "SELECT BANK A-F");

@@ -383,6 +383,8 @@ static void vl_tone(void)
 }
 /* Seismographic propagation: discrete delay arrivals and a dissipating
  * reverberant coda, displayed on separate horizontal channels. */
+/* Delay is displayed as individual arrivals; reverb is the much longer
+ * decaying coda. A perceptual amplitude mapping makes quiet mixes visible. */
 static void vl_air(void)
 {
     const float repeats = vl_norm(P_DLY_REPEATS), wet_delay = vl_norm(P_DLY_MIX);
@@ -393,40 +395,40 @@ static void vl_air(void)
     const int hold = proj.par[P_REV_LEN] >= 100;
     int k, x, p;
     cv_text(9, 1, &FONT_XS, "DELAY / ARRIVALS", LK_LABEL);
-    cv_text(9, 65, &FONT_XS, hold ? "REVERB / HELD FIELD" : "REVERB / CODA", LK_LABEL);
+    cv_text(9, 64, &FONT_XS, hold ? "REVERB / HELD FIELD" : "REVERB / CODA", LK_LABEL);
     for (k = 0; k < 2; k++) {
-        const int center = k ? 94 : 36;
-        const int top = k ? 76 : 17;
-        const int bottom = k ? 113 : 57;
+        const int center = k ? 94 : 37, top = k ? 77 : 17, bottom = k ? 112 : 57;
         cv_rect(8, center, 224, 1, LK_RULE);
         for (x = 10; x <= 230; x += 22)
             cv_rect(x, top, 1, bottom - top, LK_RULE);
         for (p = 0; p < 3; p++) {
             int px = 10, py = center + p * 2 - 2;
+            const float wet = k ? wet_reverb : wet_delay;
+            const float display_gain = wet > 0.0f ? 0.23f + 0.77f * fm_sqrtf(wet) : 0.0f;
             for (x = 10; x <= 230; x++) {
                 const uint32_t h = vg_hash((uint32_t)((x + p * 11 + (plat_ms() / 210u) % 23u) * 89));
-                const int noise = (int)(h % 19u) - 9;
+                const int noise = (int)(h % 23u) - 11;
                 float env = 0.0f;
                 if (!k) {
                     const int pos = x - 18;
                     if (pos >= 0) {
                         const int arrival = pos % period, nth = pos / period;
-                        const float repeat_gain = 1.0f - (1.0f - repeats) * fm_clampf((float)nth * 0.13f, 0.0f, 1.0f);
-                        if (arrival < 15)
-                            env = wet_delay * (1.0f - (float)arrival / 15.0f) * repeat_gain;
+                        const float repeat_gain = 1.0f - (1.0f - repeats) * fm_clampf((float)nth * 0.18f, 0.0f, 1.0f);
+                        if (arrival < 18)
+                            env = display_gain * (1.0f - (float)arrival / 18.0f) * repeat_gain;
                     }
                 } else {
-                    const int tail = 22 + (int)(decay * 180.0f);
+                    const int tail = 30 + (int)(decay * 200.0f);
                     const int t = x - 21;
                     if (t >= 0 && (hold || t < tail))
-                        env = wet_reverb * (hold ? 0.9f : (1.0f - (float)t / (float)tail)) *
-                              (0.75f + 0.25f * (1.0f - damping));
+                        env = display_gain * (hold ? 1.0f : (1.0f - (float)t / (float)tail)) *
+                              (0.84f + 0.16f * (1.0f - damping));
                 }
                 {
-                    const int a = (int)((float)noise * env * (k ? 1.3f : 1.65f));
-                    const int yy = center + p * 2 - 2 + vg_max(-14, vg_min(14, a));
-                    const uint16_t ink = (vg_abs(a) >= 10 && (drive > 0.72f || hold)) ?
-                                         LK_WHITE : vg_dim(VL_AIR, p == 2 ? 1.0f : 0.36f + 0.21f * (float)p);
+                    const int amp = (int)((float)noise * env * (k ? 2.80f : 3.20f));
+                    const int yy = center + p * 2 - 2 + vg_max(-16, vg_min(16, amp));
+                    const uint16_t ink = (vg_abs(amp) >= 15 && (drive > 0.72f || hold)) ?
+                                         LK_WHITE : vg_dim(VL_AIR, p == 2 ? 1.0f : 0.42f + 0.20f * (float)p);
                     cv_line(px, py, x, yy, ink);
                     px = x; py = yy;
                 }
@@ -445,57 +447,75 @@ static void vl_air(void)
 }
 /* A cutaway globe: muted observational meridians on the left, fiery strata
  * on the right. It is an emblem; all controls retain the common value band. */
+/* A conventional tuning ring overlays the cutaway planet. Intervals come from
+ * the selected tuning itself; the reference A moves with the fine-tune value.
+ * The globe's center is deliberately unlabeled. */
 static void vl_planet(void)
 {
-    const int cx = 63, cy = 65, r = 48;
-    static const uint16_t colors[5] = {RGB(248, 203, 58), RGB(242, 144, 41),
-                                       RGB(232, 96, 43), RGB(190, 53, 44),
-                                       RGB(125, 35, 37)};
-    int i, k;
-    lk_circle(cx, cy, r, LK_WHITE);
+    const int cx = 64, cy = 67, r = 38;
+    const int tuning = (unsigned)proj.par[P_TUNING] < DR_NTUNING ? proj.par[P_TUNING] : DR_TUN_12;
+    const int n = dr_tun_n(tuning);
+    const float shift = 1200.0f * fm_log2f(1.0f + (float)proj.par[P_TUNE] / 4400.0f);
+    static const uint16_t layers[5] = {RGB(246, 208, 62), RGB(242, 156, 47),
+                                       RGB(225, 88, 43), RGB(173, 47, 39), RGB(106, 29, 36)};
+    int k, i;
+    char t[16];
+    lk_circle(cx, cy, r, LK_LABEL);
+    /* Ticks on the periphery follow the real selected tuning, not 12 fixed spokes. */
+    for (k = 0; k < n; k++) {
+        const float note = (float)dr_tun_c(tuning, k) + shift;
+        lk_spoke(cx, cy, note, (float)r + 2.0f,
+                 (float)r + (n > 24 ? 6.0f : 9.0f), 1,
+                 k == 0 ? LK_WHITE : LK_LABEL);
+    }
+    {
+        int32_t ax, ay;
+        lk_polar(cx, cy, shift, (float)r + 18.0f, &ax, &ay);
+        text_c(ax, ay - LK_B(FONT_XS) + 6, &FONT_XS, "A", LK_WHITE);
+    }
+    /* Interior geology uses semicircular bands without text or continents. */
     for (k = 0; k < 5; k++) {
-        const int rr = r - 7 - 8 * k;
+        const int rr = r - 5 - k * 6;
         int px = cx, py = cy - rr;
-        for (i = 1; i <= 32; i++) {
-            const float a = 3.14159265f * (float)i / 32.0f;
+        for (i = 1; i <= 28; i++) {
+            const float a = 3.14159265f * (float)i / 28.0f;
             const int x = cx + (int)((float)rr * fm_sinf(a));
-            const int y = cy - (int)((float)rr * fm_sinf(a + 1.5707963f));
-            cv_line(px, py, x, y, colors[k]);
+            const int y = cy - (int)((float)rr * fm_cosf(a));
+            cv_line(px, py, x, y, vg_dim(layers[k], 0.85f));
             px = x; py = y;
         }
     }
-    /* Sparse longitude/latitude clues; no continents or illustrative land. */
-    for (i = -3; i <= 3; i++) {
-        int y = cy + i * 11;
-        int dx = (int)((float)r * fm_sinf(1.5707963f * (1.0f - (float)(i * i) / 22.0f)));
-        cv_line(cx - dx, y, cx - 3, y, vg_dim(LK_LABEL, 0.34f));
+    cv_rect(cx, cy - r, 1, r * 2, LK_WHITE);
+    for (i = -2; i <= 2; i++) {
+        const int y = cy + i * 11;
+        cv_line(cx - 30, y, cx - 2, y, vg_dim(LK_LABEL, 0.33f));
     }
-    for (k = 0; k < 2; k++) {
-        const int rx = 17 + k * 13;
-        int px = cx, py = cy - r;
-        for (i = 1; i <= 24; i++) {
-            const float a = 3.14159265f * (float)i / 24.0f;
-            const int x = cx - (int)((float)rx * fm_sinf(a));
-            const int y = cy - (int)((float)r * fm_sinf(a + 1.5707963f));
-            cv_line(px, py, x, y, vg_dim(LK_WHITE, 0.32f));
-            px = x; py = y;
+    cv_text(128, 5, &FONT_T20, "PLANET", LK_WHITE);
+    cv_rect(128, 29, 104, 2, VL_SURFACE);
+    if (ui.view == V_SETUP2) {
+        const float width = vl_norm(P_WIDTH);
+        const float phase = (float)(plat_ms() % 4500u) / 4500.0f;
+        for (k = 0; k < 2; k++) {
+            const int xc = 180 + (k ? 1 : -1) * (4 + (int)(16.0f * width));
+            const uint16_t ink = LK_DRONE[k];
+            for (i = 0; i < 3; i++) {
+                int lastx = xc + i * 2, lasty = 41;
+                int j;
+                for (j = 1; j <= 30; j++) {
+                    const int y = 41 + j * 2;
+                    const int x = xc + i * 2 + (int)(5.5f * fm_sinf(6.2831853f * 
+                                   ((float)j / 19.0f + phase + (float)k * 0.5f)));
+                    cv_line(lastx, lasty, x, y,
+                            vg_dim(ink, 0.48f + (float)i * 0.25f));
+                    lastx = x; lasty = y;
+                }
+            }
+            text_c(xc, 105, &FONT_XS, k ? "R" : "L", LK_LABEL);
         }
+        cv_text(129, 118, &FONT_U2, "STEREO FIELD", LK_LABEL);
+    } else {
+        cv_text(129, 48, &FONT_T20, ui.view == V_SETUP ? "CLOCK" : "SPEAKER", LK_WHITE);
+        cv_text(129, 78, &FONT_XS, ui.view == V_SETUP ? "TIME / SYNC" : "OUTPUT", LK_LABEL);
     }
-    cv_rect(cx, 16, 1, 99, LK_WHITE);
-    for (i = 0; i < 16; i++) {
-        float a = 6.2831853f * (float)i / 16.0f;
-        int x0 = cx + (int)(50.0f * fm_sinf(a));
-        int y0 = cy + (int)(50.0f * fm_sinf(a + 1.5707963f));
-        int x1 = cx + (int)(54.0f * fm_sinf(a));
-        int y1 = cy + (int)(54.0f * fm_sinf(a + 1.5707963f));
-        cv_line(x0, y0, x1, y1, LK_LABEL);
-    }
-    cv_text(129, 13, &FONT_T20, "PLANET", LK_WHITE);
-    cv_rect(128, 39, 102, 2, VL_SURFACE);
-    cv_text(130, 55, &LK_F_SMALL,
-            ui.view == V_SETUP ? "CLOCK / TIME" :
-            ui.view == V_SETUP2 ? "TUNING" : "SPEAKER", LK_WHITE);
-    cv_text(130, 85, &FONT_XS,
-            ui.view == V_SETUP ? "SYSTEM TIMING" :
-            ui.view == V_SETUP2 ? "REFERENCE" : "OUTPUT", LK_LABEL);
+    (void)t;
 }

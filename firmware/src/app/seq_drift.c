@@ -144,6 +144,21 @@ static void sd_note_knob(int i, int32_t e)
         sd.count = (uint8_t)(v < 1 ? 1 : v > SD_MAX ? SD_MAX : v);
         if (sd.position >= sd.count)
             sd.position = sd.count - 1;
+        /* Increasing the number of events must not breach the global limit:
+         * shorten the longest existing gap, never force equal divisions. */
+        while (sd_total_s() > SD_LIMIT_S) {
+            int longest = 0, k;
+            for (k = 1; k < sd.count; k++)
+                if (sd.gap_s[k] > sd.gap_s[longest])
+                    longest = k;
+            if (sd.gap_s[longest] <= 1u)
+                break;
+            {
+                uint32_t excess = sd_total_s() - SD_LIMIT_S;
+                uint32_t available = sd.gap_s[longest] - 1u;
+                sd.gap_s[longest] -= (uint16_t)(excess < available ? excess : available);
+            }
+        }
         sd_reset_clock();
     } else if (i == 3) {
         v = (int)sd.phase + (int)accel(EN_K1 + i, e, 100);

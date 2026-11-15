@@ -3091,7 +3091,7 @@ static void lk_keymap(void)
  * All stored scenes remain in their existing bank objects. */
 static void lk_save_menu(void)
 {
-    const int bank = ui.menu_bank, slot = ui.menu_slot;
+    const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
     const int filled = scene_has(bank, slot);
     const uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
                                                    (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),

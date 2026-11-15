@@ -1827,12 +1827,20 @@ static void lk_pic_setup1(void)
     static const char *const label[3] = {"FADE", "MORPH", "SCENE"};
     const int32_t x0 = 15, x1 = 230, high = 23, low = 103;
     float frac[3];
+    /* The time ruler is shared: five minutes at free tempo, or the
+     * maximum possible clock-synced scene span if that is longer.
+     * Fade and Morph must NOT use their own 60s/30s maxima. */
+    const float scene_max = dr_time_s(P_SCENE_T, 100);
+    const float clock_max = dr_ext_spb > 0.0f ?
+                            dr_ext_spb * (float)DR_BARS_N[DR_NBARS - 1] : 0.0f;
+    const float domain = fm_maxf(scene_max, clock_max);
     int r, i;
-    frac[0] = dr_time_s(P_FADE, proj.par[P_FADE]) / dr_time_s(P_FADE, 100);
-    frac[1] = dr_time_s(P_MORPH, proj.par[P_MORPH]) / dr_time_s(P_MORPH, 100);
+    frac[0] = dr_time_s(P_FADE, proj.par[P_FADE]) / domain;
+    frac[1] = dr_time_s(P_MORPH, proj.par[P_MORPH]) / domain;
     frac[2] = dr_ext_spb > 0.0f ?
-              (float)proj.par[P_SCENE_BARS] / (float)(DR_NBARS - 1) :
-              dr_time_s(P_SCENE_T, proj.par[P_SCENE_T]) / dr_time_s(P_SCENE_T, 100);
+              dr_ext_spb * (float)DR_BARS_N[(unsigned)proj.par[P_SCENE_BARS] < DR_NBARS ?
+                                                     proj.par[P_SCENE_BARS] : DR_NBARS - 1] / domain :
+              dr_time_s(P_SCENE_T, proj.par[P_SCENE_T]) / domain;
     for (r = 0; r < 3; r++)
         frac[r] = fm_clampf(frac[r], 0.0f, 1.0f);
 

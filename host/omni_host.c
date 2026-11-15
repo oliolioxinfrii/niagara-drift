@@ -565,6 +565,12 @@ static int expect(const char *what, const char *val)
         const char *nm = project_slot_name(bank, slot);
         got = nm ? (unsigned char)nm[0] : 0;
     }
+    else if (!strcmp(what, "seqcurvesrandom")) {
+        int i;
+        got = sd.count > 1;
+        for (i = 0; i < sd.count; i++)
+            if (sd.shape[i] == 0) got = 0;
+    }
     else if (!strncmp(what, "seqshape", 8))
         got = sd.shape[atoi(what + 8) & 3];
     else if (!strcmp(what, "bscenes")) {           /* the current bank's slots in use, as a bit mask */

@@ -2939,25 +2939,34 @@ static void draw_splash(uint32_t ms)
         RGB(244, 151, 36), RGB(138, 32, 25), RGB(89, 19, 25),
         RGB(243, 99, 31), RGB(80, 17, 26)
     };
-    const uint16_t RED = RGB(230, 27, 24), DARK = RGB(111, 18, 25),
+    const uint16_t RED = RGB(230, 27, 24), SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
                    BLACK = RGB(46, 14, 21), LAVA = RGB(255, 175, 45),
                    SULFUR = RGB(255, 222, 80), PAPER = RGB(255, 243, 227);
     const int drift = (int)((ms / 280u) % 5u);
     int half, band, i, j;
     for (half = 0; half < 2; half++) {
         const int y0 = 120 * half;
-        cv_begin(240, 120, RED);
+        cv_begin(240, 120, SKY);
+        /* The black sky separates the mountain silhouette from the
+         * colored cutaway beneath the surface. */
+        for (i = 0; i < 240; i++) {
+            const int ridge = sp_rock_height(i);
+            cv_rect(i, ridge - y0, 1, 240 - ridge, RGB(87, 19, 25));
+        }
         /* Fixed, film-grain-like fire and ash, with localized darkening
          * around the upper-right plume. No random state is mutated. */
         for (i = 0; i < 1300; i++) {
             const uint32_t h = sp_hash((uint32_t)(i * 157u + 31u));
             const int x = (int)(h % 240u);
             const int y = (int)((h >> 11) % 240u);
-            const int ash = x > 118 && y < 91;
-            const uint16_t c = ash && i % 5 != 0 ? DARK :
-                               i % 11 == 0 ? SULFUR :
-                               i & 1 ? RGB(255, 83, 31) : RGB(196, 27, 24);
-            cv_rect(x, y - y0, (h & 63u) == 0u ? 2 : 1, 1, c);
+            const int rock = y >= sp_rock_height(x);
+            const int plume = x > 112 && x < 184 && y < 104 && i % 7 == 0;
+            if (rock || plume) {
+                const uint16_t c = plume ? (i % 9 == 0 ? SULFUR : DARK) :
+                                   i % 11 == 0 ? SULFUR :
+                                   i & 1 ? RGB(255, 83, 31) : RGB(196, 27, 24);
+                cv_rect(x, y - y0, (h & 63u) == 0u ? 2 : 1, 1, c);
+            }
         }
         /* Broad geological bands are cut by one central magma conduit. */
         for (band = 10; band >= 0; band--) {

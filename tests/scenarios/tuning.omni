@@ -1,3 +1,4 @@
+legacykeys
 # THE TUNING (v0.3, Setup 2 KNOB 4, par110): a pitch knob's detent is the grid's next step, up or down (Evan,
 # 2026-10-30, after #61's glide-and-land: every detent moves the pitch, and the card shows the note it goes to).
 # Drone I's pitch (par0, cents over MIDI 0; D3 5000); the host's spin turns its detents at once: a first turn, no

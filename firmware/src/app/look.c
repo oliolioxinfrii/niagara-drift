@@ -13,26 +13,25 @@
 #define LK_PIC_H (LK_VAL_Y - LK_BAR_H)
 
 /* the palette (the spec's tokens; RGB565 on the FM-1, rechecked for contrast after rounding) */
-#define LK_BG RGB(7, 6, 11)                  /* the ground */
-#define LK_LABEL RGB(143, 138, 156)          /* names, sources: 6.0:1 */
-#define LK_WHITE RGB(255, 255, 255)          /* values */
-#define LK_INK RGB(242, 238, 248)
-#define LK_RULE RGB(30, 28, 38)
-#define LK_UNLIT RGB(90, 86, 107)            /* an unlit meter step, as a ring: 3.0:1 */
-#define LK_BAND RGB(22, 20, 29)              /* the banner's band, a step above the ground */
-#define LK_CORAL RGB(255, 143, 115)          /* the SWELL badge */
-#define LK_FX RGB(120, 173, 255)              /* the FX blue (the Delay board's left echoes): freeze */
-#define LK_SWELL RGB(255, 169, 146)          /* the Swell page's selected knob: its outline and name */
-#define LK_GOLD RGB(255, 208, 74)            /* scenes, Presets, blends, tips */
-#define LK_VIOLET RGB(201, 166, 255)         /* the LFO */
-#define LK_NEUTRAL RGB(232, 228, 240)        /* the global keys, the system */
+#define LK_BG RGB(8, 8, 10)                  /* the ground */
+#define LK_LABEL RGB(170, 161, 156)          /* names, sources: 6.0:1 */
+#define LK_WHITE RGB(249, 243, 233)          /* values */
+#define LK_INK RGB(249, 243, 233)
+#define LK_RULE RGB(58, 44, 41)
+#define LK_UNLIT RGB(81, 62, 59)            /* an unlit meter step, as a ring: 3.0:1 */
+#define LK_BAND RGB(28, 20, 18)              /* the banner's band, a step above the ground */
+#define LK_CORAL RGB(246, 149, 42)          /* the SWELL badge */
+#define LK_FX RGB(126, 216, 219)              /* the FX blue (the Delay board's left echoes): freeze */
+#define LK_SWELL RGB(246, 149, 42)          /* the Swell page's selected knob: its outline and name */
+#define LK_GOLD RGB(247, 210, 70)            /* scenes, Presets, blends, tips */
+#define LK_VIOLET RGB(207, 75, 63)         /* the LFO */
+#define LK_NEUTRAL RGB(244, 237, 227)        /* the global keys, the system */
 #define LK_RED RGB(255, 42, 31)              /* the one caution red */
 #define LK_G DR_NGROUPS                       /* a global knob's "drone": the neutral */
-static const uint16_t LK_DRONE[DR_NGROUPS + 1] = {RGB(255, 154, 31), RGB(31, 200, 255), RGB(232, 228, 240)};   /* one
-                                                                                  * amber, one cyan, the neutral */
-static const uint32_t LK_RAMP[DR_NGROUPS + 1][2] = {{0xFF8A1Fu, 0xFFF4D6u}, {0x6F8CFFu, 0xE8FFFBu},
-                                                    {0x9A95ABu, 0xE8E4F0u}};
-#define LK_PINK 0xFF93D7u                    /* Tone's pink noise (pink, not red: red is caution) */
+static const uint16_t LK_DRONE[DR_NGROUPS + 1] = {RGB(247, 210, 70), RGB(233, 99, 48), RGB(244, 237, 227)}; /* two warm drone strata */
+static const uint32_t LK_RAMP[DR_NGROUPS + 1][2] = {{0x852720u, 0xF7D246u}, {0x852720u, 0xF7D246u},
+                                                    {0x852720u, 0xF7D246u}}; /* dark red -> sulfur yellow magnitude */
+#define LK_PINK 0xEA7944u                    /* Tone's pink noise (pink, not red: red is caution) */
 
 /* the fonts' roles */
 #define LK_F_PAGE FONT_H22                   /* the page's name */
@@ -80,6 +79,8 @@ static uint16_t lk_msg_col(uint16_t c)
     return LK_NEUTRAL;
 }
 
+static uint16_t vl_layer_color(int v);
+static void vl_depth_marker(int v);
 static int32_t lk_ktext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c);
 static int32_t lk_ktext_w(const felucca_font_t *f, const char *s);
 
@@ -213,7 +214,7 @@ static void lk_bar(void)
     uint32_t h;
     char name[20], half[6] = "", rec[12] = "REC ", gname[20], key[8] = "", back[28] = "let go: ";
     const char *badge[6], *sound = 0, *state, *st_short, *chg = 0;
-    uint16_t bcol[6], st_col = LK_LABEL, name_col = LK_WHITE, key_col = LK_LABEL;
+    uint16_t bcol[6], st_col = LK_LABEL, name_col = vl_layer_color(ui.view), key_col = LK_LABEL;
     int nb = 0, swell = -1, gb = -1, glen = 0, show_half, show_chg, show_name;
     lk_sound_at();
     gest = lk_gesture();
@@ -348,7 +349,7 @@ static void lk_bar(void)
                                                 * alone ("CHORD"); 8 no PLAY's state (a peek keeps where
                                                 * it goes) */
         const char *st = !state || (drop >= 8 && !peek) ? 0 : drop >= 1 ? st_short : state;
-        int32_t x = 8 + text_w(&LK_F_PAGE, name), rx = 232, gap = 0;
+        int32_t x = 8 + text_w(&LK_F_PAGE, name), rx = 217, gap = 0;
         if (drop == 7 && gb >= 0 && gest_pct < 0)
             gname[glen] = 0;
         if (peek)
@@ -382,7 +383,7 @@ static void lk_bar(void)
         state = drop >= 8 && !peek ? 0 : drop >= 1 ? st_short : state;
     {                                          /* what gave way comes back where it fits again (SWELL gone, the
                                                 * "1/2" has room): "changed", then the "1/2", then the sound's name */
-        int32_t x = 8 + text_w(&LK_F_PAGE, name) + (peek ? 12 + text_w(&LK_F_SEL, "PEEK") : 0), rx = 232, gap = 0;
+        int32_t x = 8 + text_w(&LK_F_PAGE, name) + (peek ? 12 + text_w(&LK_F_SEL, "PEEK") : 0), rx = 217, gap = 0;
         for (i = 0; i < nb; i++)
             if (!(i == swell && drop >= 4))
                 x += 12 + lk_badge_w(i == gb && gest_pct >= 0, badge[i]);
@@ -418,7 +419,7 @@ static void lk_bar(void)
     cv_begin(240, LK_BAR_H, LK_BG);
     {
         const int32_t bl = (LK_BAR_H - (int32_t)LK_F_PAGE.h) / 2 + LK_B(LK_F_PAGE);   /* the header's baseline */
-        int32_t x, rx = 232, gap = 0;
+        int32_t x, rx = 217, gap = 0;
         if (state) {                           /* the right first: the badges stop short of it */
             rx -= lk_ktext_w(&LK_F_TAG, state);
             lk_ktext(rx, bl - LK_B(LK_F_TAG), &LK_F_TAG, state, st_col);
@@ -464,6 +465,8 @@ static void lk_bar(void)
                 cv_rect(8, LK_BAR_H - 4, w, 1, LK_GOLD);
         }
     }
+    vl_depth_marker(ui.view);
+    cv_rect(0, LK_BAR_H - 2, 240, 2, vl_layer_color(ui.view));
     cv_blit(0, 0);
 }
 
@@ -1496,7 +1499,7 @@ static void lk_pic_moves(void)
 
 /* ------------------------------------------------- the LFO pages' parts --- */
 static void lk_swing(char *q, float x, const char *unit);
-static const uint32_t LK_LFO_TINT[2] = {0xA98BFFu, 0xFF5FD2u};   /* LFO I lilac (OCT-), LFO II pink (OCT+) */
+static const uint32_t LK_LFO_TINT[2] = {0xCF4B3Fu, 0xF2933Cu};   /* LFO I lilac (OCT-), LFO II pink (OCT+) */
 
 /* a horizontal arrow, 2 px (the fonts have none) */
 static void lk_harrow(int32_t x, int32_t y, int32_t w, int right, uint16_t c)
@@ -1599,9 +1602,9 @@ static int lk_wave_on(int route, int w)
 static void lk_pic_lfo(void)
 {
     static const int32_t WY[2] = {37, 86};     /* two 0.2-style traces, compressed for the 0.3 header */
-    const uint16_t panel = RGB(38, 10, 34);
-    const uint16_t faint = RGB(104, 66, 96), dim = RGB(160, 128, 148);
-    const uint16_t paper = RGB(251, 233, 242), lilac = RGB(220, 188, 255);
+    const uint16_t panel = RGB(22, 13, 13);
+    const uint16_t faint = RGB(93, 55, 49), dim = RGB(170, 153, 145);
+    const uint16_t paper = LK_WHITE, lilac = RGB(207, 75, 63);
     const int32_t x0 = 12, wave_w = 88, half = 12;
     int w, d;
     char t[24];
@@ -2120,7 +2123,7 @@ static void lk_ring_tilt(int32_t cx, int32_t cy, float rx, float ry, int tilt, u
 /* FX's two pages share one picture in two halves, DELAY in the FX blue and REVERB in the rings' pale cyan (Evan,
  * 2026-11-08), each the old full page's drawing in its half: the Delay's and the Reverb's as before (the spec,
  * 2026-10-31; the boards FX 266:4, 268:2), their axes and widths halved */
-#define LK_REV_C RGB(201, 246, 255)          /* REVERB's name: the rings' newest */
+#define LK_REV_C RGB(126, 216, 219)          /* REVERB's name: the rings' newest */
 
 /* the echoes as ripples out from the sound (a full ring, white) on a time axis that opens out near it (x 24 +
  * 29 ln(1 + t / 0.1 s): 2 s at x 112, so short and long times both read); each repeat a half-ring as big as it's still
@@ -2217,6 +2220,8 @@ static void lk_pic_speaker(void)
 
 static void lk_pic_sequence(int timing);
 static void lk_pic_seq_shape(void);
+#include "volcano_look.c"        /* v1.5: geological drawings, saved-state orbit, live atlas */
+
 static void lk_pic(void)
 {
     const int msg = plat_ms() < ui.msg_until;
@@ -2245,11 +2250,11 @@ static void lk_pic(void)
     ui.sig[1] = h;
     cv_begin(240, LK_PIC_H, LK_BG);
     switch (ui.view) {
-    case V_PLAY2: lk_pic_drones1(); break;
-    case V_LIFE: lk_pic_life(); break;
-    case V_TONE: lk_pic_tone(); break;
-    case V_OSC: lk_pic_osc(); break;
-    case V_SOURCE: lk_pic_source(); break;
+    case V_PLAY2: vl_surface(1); break;
+    case V_LIFE: vl_life(); break;
+    case V_TONE: vl_tone(); break;
+    case V_OSC: vl_mantle_sources(0); break;
+    case V_SOURCE: vl_mantle_sources(1); break;
     case V_PARTNER: lk_pic_partner(); break;
     case V_MOVES: lk_pic_moves(); break;
     case V_LFO_WAVES: lk_pic_lfo_waves(); break;
@@ -2260,12 +2265,13 @@ static void lk_pic(void)
     case V_SEQ_SHAPE: lk_pic_seq_shape(); break;
     case V_PULSE: lk_pic_swell(); break;
     case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
-    case V_SETUP: lk_pic_setup1(); break;
-    case V_SETUP2: lk_pic_setup2(); break;
-    case V_SPEAKER: lk_pic_speaker(); break;
+    case V_SETUP: vl_planet(); break;
+    case V_SETUP2: vl_planet(); break;
+    case V_SPEAKER: vl_planet(); break;
     case V_FX:
-    case V_FX2: lk_pic_space(); break;
-    default: lk_pic_drones2(); break;
+    case V_FX2: vl_air(); break;
+    case V_PLAY:
+    default: vl_surface(0); break;
     }
     if (ui.view == V_FX2 && !msg) {            /* Details' second jobs, on the rule above Time and Type: the delay's
                                                 * type, what goes into the reverb; SEL held, the value they return to */
@@ -2742,8 +2748,8 @@ static void lk_values(void)
         return;
     }
     if (ui.view == V_LFO) {                   /* release-0.2's LFO Depths value row only */
-        const uint16_t bg = RGB(20, 0, 15), grid = RGB(70, 30, 64);
-        const uint16_t dim = RGB(160, 128, 148), paper = RGB(251, 233, 242);
+        const uint16_t bg = LK_BG, grid = LK_RULE;
+        const uint16_t dim = LK_LABEL, paper = LK_WHITE;
         int j;
         cv_rect(0, 0, 240, LK_VAL_H, bg);
         cv_rect(0, 0, 240, 1, grid);
@@ -2752,18 +2758,18 @@ static void lk_values(void)
             const int p = knob_param(j), g = j / 2, v = proj.par[p], on = lit(j);
             const int lo = dr_param_info(p)->lo, hi = dr_param_info(p)->hi;
             const int32_t cx = 36 + 56 * j;
-            const uint16_t c = K_DRONE[g];
+            const uint16_t c = g ? VL_MANTLE : VL_DEEP;
             const felucca_font_t *const font = on ? &FONT_N1 : &FONT_N2;
             char t[16];
             int32_t m, x;
             if (on) {
                 cv_round(cx - 26, 3, 52, 79, 5, c);
-                cv_round(cx - 25, 4, 50, 77, 4, RGB(58, 18, 53));
+                cv_round(cx - 25, 4, 50, 77, 4, LK_BG);
             }
             text_c(cx, 5, &FONT_T20, j & 1 ? "Filter" : "Osc", on ? c : dim);
             dr_param_text(p, v, t);
             text_c(cx, 34 - ((int32_t)font->h - (int32_t)FONT_N2.h) / 2,
-                   font, t, on ? paper : RGB(211, 179, 196));
+                   font, t, on ? paper : LK_WHITE);
             cv_round(cx - 21, 68, 42, 4, 2, grid);
             m = cx - 21 + 42 * (0 - lo) / (hi - lo);
             x = cx - 21 + 42 * (v - lo) / (hi - lo);
@@ -2977,8 +2983,8 @@ typedef struct {
     uint32_t col;
 } lk_kgroup_t;
 static const lk_kgroup_t LK_KG[2][4] = {
-    {{0, 3, "I", 0xFF9A1Fu}, {3, 2, "global", 0xE8E4F0u}, {5, 3, "II", 0x1FC8FFu}, {8, 3, "links", 0x7FE0A8u}},
-    {{0, 4, "I", 0xFF9A1Fu}, {4, 4, "II", 0x1FC8FFu}, {8, 2, "LFO", 0xE8E4F0u}, {10, 1, "X-mod", 0xC9A6FFu}}};
+    {{0, 3, "I", 0xF7D246u}, {3, 2, "global", 0xF4EDE3u}, {5, 3, "II", 0xE96330u}, {8, 3, "links", 0xF2952Au}},
+    {{0, 4, "I", 0xF7D246u}, {4, 4, "II", 0xE96330u}, {8, 2, "LFO", 0xCF4B3Fu}, {10, 1, "X-mod", 0xF2952Au}}};
 static const uint8_t LK_KX[11] = {11, 26, 41, 71, 86, 116, 131, 146, 176, 191, 221};   /* each black key's left */
 #define LK_KEY_Y 20                          /* the keys' top in the picture (the board's y 96) */
 #define LK_KEY_BH 62                         /* a black key's height (124) */
@@ -3094,97 +3100,23 @@ static void lk_keymap(void)
 
 /* SAVE browser and scene-slot naming popup. Three bands as on other Niagara
  * pages; the actual bank/slot/action/amount are the four bottom readouts. */
-static void lk_save_menu(void)
-{
-    const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
-    const int filled = scene_has(bank, slot);
-    const char *name = project_slot_name(bank, slot);
-    uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
-                                                     (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),
-                      (uint32_t)ui.menu_pct | (uint32_t)ui.save_menu << 8 | (uint32_t)ui.name_pos << 16);
-    char key[12], pct[8];
-    int i;
-    if (ui.save_menu == 2)
-        for (i = 0; i < BANK_NAME_LEN; i++)
-            h = hash(h, (uint8_t)ui.name_draft[i]);
-    if (name)
-        for (i = 0; name[i]; i++)
-            h = hash(h, (uint8_t)name[i]);
-    if (plat_ms() < ui.msg_until) h = hash(h, ui.msg_until);
-    if (ui.sig[0] == h) return;
-    ui.sig[0] = h;
-    scene_name(key, bank, slot);
-    itoa_u(ui.menu_pct, pct);
-    { char *q = pct; while (*q) q++; scopy(q, "%"); }
-
-    cv_begin(240, LK_BAR_H, LK_BG);
-    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 3 ? "OVERWRITE?" : ui.save_menu == 2 ? "NAME SLOT" : "SCENES", LK_WHITE);
-    cv_blit(0, 0);
-
-    cv_begin(240, LK_PIC_H, LK_BG);
-    cv_rect(8, 4, 224, 1, LK_RULE);
-    if (ui.save_menu == 2) {
-        cv_text(12, 11, &LK_F_SMALL, "EDIT SLOT NAME", LK_LABEL);
-        cv_text(195, 11, &FONT_XS, key, LK_GOLD);
-        for (i = 0; i < BANK_NAME_LEN - 1; i++) {
-            const char ch[2] = {ui.name_draft[i], 0};
-            const int32_t cx = 20 + 20 * i;
-            if (i == ui.name_pos) cv_rect(cx - 8, 55, 16, 2, LK_GOLD);
-            text_c(cx, 33, &FONT_T20, ch, i == ui.name_pos ? LK_GOLD : LK_WHITE);
-        }
-        cv_text(12, 84, &LK_F_SMALL, "K1 CURSOR   K2 LETTER", LK_LABEL);
-        cv_text(12, 108, &FONT_XS, "[SAVE] YES      [HOME] BACK", LK_LABEL);
-    } else if (ui.save_menu == 3) {
-        cv_text(12, 12, &LK_F_SMALL, "REPLACE THE STORED SOUND?", LK_GOLD);
-        text_c(120, 38, &FONT_N2, key, LK_WHITE);
-        text_c(120, 79, &FONT_T20, name ? name : "EXISTING SCENE", LK_LABEL);
-    } else {
-        cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
-        cv_text(74, 9, &FONT_T20, BANK_N[bank], LK_GOLD);
-        cv_text(12, 46, &LK_F_SMALL, "SLOT", LK_LABEL);
-        cv_text(74, 39, &FONT_N2, key, LK_WHITE);
-        cv_text(12, 79, &FONT_T20,
-                name ? name : filled ? "STORED" : "EMPTY",
-                name ? LK_WHITE : filled ? LK_WHITE : LK_UNLIT);
-        cv_text(12, 108, &FONT_XS, "[SAVE] YES  [HOME] BACK  [REC] NAME", LK_LABEL);
-    }
-    if (plat_ms() < ui.msg_until)
-        cv_text(10, 119, &FONT_XS, ui.msg[0], LK_GOLD);
-    cv_blit(0, LK_PIC_Y);
-
-    cv_begin(240, LK_VAL_H, LK_BG);
-    cv_rect(8, 0, 224, 1, LK_RULE);
-    if (ui.save_menu == 1) {
-        const int32_t cx[4] = {31, 89, 148, 207};
-        const char *const label[4] = {"BANK", "SLOT", "ACTION", "MORPH"};
-        const char *const action[3] = {"SAVE", "LOAD", "TRANS"};
-        char short_bank[4] = {BANK_L[bank], bank == BANK_PRESETS ? '1' : bank == BANK_PRESETS2 ? '2' : 0, 0};
-        const char *const value[4] = {short_bank, key, action[ui.menu_load], pct};
-        for (i = 0; i < 4; i++) {
-            text_c(cx[i], 8, &FONT_XS, label[i], LK_LABEL);
-            text_c(cx[i], 31, &FONT_T20, value[i],
-                   i == 2 && ui.menu_load == 0 && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_WHITE);
-        }
-    } else if (ui.save_menu == 3) {
-        text_c(120, 10, &FONT_XS, "EXISTING SCENE WILL BE LOST", LK_LABEL);
-        text_c(60, 39, &FONT_T20, "SAVE: YES", LK_GOLD);
-        text_c(177, 39, &FONT_T20, "HOME: BACK", LK_WHITE);
-    } else {
-        text_c(120, 13, &FONT_T20, "A-Z   0-9   -   SPACE", LK_LABEL);
-        text_c(120, 45, &FONT_XS, "11 CHARACTERS MAX", LK_LABEL);
-    }
-    cv_blit(0, LK_VAL_Y);
-}
+static void lk_save_menu(void) { vl_save_menu(); }
 
 /* a frame of the new look (every page since 0.3's PR H), the key map while SEL is held */
 static void lk_frame(void)
 {
     static int was = -1;                       /* into or out of overlays: every band afresh */
-    const int km = ui.save_menu ? 2 : keymap_on();
+    const int atlas = ui.hold_btn == B_HOME && !(ui.btn >> B_SEL & 1u) &&
+                      !ui.hold_turned && plat_ms() - ui.hold_t >= HOLD_MS;
+    const int km = ui.save_menu ? 2 : atlas ? 3 : keymap_on();
     if (km != was) {
         was = km;
         ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         lcd_fill(0, 0, 240, 240, LK_BG);
+    }
+    if (km == 3) {
+        if (!(ui.frame % 6)) vl_atlas(); /* ten updates per second, including live layer brightness */
+        return;
     }
     if (km == 2) {
         lk_save_menu();

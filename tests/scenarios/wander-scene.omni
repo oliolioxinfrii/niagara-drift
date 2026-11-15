@@ -3,9 +3,7 @@
 notips
 set 71 0
 set 74 1
-press SEL
-tapkey w14
-release SEL
+bank 3
 tap PLAY
 tapkey w5
 wait 3000

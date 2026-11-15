@@ -3121,14 +3121,12 @@ static void lk_save_menu(void)
     cv_begin(240, LK_PIC_H, LK_BG);
     cv_rect(8, 4, 224, 1, LK_RULE);
     if (ui.save_menu == 2) {
-        int32_t cx = 14;
         cv_text(12, 11, &LK_F_SMALL, "EDIT BANK NAME", LK_LABEL);
         for (i = 0; i < BANK_NAME_LEN - 1; i++) {
             const char ch[2] = {ui.name_draft[i], 0};
-            const int32_t w = text_w(&FONT_T20, ch);
-            if (i == ui.name_pos) cv_rect(cx, 55, w > 3 ? w : 8, 2, LK_GOLD);
-            cv_text(cx, 33, &FONT_T20, ch, i == ui.name_pos ? LK_GOLD : LK_WHITE);
-            cx += w;
+            const int32_t cx = 20 + 20 * i;
+            if (i == ui.name_pos) cv_rect(cx - 8, 55, 16, 2, LK_GOLD);
+            text_c(cx, 33, &FONT_T20, ch, i == ui.name_pos ? LK_GOLD : LK_WHITE);
         }
         cv_text(12, 84, &LK_F_SMALL, "K1 CURSOR   K2 LETTER", LK_LABEL);
         cv_text(12, 108, &FONT_XS, "[SAVE] YES      [HOME] BACK", LK_LABEL);

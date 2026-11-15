@@ -63,7 +63,9 @@ expect par100 7
 expect swerr <30
 # THE LFO on the clock: SELECT turns its cycle (LFO div, 101; 7 = a quarter note), steered to the beat
 expect par101 3
+press SEL
 spin SELECT 4
+release SEL
 expect par101 7
 wait 4000
 expect lfoerr <30

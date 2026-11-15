@@ -461,6 +461,16 @@ static int expect(const char *what, const char *val)
         got = ui.dirty;
     else if (!strcmp(what, "loop"))                /* the motion loop: 0 idle, 1 recording, 2 playing */
         got = ui.loop;
+    else if (!strcmp(what, "seqstate"))            /* pitch sequence: 0 off, 1 running, 2 paused */
+        got = sd.enabled ? (sd.paused ? 2 : 1) : 0;
+    else if (!strcmp(what, "seqcount"))
+        got = sd.count;
+    else if (!strcmp(what, "seqtotal"))            /* total length in seconds */
+        got = (int)sd_total_s();
+    else if (!strcmp(what, "seqnode2"))
+        got = (int)sd_node_s(1);
+    else if (!strcmp(what, "seqelapsed"))          /* includes completed loops; frozen while paused */
+        got = sd.enabled ? (int)sd_elapsed_ms() : 0;
     else if (!strcmp(what, "scene_at"))            /* the scene the sound is (its key blinks), or -1 */
         got = ui.scene_at;
     else if (!strcmp(what, "scenes"))              /* the scene slots in use, as a bit mask */

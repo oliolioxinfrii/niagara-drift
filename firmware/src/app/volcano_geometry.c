@@ -441,7 +441,6 @@ static void vl_air(void)
             }
         } else {
             cv_rect(8, 118, 224, 1, LK_RULE);
-            cv_text(10, 119, &FONT_XS, hold ? "FIELD LOCKED" : "PROPAGATION", LK_LABEL);
         }
     }
 }

@@ -2778,8 +2778,8 @@ static void leds(void)
             v = 2;
         k[BLACK_K[i]] = v == 1 ? LED_DIM : v == 2 || (v == 3 && blink(1000u)) ? 255 : 0;
     }
-    if (ui.scene_keys_enabled)
-    for (i = 0; i < NPLAY; i++)                      /* legacy scene-key LEDs (the unassigned keys remain dark) */
+    if (ui.scene_keys_enabled) {                    /* legacy scene-key LEDs and glides; pads normally stay dark */
+    for (i = 0; i < NPLAY; i++)
         if (scene_has(proj.bank, (int)i) &&            /* one the sound is, blinking slowly */
             (ui.scene_at != (int8_t)i || blink(720u)))
             k[WHITE_K[i]] = 255;
@@ -2799,6 +2799,7 @@ static void leds(void)
         k[WHITE_K[ui.scene_at]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
     else if (ui.flash_t && ui.press >= 0 && now - ui.flash_t < 480u)
         k[WHITE_K[ui.press]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
+    }
     for (i = 0; i < DR_NGEST; i++) {                 /* gestures: actual amount, no minimum light when off */
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);

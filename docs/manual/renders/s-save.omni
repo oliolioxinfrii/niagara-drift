@@ -4,15 +4,11 @@ notips
 phones 1
 set 74 0
 set 71 27
-press SEL
-tapkey w15
-release SEL
+bank 7
 tapkey w1
 tap PLAY
 wait 2500
-press SEL
-tapkey w8
-release SEL
+bank 0
 expect bank 0
 wait 1500
 turn K4 25 60

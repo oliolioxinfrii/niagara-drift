@@ -28,7 +28,7 @@
 #define LK_NEUTRAL RGB(244, 237, 227)        /* the global keys, the system */
 #define LK_RED RGB(255, 42, 31)              /* the one caution red */
 #define LK_G DR_NGROUPS                       /* a global knob's "drone": the neutral */
-static const uint16_t LK_DRONE[DR_NGROUPS + 1] = {RGB(247, 210, 70), RGB(233, 99, 48), RGB(244, 237, 227)}; /* two warm drone strata */
+static const uint16_t LK_DRONE[DR_NGROUPS + 1] = {RGB(247, 210, 70), RGB(246, 76, 60), RGB(244, 237, 227)}; /* sulfur and lava drone identities */
 static const uint32_t LK_RAMP[DR_NGROUPS + 1][2] = {{0x852720u, 0xF7D246u}, {0x852720u, 0xF7D246u},
                                                     {0x852720u, 0xF7D246u}}; /* dark red -> sulfur yellow magnitude */
 #define LK_PINK 0xEA7944u                    /* Tone's pink noise (pink, not red: red is caution) */
@@ -54,6 +54,24 @@ static uint16_t lk_mix(uint32_t a, uint32_t b, float t)   /* 0xRRGGBB a -> b */
     return RGB(r, g, bl);
 }
 static uint16_t lk_ramp(int g, float t) { return lk_mix(LK_RAMP[g][0], LK_RAMP[g][1], t); }
+static const uint32_t LK_SOURCE_RAMP[2][2] = {
+    {0x962D22u, 0xFFE04Bu}, {0x591820u, 0xFF7652u}
+};
+/* Voice colors are independent of the temperature-coded parameter meters. */
+static uint16_t lk_source_ramp(int g, float t)
+{
+    return lk_mix(LK_SOURCE_RAMP[g][0], LK_SOURCE_RAMP[g][1], t);
+}
+static uint32_t lk_source888(int g, float t)
+{
+    const uint32_t a = LK_SOURCE_RAMP[g][0], b = LK_SOURCE_RAMP[g][1];
+    uint32_t c = 0;
+    int sh;
+    for (sh = 16; sh >= 0; sh -= 8)
+        c |= (uint32_t)((float)(a >> sh & 255u) +
+              ((float)(b >> sh & 255u) - (float)(a >> sh & 255u)) * t) << sh;
+    return c;
+}
 static uint32_t lk_ramp888(int g, float t)   /* the same, 0xRRGGBB (to dim it) */
 {
     const uint32_t a = LK_RAMP[g][0], b = LK_RAMP[g][1];
@@ -286,7 +304,7 @@ static void lk_bar(void)
     }
     if ((ui.view == V_FX || ui.view == V_FX2) && proj.par[P_DLY_REPEATS] > 85) {   /* the echoes stop shrinking */
         badge[nb] = "runaway";
-        bcol[nb++] = LK_RED;
+        bcol[nb++] = LK_INK;
     }
     if (proj.par[P_I_OUT] && nb < 6) {
         badge[nb] = "I OUT";
@@ -642,7 +660,7 @@ static void lk_bundle_n(int32_t x0, const int16_t *y, int n, int g, int dx, int 
     for (j = 0; j < ns; j++) {                 /* the deepest, furthest back, first */
         const int32_t ox = x0 + dx * (ns - 1 - j), oy = dy * (ns - 1 - j);
         const float t = (float)j / (float)(ns - 1);
-        const uint16_t c = bright < 1.0f ? lk_mix(0x07060Bu, lk_ramp888(g, t), bright) : lk_ramp(g, t);
+        const uint16_t c = bright < 1.0f ? lk_mix(0x08080Au, lk_source888(g, t), bright) : lk_source_ramp(g, t);
         for (i = 1; i < n; i++) {
             if (j < ns - 1 && !dx && (y[i] - y[i - 1] > 3 * dy || y[i - 1] - y[i] > 3 * dy))
                 continue;                      /* a jump (a saw's, a square's): the front strand's alone, or stacked
@@ -752,7 +770,7 @@ static void lk_pic_drones1(void)
                 continue;
             }
             for (j = 0; j < LK_STRANDS; j++) { /* the oldest first, deep; the newest last, light */
-                const uint16_t c = lk_mix(0x07060Bu, lk_ramp888(g, (float)j / (float)(LK_STRANDS - 1)), br);
+                const uint16_t c = lk_mix(0x08080Au, lk_source888(g, (float)j / (float)(LK_STRANDS - 1)), br);
                 for (i = 1; i < DR_SCOPE_N; i++) {
                     const int32_t a = (int32_t)((float)lk_hist[g][j][i - 1] * cl), b = (int32_t)((float)lk_hist[g][j][i] * cl);
                     cv_line(x0 + i - 1, mid - a, x0 + i, mid - b, c);
@@ -830,7 +848,7 @@ static void lk_curve(int g, int32_t x0, int32_t top, int32_t bot)
                                                   (float)(h - 5 * LK_BDY)));   /* in place at any level (Evan,
                                                                                  * 2026-11-02: it sank as it got quiet) */
         }
-        lk_plot(x0, y, 51, lk_mix(0x07060Bu, lk_ramp888(g, (float)(j - 1) / (float)(LK_STRANDS - 2)), br));
+        lk_plot(x0, y, 51, lk_mix(0x08080Au, lk_source888(g, (float)(j - 1) / (float)(LK_STRANDS - 2)), br));
     }
 }
 
@@ -947,7 +965,7 @@ static void lk_drive_bundle(int32_t x0, const int16_t *y, int n, int g, float dr
     for (j = nn - 1; j >= 0; j--) {            /* the deepest, furthest down, first; the light one in front */
         const float t = 1.0f - (float)j / (nf - 1.0f), a = j + 1 <= (int)nf ? 1.0f : nf - (float)(int)nf;
         const int32_t oy = (int32_t)((float)j * sp - (nf - 1.0f) * sp * 0.5f + 0.5f);
-        const uint16_t c = lk_mix(0x07060Bu, lk_ramp888(g, fm_clampf(t, 0.0f, 1.0f)), bright * a);
+        const uint16_t c = lk_mix(0x08080Au, lk_source888(g, fm_clampf(t, 0.0f, 1.0f)), bright * a);
         for (i = 1; i < n; i++) {
             cv_line(x0 + 2 * (i - 1), y[i - 1] + oy, x0 + 2 * i, y[i] + oy, c);
             cv_line(x0 + 2 * (i - 1), y[i - 1] + oy + 1, x0 + 2 * i, y[i] + oy + 1, c);
@@ -1051,7 +1069,7 @@ static void lk_life_fb(int32_t cx, int32_t cy)
     for (k = 1; k <= n; k++) {
         const int red = sing && k == n;
         const float r0 = rmax * br * (float)k / (float)n;
-        const uint16_t c = red ? LK_RED : lk_ramp(LK_G, sing ? 1.0f : 1.0f - 0.7f * (float)(k - 1) / (float)n);
+        const uint16_t c = red ? LK_INK : lk_ramp(LK_G, sing ? 1.0f : 1.0f - 0.7f * (float)(k - 1) / (float)n);
         int32_t px = 0, py = 0;
         for (j = 0; j <= 32; j++) {
             const float a = 0.19634954f * (float)j;
@@ -1329,7 +1347,7 @@ static void lk_pic_partner(void)
             n = 144;
         for (j = on ? 0 : LK_STRANDS - 1; j < LK_STRANDS; j++) {   /* the oldest first, deep; now last, light */
             const float th = lk_knot_th[g] - fan * (float)(LK_STRANDS - 1 - j);
-            const uint16_t c = on ? lk_ramp(g, (float)j / (float)(LK_STRANDS - 1)) : LK_UNLIT;
+            const uint16_t c = on ? lk_source_ramp(g, (float)j / (float)(LK_STRANDS - 1)) : LK_UNLIT;
             int32_t px = 0, py = 0;
             for (i = 0; i <= n; i++) {
                 const float sv = (float)q * (float)i / (float)n;
@@ -1489,7 +1507,7 @@ static void lk_pic_moves(void)
     {   /* drone II's trail, six 1 px strands 2 px apart (Evan, 2026-11-02: a pixel apart they blended), the light
          * one on top */
         for (k = LK_STRANDS - 1; k >= 0; k--) {
-            const uint16_t c = lk_ramp(1, 1.0f - (float)k / (float)(LK_STRANDS - 1));
+            const uint16_t c = lk_source_ramp(1, 1.0f - (float)k / (float)(LK_STRANDS - 1));
             for (i = 1; i < LK_WN; i++)
                 cv_line(80 + 2 * (i - 1), LK_SY(lk_wtrail[i - 1]) + 2 * k, 80 + 2 * i, LK_SY(lk_wtrail[i]) + 2 * k, c);
         }
@@ -2309,9 +2327,9 @@ static void lk_dotrow(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c
         const int32_t x = cx - 25 + (int32_t)((float)i * 6.5f + 0.5f);
         const int r = red && i >= 8 - red;
         if (i < n) {
-            cv_round(x, y, 5, 5, 2, r ? LK_RED : gray ? LK_UNLIT : lk_mix(c0, c1, (float)i / 7.0f));
+            cv_round(x, y, 5, 5, 2, r ? LK_INK : gray ? LK_UNLIT : lk_mix(c0, c1, (float)i / 7.0f));
         } else {
-            cv_round(x, y, 5, 5, 2, r ? LK_RED : LK_UNLIT);
+            cv_round(x, y, 5, 5, 2, LK_UNLIT);
             cv_round(x + 1, y + 1, 3, 3, 1, LK_BG);
         }
     }
@@ -2339,17 +2357,17 @@ static void lk_dots(int32_t cx, int32_t y, float frac, int g, int caution)   /* 
     int i, n = (int)(fm_clampf(frac, 0.0f, 1.0f) * 8.0f + 0.5f);
     for (i = 0; i < 8; i++) {
         const int32_t x = cx - 25 + (int32_t)((float)i * 6.5f + 0.5f);
-        const uint16_t c = caution && i == 7 ? LK_RED : lk_ramp(g, (float)i / 7.0f);
+        const uint16_t c = caution && i == 7 ? LK_INK : lk_ramp(g, (float)i / 7.0f);
         if (i < n) {
             cv_round(x, y, 5, 5, 2, c);
         } else {
-            cv_round(x, y, 5, 5, 2, caution && i == 7 ? LK_RED : LK_UNLIT);
+            cv_round(x, y, 5, 5, 2, LK_UNLIT);
             cv_round(x + 1, y + 1, 3, 3, 1, LK_BG);
         }
     }
 }
 
-/* the Swell's meter: 9 pills of 5 in its coral ramp, unlit ones outlined; centred (Shape): from the middle one toward
+/* the Swell's meter: 9 pills of 5 in the thermal ramp, unlit ones outlined; centred (Shape): from the middle one toward
  * gate (left) or ramp (right), even lighting the middle alone (the spec; the board, ARP 262:4) */
 static void lk_dotrow(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c1, int red, int gray);
 static void lk_cdots_c(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c1);
@@ -2359,9 +2377,9 @@ static void lk_pills(int32_t cx, int32_t y, float frac, int centred)   /* ARP's:
                                                                        * same") */
 {
     if (centred)
-        lk_cdots_c(cx, y, frac, 0xFF8F73u, 0xFFF0E6u);
+        lk_cdots_c(cx, y, frac, LK_RAMP[LK_G][0], LK_RAMP[LK_G][1]);
     else
-        lk_dotrow(cx, y, frac, 0xFF8F73u, 0xFFF0E6u, 0, 0);
+        lk_dotrow(cx, y, frac, LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], 0, 0);
 }
 
 static void lk_cells(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c1, int caution)   /* ENV's: a dot row
@@ -2660,7 +2678,7 @@ cents:
 static void lk_ruler(int32_t cx, int32_t y, float frac, int g, int centred)   /* SEQ's: a dot row (was a ruler),
                                                                                  * Shift's from the middle */
 {
-    const uint32_t c0 = g == LK_G ? 0xF2EEF8u : LK_RAMP[g][0], c1 = g == LK_G ? 0xF2EEF8u : LK_RAMP[g][1];
+    const uint32_t c0 = LK_RAMP[g][0], c1 = LK_RAMP[g][1];
     if (centred)
         lk_cdots_c(cx, y, frac, c1, c0);
     else

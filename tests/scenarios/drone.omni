@@ -512,11 +512,13 @@ expect par51 32
 wait 100
 shot setup.png
 # GLO cycles Setup 1 -> Setup 2 -> Speaker -> Setup 1.
-# The new Speaker page is third; it does not replace the original Setup 2 controls.
+# VOLCANO v1.5 Setup 2 has Tuning, Tune, Stereo; K4 is intentionally unused.
+# Pressure sensitivity stays at its neutral default (50), including after K4 turns.
 tap GLO
 expect view 12
+expect par97 50
 spin K4 -10
-expect par97 40
+expect par97 50
 spin K4 10
 expect par97 50
 tap GLO

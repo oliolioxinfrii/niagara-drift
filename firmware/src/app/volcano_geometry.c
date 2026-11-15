@@ -463,22 +463,65 @@ static void vl_air(void)
         }
     }
 }
-/* A cutaway globe: muted observational meridians on the left, fiery strata
- * on the right. It is an emblem; all controls retain the common value band. */
-/* A conventional tuning ring overlays the cutaway planet. Intervals come from
- * the selected tuning itself; the reference A moves with the fine-tune value.
- * The globe's center is deliberately unlabeled. */
+/* Setup 2: the original planet stays 76px across, but moves to the
+ * center. L and R are concentric atmospheric strata, not oscilloscopes.
+ * Increasing Stereo separates the two rings; segments beyond the picture
+ * boundary are deliberately clipped. Tuning ticks and A stay independent. */
 static void vl_planet(void)
 {
-    const int cx = 64, cy = 67, r = 38;
+    const int cx = 120, cy = 65, r = 38;
     const int tuning = (unsigned)proj.par[P_TUNING] < DR_NTUNING ? proj.par[P_TUNING] : DR_TUN_12;
     const int n = dr_tun_n(tuning);
     const float shift = 1200.0f * fm_log2f(1.0f + (float)proj.par[P_TUNE] / 4400.0f);
+    const float stereo = vl_norm(P_WIDTH);
     static const uint16_t layers[5] = {RGB(246, 208, 62), RGB(242, 156, 47),
-                                       RGB(225, 88, 43), RGB(173, 47, 39), RGB(106, 29, 36)};
+                                       RGB(225, 88, 43), RGB(173, 47, 39),
+                                       RGB(106, 29, 36)};
     int k, i;
+    /* Two thin, slightly offset rings per channel. Their shared origin is
+     * the planet itself, while radial displacement represents stereo width.
+     * A fixed 76px planet remains visible at every setting. */
+    for (k = 0; k < 2; k++) {
+        const int base = r + 13 + (k ? 2 + (int)(25.0f * stereo) : 0);
+        for (i = 0; i < 2; i++) {
+            const int radius = base + i * 4;
+            const uint16_t ink = vl_bright(LK_DRONE[k], i ? 0.35f : 0.83f);
+            int j, px = cx, py = cy + radius;
+            for (j = 1; j <= 96; j++) {
+                const float a = 6.2831853f * (float)j / 96.0f;
+                const int x = cx + (int)((float)radius * fm_sinf(a));
+                const int y = cy + (int)((float)radius * fm_cosf(a));
+                if (x >= 7 && x <= 232 && y >= 9 && y <= 115 &&
+                    px >= 7 && px <= 232 && py >= 9 && py <= 115)
+                    cv_line(px, py, x, y, ink);
+                px = x; py = y;
+            }
+        }
+        /* The letters remain white, as in the other parameter drawings. */
+        {
+            const int lx = k ? cx + base + 7 : cx - base - 7;
+            if (lx > 12 && lx < 227)
+                text_c(lx, cy - 4, &FONT_XS, k ? "R" : "L", LK_WHITE);
+        }
+    }
     lk_circle(cx, cy, r, LK_LABEL);
-    /* Ticks on the periphery follow the real selected tuning, not 12 fixed spokes. */
+    for (k = 0; k < 5; k++) {
+        const int rr = r - 5 - k * 6;
+        int px = cx, py = cy - rr;
+        for (i = 1; i <= 28; i++) {
+            const float a = 3.14159265f * (float)i / 28.0f;
+            const int x = cx + (int)((float)rr * fm_sinf(a));
+            const int y = cy - (int)((float)rr * fm_cosf(a));
+            cv_line(px, py, x, y, vl_bright(layers[k], 0.85f));
+            px = x; py = y;
+        }
+    }
+    cv_rect(cx, cy - r, 1, r * 2, LK_WHITE);
+    for (i = -2; i <= 2; i++) {
+        const int y = cy + i * 11;
+        cv_line(cx - 30, y, cx - 2, y, vl_bright(LK_LABEL, 0.33f));
+    }
+    /* The actual interval positions of the selected tuning, as before. */
     for (k = 0; k < n; k++) {
         const float note = (float)dr_tun_c(tuning, k) + shift;
         lk_spoke(cx, cy, note, (float)r + 2.0f,
@@ -489,48 +532,5 @@ static void vl_planet(void)
         int32_t ax, ay;
         lk_polar(cx, cy, shift, (float)r + 18.0f, &ax, &ay);
         text_c(ax, ay - LK_B(FONT_XS) + 6, &FONT_XS, "A", LK_WHITE);
-    }
-    /* Interior geology uses semicircular bands without text or continents. */
-    for (k = 0; k < 5; k++) {
-        const int rr = r - 5 - k * 6;
-        int px = cx, py = cy - rr;
-        for (i = 1; i <= 28; i++) {
-            const float a = 3.14159265f * (float)i / 28.0f;
-            const int x = cx + (int)((float)rr * fm_sinf(a));
-            const int y = cy - (int)((float)rr * fm_cosf(a));
-            cv_line(px, py, x, y, vg_dim(layers[k], 0.85f));
-            px = x; py = y;
-        }
-    }
-    cv_rect(cx, cy - r, 1, r * 2, LK_WHITE);
-    for (i = -2; i <= 2; i++) {
-        const int y = cy + i * 11;
-        cv_line(cx - 30, y, cx - 2, y, vg_dim(LK_LABEL, 0.33f));
-    }
-    cv_text(128, 5, &FONT_T20, "PLANET", LK_WHITE);
-    cv_rect(128, 29, 104, 2, VL_SURFACE);
-    if (ui.view == V_SETUP2) {
-        const float width = vl_norm(P_WIDTH);
-        const float phase = (float)(plat_ms() % 4500u) / 4500.0f;
-        for (k = 0; k < 2; k++) {
-            const int xc = 180 + (k ? 1 : -1) * (4 + (int)(16.0f * width));
-            const uint16_t ink = LK_DRONE[k];
-            for (i = 0; i < 3; i++) {
-                int lastx = xc + i * 2, lasty = 41;
-                int j;
-                for (j = 1; j <= 30; j++) {
-                    const int y = 41 + j * 2;
-                    const int x = xc + i * 2 + (int)(5.5f * fm_sinf(6.2831853f * 
-                                   ((float)j / 19.0f + phase + (float)k * 0.5f)));
-                    cv_line(lastx, lasty, x, y,
-                            vg_dim(ink, 0.48f + (float)i * 0.25f));
-                    lastx = x; lasty = y;
-                }
-            }
-            text_c(xc, 105, &FONT_XS, k ? "R" : "L", LK_LABEL);
-        }
-    } else {
-        cv_text(129, 48, &FONT_T20, ui.view == V_SETUP ? "CLOCK" : "SPEAKER", LK_WHITE);
-        cv_text(129, 78, &FONT_XS, ui.view == V_SETUP ? "TIME / SYNC" : "OUTPUT", LK_LABEL);
     }
 }

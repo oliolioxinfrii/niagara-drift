@@ -7,7 +7,7 @@
  *   KNOB 1-2       drone I's two values on the page shown, KNOB 3-4 drone II's; the Drones page (HOME):
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
- *   SELECT         LFO rate      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
+ *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
  *   PRESETS        GESTURE TIME: every gesture's speed, x0.1 .. x10 (v0.2)
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
@@ -119,14 +119,10 @@ static const struct {
 /* the black keys (key numbers, F3 = 0) and what each does: normally, and on the LFO page */
 static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
 /* the white keys: the first NPLAY (F3 .. F4) the scenes of the bank; the next four (G4 .. C5, which sense pressure
- * too) the pressure gestures; the top four (D5 .. G5, no pressure) the gestures (Weight, Shift, Clean, Wash); SEL + any
- * of those eight: a bank (KEY_BANK) */
+ * too) the pressure gestures; the top four (D5 .. G5, no pressure) the gestures (Weight, Shift, Clean, Wash). */
 #define NWHITE 16
 static const uint8_t WHITE_K[NWHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const char BANK_L[NBANKS] = {'A', 'B', 'C', 'P', 'D', 'E', 'F', 'P'};
-/* SEL + the eight gesture keys (G4 .. C5, D5 .. G5, left to right): the banks in a row, A .. F, then the Presets'
- * two (Evan, 2026-11-07: 6 yours + 2 Presets, one row) */
-static const uint8_t KEY_BANK[8] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
 static const char *const BANK_N[NBANKS] = {"A", "B", "C", "PRESETS 1-8", "D", "E", "F", "PRESETS 9-16"};
 static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL",
                                                "STUTTER"};   /* D5-G5, then G4-C5: fixed */
@@ -1358,7 +1354,7 @@ static void scene_recall(int n, int keep)              /* a white key: morph the
     int k;
     scene_name(t + 6, proj.bank, n);
     if (!sc) {
-        say(t, "EMPTY: [SAVE]+KEY");
+        say(t, "EMPTY: [SAVE] BROWSE");
         return;
     }
     if (keep)
@@ -2245,7 +2241,7 @@ static void input(void)
                 if (btn >> B_SEL & 1u)
                     say_c("LET GO: UNDO", 0, K_GOLD);
                 else
-                    say_c(BANK_IS_PRESETS(proj.bank) ? "PRESETS ARE FIXED" : "KEY: STORE", "LET GO: SAVE", K_GOLD);
+                    say_c("SAVE MENU", "LET GO: BROWSE", K_GOLD);
             }
         } else {
             save_dn = 0;
@@ -2280,9 +2276,11 @@ static void input(void)
                                                                                           * gestures (v0.3) */
         if (!((ch & keys) >> WHITE_K[i] & 1u))
             continue;
+        if (btn >> B_SEL & 1u)
+            ui.btn_used |= 1u << B_SEL;   /* SEL+gesture is not a request for the key map */
         gesture_down(g);
     }
-    for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go (one that picked a bank: nothing) */
+    for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go */
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
             gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
     }

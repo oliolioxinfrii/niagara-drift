@@ -1,28 +1,44 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Experimental four-event pitch path for Niagara Drift.
- * Included by ui.c after the tuning and encoder helpers. No additional DSP voices:
- * interpolate the existing two drone fundamentals on a shared, unequal timeline.
- * These values are intentionally RAM-only while interaction is being evaluated. */
+/* Experimental four-position pitch progression for the two existing drones.
+ * The sequence edits notes, not synthesis voices or scene states. RAM only.
+ * Step 1 always follows the live pitches of HOME > Pitch (the second HOME
+ * page), even when the sequencer is running. */
 #define SD_MAX 4
 #define SD_LIMIT_S 240u
 #define SD_DEFAULT_S 10u
 static struct {
     uint8_t count, position, drone, phase, enabled, running;
-    uint16_t gap_s[SD_MAX];
+    uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
     int16_t note[2][SD_MAX];
-    uint32_t started_ms, sent_ms;
     int16_t sent[2];
+    uint32_t started_ms, sent_ms;
+    int8_t preview_key;                  /* most recently pressed keyboard key; -1: none */
+    uint8_t preview_sounded;             /* audition temporarily started PLAY's audio */
+    uint8_t preview_active;              /* audible preview replaced the normal pitch */
+    uint8_t link_was;
 } sd;
 
 static uint32_t sd_total_s(void)
 {
     uint32_t sum = 0;
     int i;
-    if (sd.count < 2)
-        return 0;
-    for (i = 0; i < sd.count; i++)
-        sum += sd.gap_s[i];
+    if (sd.count < 2) return 0;
+    for (i = 0; i < sd.count; i++) sum += sd.gap_s[i];
     return sum;
+}
+static uint32_t sd_node_s(int pos)       /* elapsed seconds from step 1 */
+{
+    uint32_t sum = 0;
+    int i;
+    for (i = 0; i < pos && i < sd.count; i++) sum += sd.gap_s[i];
+    return sum;
+}
+static int sd_linked(void) { return proj.par[P_PLINK] != 0; }
+static int sd_pitch(int g, int pos)
+{
+    if (g && sd_linked())
+        return sd.note[0][pos] + proj.par[P_PLINK_OFF];
+    return sd.note[g][pos];
 }
 
 static void sd_reset_clock(void)
@@ -31,155 +47,276 @@ static void sd_reset_clock(void)
     sd.sent_ms = 0;
     sd.sent[0] = sd.sent[1] = -32768;
 }
-
+static void sd_sync_home(void)
+{
+    const int link = sd_linked(), offset = proj.par[P_PLINK_OFF];
+    int i;
+    sd.note[0][0] = proj.par[DR_GP(0, GP_PITCH)];
+    sd.note[1][0] = link ? (int16_t)(sd.note[0][0] + offset) : proj.par[DR_GP(1, GP_PITCH)];
+    if (link)
+        for (i = 1; i < SD_MAX; i++)
+            sd.note[1][i] = (int16_t)(sd.note[0][i] + offset);
+    sd.link_was = (uint8_t)link;
+}
 static void sd_init(void)
 {
-    int g, i;
+    int i, g;
     memset(&sd, 0, sizeof sd);
     sd.count = 1;
+    sd.preview_key = -1;
     for (i = 0; i < SD_MAX; i++) {
         sd.gap_s[i] = SD_DEFAULT_S;
         for (g = 0; g < 2; g++)
             sd.note[g][i] = proj.par[DR_GP(g, GP_PITCH)];
     }
+    sd_sync_home();
     sd_reset_clock();
 }
-
-/* The sequencer owns pitch while enabled. Disabling restores the live project's
- * stored pitch and Pitch Link, without saving transient sequencer positions. */
-static void sd_toggle(void)
+static void sd_restore_pitch(void)
 {
     int g;
-    sd.enabled = !sd.enabled;
+    for (g = 0; g < 2; g++) {
+        dr_slide(g, 80);
+        dr_set(DR_GP(g, GP_PITCH), proj.par[DR_GP(g, GP_PITCH)]);
+    }
+    dr_set(P_PLINK_OFF, proj.par[P_PLINK_OFF]);
+    dr_set(P_PLINK, proj.par[P_PLINK]);
+}
+static void sd_stop(void)
+{
+    sd.enabled = 0;
     sd.running = 0;
     sd_reset_clock();
-    if (sd.enabled) {
-        dr_set(P_PLINK, 0);               /* independent phase and notes for both drones */
-        say_c("SEQUENCE", "ON", K_GOLD);
-    } else {
-        for (g = 0; g < 2; g++) {
-            dr_slide(g, 100);
-            dr_set(DR_GP(g, GP_PITCH), proj.par[DR_GP(g, GP_PITCH)]);
-        }
-        dr_set(P_PLINK_OFF, proj.par[P_PLINK_OFF]);
-        dr_set(P_PLINK, proj.par[P_PLINK]);
-        say_c("SEQUENCE", "OFF", K_GOLD);
-    }
+    if (sd.preview_key < 0) sd_restore_pitch();
+}
+static void sd_start(void)
+{
+    sd_sync_home();
+    sd.enabled = 1;
+    sd.running = 1;
+    sd_reset_clock();
+    /* Pitch Link applies to the authored notes, not the engine's live cursor.
+     * Force the audio engine into independent pitch mode during progression;
+     * linked drone II is calculated from the currently active drone I pitch. */
+    dr_set(P_PLINK, 0);
+    say_c("SEQUENCE", "START AT STEP 1", K_GOLD);
 }
 
-/* Which two points bracket this drone's position? Return interpolated cents.
- * A smoothstep connects nodes without the abrupt change in slope of linear
- * interpolation. Drone II is offset over the COMPLETE cycle (like Swell). */
+/* Smoothly interpolate across unequal event intervals. In Pitch Link mode,
+ * drone II follows drone I at the saved offset, with no phase disagreement. */
 static int sd_at(int g, uint32_t elapsed_ms)
 {
     const uint32_t len_ms = sd_total_s() * 1000u;
     uint32_t t;
-    int i;
-    if (!len_ms)
-        return sd.note[g][0];
+    int i, base = g && sd_linked() ? 0 : g;
+    if (!len_ms) return sd_pitch(g, 0);
     t = elapsed_ms % len_ms;
-    if (g)
+    if (g && !sd_linked())
         t = (t + (uint32_t)sd.phase * len_ms / 100u) % len_ms;
     for (i = 0; i < sd.count; i++) {
         const uint32_t gap = (uint32_t)sd.gap_s[i] * 1000u;
         if (t < gap) {
-            const int a = sd.note[g][i], b = sd.note[g][(i + 1) % sd.count];
+            const int a = sd.note[base][i];
+            const int b = sd.note[base][(i + 1) % sd.count];
             const float x = (float)t / (float)gap;
-            const float eased = x * x * (3.0f - 2.0f * x);
-            const float c = (float)a + (float)(b - a) * eased;
-            return (int)(c + (c < 0.0f ? -0.5f : 0.5f));
+            const float smooth = x * x * (3.0f - 2.0f * x);
+            const float v = (float)a + (float)(b - a) * smooth +
+                            (g && sd_linked() ? (float)proj.par[P_PLINK_OFF] : 0.0f);
+            return (int)(v + (v >= 0.0f ? 0.5f : -0.5f));
         }
         t -= gap;
     }
-    return sd.note[g][0];
+    return sd_pitch(g, 0);
 }
-
+static void sd_note_set(int pos, int g, int cents)
+{
+    const int p = DR_GP(g, GP_PITCH);
+    const dr_param_t *in = dr_param_info(p);
+    if (sd_linked()) g = 0;
+    if (cents < in->lo) cents = in->lo;
+    if (cents > in->hi) cents = in->hi;
+    if (pos == 0) {
+        /* Home Pitch 2 is the authoritative source for the first note,
+         * including edits made from the SEQ keyboard or SEL+K1. */
+        param_set(DR_GP(g, GP_PITCH), cents);
+        sd_sync_home();
+    } else {
+        sd.note[g][pos] = (int16_t)cents;
+        if (sd_linked())
+            sd.note[1][pos] = (int16_t)(cents + proj.par[P_PLINK_OFF]);
+    }
+}
+static int sd_key_cents(int key)
+{
+    /* The physical 27-key keyboard is F3 (MIDI 53) through G5 (MIDI 79).
+     * Snap to the active tuning; SEL+K1 accesses intervals between keys. */
+    const int p = DR_GP(sd_linked() ? 0 : sd.drone, GP_PITCH);
+    return grid_near(p, (53 + key) * 100);
+}
+static void sd_keys(uint32_t down, uint32_t pressed)
+{
+    int i, newest = -1;
+    for (i = 0; i < NKEYS; i++)
+        if (pressed >> i & 1u) {
+            newest = i;
+            sd_note_set(sd.position, sd.drone, sd_key_cents(i));
+        }
+    if (newest >= 0) {
+        sd.preview_key = (int8_t)newest;
+        sd.sent[0] = sd.sent[1] = -32768;
+    } else if (sd.preview_key >= 0 && !(down >> sd.preview_key & 1u)) {
+        sd.preview_key = -1;
+        sd.sent[0] = sd.sent[1] = -32768;
+    }
+}
+/* Persistent LEDs indicate every programmed note currently on the keyboard.
+ * The selected position is full brightness, other positions a dim glow. */
+static void sd_key_leds(uint8_t *k)
+{
+    int i, g;
+    memset(k, 0, NKEYS);
+    for (i = 0; i < sd.count; i++)
+        for (g = 0; g < 2; g++) {
+            const int cents = sd_pitch(g, i);
+            const int key = (cents + 50) / 100 - 53;
+            if (key >= 0 && key < NKEYS) {
+                const uint8_t level = i == sd.position && (!g || !sd_linked()) ? 255 : 90;
+                if (k[key] < level) k[key] = level;
+            }
+        }
+    if (sd.preview_key >= 0)
+        k[(int)sd.preview_key] = 255;
+}
 static void sd_run(void)
 {
-    uint32_t now;
+    uint32_t now = plat_ms();
     int g;
+    sd_sync_home();
+    /* When any note is held, audition the exact programmed pitch, including
+     * the linked drone. The normal progression resumes on release. */
+    if (sd.preview_key >= 0) {
+        const int audible_g = sd_linked() ? 0 : sd.drone;
+        const int v = sd_pitch(audible_g, sd.position);
+        if (!ui.playing && !sd.preview_sounded) {
+            dr_play(1);
+            sd.preview_sounded = 1;
+        }
+        if (!sd.preview_active || sd.sent[0] != v) {
+            dr_set(P_PLINK, 0);
+            for (g = 0; g < 2; g++) {
+                const int pitch = sd_linked() ? sd_pitch(g, sd.position) :
+                                  g == audible_g ? v : proj.par[DR_GP(g, GP_PITCH)];
+                dr_slide(g, 30);
+                dr_set(DR_GP(g, GP_PITCH), pitch);
+            }
+            sd.sent[0] = (int16_t)v;
+        }
+        sd.preview_active = 1;
+        return;
+    }
+    if (sd.preview_active) {
+        sd.preview_active = 0;
+        sd.sent[0] = sd.sent[1] = -32768;
+        sd.sent_ms = 0;
+        if (sd.preview_sounded && !ui.playing) {
+            dr_play(0);
+            sd.preview_sounded = 0;
+        }
+        if (!sd.enabled || !ui.playing)
+            sd_restore_pitch();
+    }
     if (!sd.enabled || !ui.playing) {
         sd.running = 0;
         return;
     }
     if (!sd.running) {
         sd.running = 1;
-        sd_reset_clock();                /* start at step 1 on PLAY */
+        sd_reset_clock();
     }
-    now = plat_ms();
-    if (sd.sent_ms && now - sd.sent_ms < 50u)
-        return;
+    if (sd.sent_ms && now - sd.sent_ms < 50u) return;
     sd.sent_ms = now | 1u;
+    dr_set(P_PLINK, 0);               /* scene recalls cannot re-enable link on the audio cursor */
     for (g = 0; g < 2; g++) {
         const int v = sd_at(g, now - sd.started_ms);
         if (v != sd.sent[g]) {
-            dr_slide(g, 80);              /* bridge the 50-ms control-rate updates */
+            dr_slide(g, 80);
             dr_set(DR_GP(g, GP_PITCH), v);
             sd.sent[g] = (int16_t)v;
         }
     }
 }
 
-/* K1 step, K2 drone (SEL+K2 tunes the selected step), K3 event count,
- * K4 phase of drone II, 0..100% of the complete sequence. */
+/* Sequence page: K1 selects position, K2 selects drone, K3 event count,
+ * K4 drone-II phase. SEL+K1 retunes the chosen position on its tuning grid.
+ * Pitch Link makes drone II follow I and disables independent selection. */
 static void sd_note_knob(int i, int32_t e)
 {
     int v;
-    if (i == 0) {
-        v = (int)sd.position + (e > 0 ? 1 : -1);
-        sd.position = (uint8_t)((v + sd.count) % sd.count);
-    } else if (i == 1 && (ui.btn >> B_SEL & 1u)) {
-        const int p = DR_GP(sd.drone, GP_PITCH);
-        const dr_param_t *in = dr_param_info(p);
-        const int old = sd.note[sd.drone][sd.position];
-        v = grid_at(p, grid_k(p, old) + (e > 0 ? 1 : -1));
-        v = v < in->lo ? in->lo : v > in->hi ? in->hi : v;
-        sd.note[sd.drone][sd.position] = (int16_t)v;
+    if (i == 0 && (ui.btn >> B_SEL & 1u)) {
+        const int g = sd_linked() ? 0 : sd.drone;
+        const int p = DR_GP(g, GP_PITCH);
+        const int old = sd_pitch(g, sd.position);
+        const int next = grid_at(p, grid_k(p, old) + (e > 0 ? 1 : -1));
+        sd_note_set(sd.position, g, next);
         ui.sel_turned = 1;
         ui.btn_used |= 1u << B_SEL;
+    } else if (i == 0) {
+        v = (int)sd.position + (e > 0 ? 1 : -1);
+        sd.position = (uint8_t)((v + sd.count) % sd.count);
     } else if (i == 1) {
-        sd.drone = (uint8_t)(e > 0);
+        if (sd_linked()) {
+            sd.drone = 0;
+            say_c("PITCHES LINKED", "II FOLLOWS I", K_DRONE[1]);
+        } else {
+            sd.drone = (uint8_t)(e > 0);
+        }
     } else if (i == 2) {
+        const int old = sd.count;
         v = (int)sd.count + (e > 0 ? 1 : -1);
         sd.count = (uint8_t)(v < 1 ? 1 : v > SD_MAX ? SD_MAX : v);
-        if (sd.position >= sd.count)
-            sd.position = sd.count - 1;
-        /* Increasing the number of events must not breach the global limit:
-         * shorten the longest existing gap, never force equal divisions. */
+        if (sd.position >= sd.count) sd.position = sd.count - 1;
+        if (sd.count > old) {
+            const int step = sd.count - 1;
+            sd.note[0][step] = sd.note[0][step - 1];
+            sd.note[1][step] = sd.note[1][step - 1];
+        }
         while (sd_total_s() > SD_LIMIT_S) {
-            int longest = 0, k;
-            for (k = 1; k < sd.count; k++)
-                if (sd.gap_s[k] > sd.gap_s[longest])
-                    longest = k;
-            if (sd.gap_s[longest] <= 1u)
-                break;
-            {
-                uint32_t excess = sd_total_s() - SD_LIMIT_S;
-                uint32_t available = sd.gap_s[longest] - 1u;
-                sd.gap_s[longest] -= (uint16_t)(excess < available ? excess : available);
-            }
+            int largest = 0, j;
+            for (j = 1; j < sd.count; j++)
+                if (sd.gap_s[j] > sd.gap_s[largest]) largest = j;
+            if (sd.gap_s[largest] < 2) break;
+            sd.gap_s[largest]--;
         }
         sd_reset_clock();
-    } else if (i == 3) {
+    } else if (i == 3 && !sd_linked()) {
         v = (int)sd.phase + (int)accel(EN_K1 + i, e, 100);
         sd.phase = (uint8_t)(v < 0 ? 0 : v > 100 ? 100 : v);
     }
 }
 
-/* K1..4 give time from step i to i+1 (wrapping to step 1).
- * Each is 1s minimum. The sum, not a per-knob maximum, is capped. */
+/* Timing page controls note ARRIVAL positions rather than interval lengths.
+ * K1 moves node 2, K2 node 3, K3 node 4: add time to the preceding
+ * interval and subtract it from the following one, preserving all other
+ * positions and total length. K4 moves the end of the loop (the next
+ * step 1), changing only the final wrap interval and overall length. */
 static void sd_time_knob(int i, int32_t e)
 {
-    uint32_t sum, maximum;
-    int v;
-    if (i >= sd.count || sd.count < 2)
-        return;
-    sum = sd_total_s();
-    maximum = SD_LIMIT_S - (sum - sd.gap_s[i]);
-    v = (int)sd.gap_s[i] + (int)accel(EN_K1 + i, e, SD_LIMIT_S);
-    if (v < 1)
-        v = 1;
-    if ((uint32_t)v > maximum)
-        v = (int)maximum;
-    sd.gap_s[i] = (uint16_t)v;
+    int delta, oldgap;
+    uint32_t total;
+    if (sd.count < 2) return;
+    if (i < 3) {
+        if (i + 1 >= sd.count) return;
+        delta = (int)accel(EN_K1 + i, e, SD_LIMIT_S);
+        if (delta < 1 - (int)sd.gap_s[i]) delta = 1 - (int)sd.gap_s[i];
+        if (delta > (int)sd.gap_s[i + 1] - 1) delta = (int)sd.gap_s[i + 1] - 1;
+        sd.gap_s[i] = (uint16_t)((int)sd.gap_s[i] + delta);
+        sd.gap_s[i + 1] = (uint16_t)((int)sd.gap_s[i + 1] - delta);
+    } else {
+        total = sd_total_s();
+        oldgap = (int)sd.gap_s[sd.count - 1];
+        delta = (int)accel(EN_K1 + i, e, SD_LIMIT_S);
+        if (delta < 1 - oldgap) delta = 1 - oldgap;
+        if (delta > (int)(SD_LIMIT_S - total)) delta = (int)(SD_LIMIT_S - total);
+        sd.gap_s[sd.count - 1] = (uint16_t)(oldgap + delta);
+    }
 }

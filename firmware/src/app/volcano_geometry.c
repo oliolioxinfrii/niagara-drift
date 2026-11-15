@@ -236,39 +236,6 @@ static void vl_surface(int pitch)
         cv_rect(x0 + 1, 119, 103, 1, LK_RULE);
     }
 }
-static void vl_mantle_sources(int sub)
-{
-    int g;
-    cv_rect(119, 3, 1, 117, LK_RULE);
-    for (g = 0; g < 2; g++) {
-        const int x0 = 8 + 120 * g;
-        const float shape = vl_norm(DR_GP(g, GP_WAVE));
-        const float mix = vl_norm(DR_GP(g, GP_MIX));
-        const float drive = vl_norm(DR_GP(g, GP_DRIVE));
-        const float vol = vl_norm(DR_GP(g, GP_LEVEL));
-        const int fold = 3 + (int)(5.0f * (sub ? drive : shape));
-        int k;
-        cv_text(x0 + 2, 2, &LK_F_DRONE, g ? "II" : "I", LK_DRONE[g]);
-        vg_section(g, x0 + 1, 28, 103, 10, fold, 0.68f + vol * 0.28f, 2);
-        if (sub && mix > 0.01f) {
-            /* A subharmonic intrusion cuts through otherwise continuous beds. */
-            const int xx = x0 + 55;
-            for (k = 0; k < 16; k++) {
-                const int x = xx + (int)(vg_hash((uint32_t)k * 23u) % 7u) - 3;
-                const int y = 26 + k * 5;
-                cv_line(x, y, x + 1, y + 5,
-                        k % 5 == 0 && drive > 0.80f ? LK_WHITE :
-                        vg_dim(VG_STRATA[g][0], mix));
-            }
-        } else if (!sub) {
-            /* Fine wave-width ticks provide information without a scope trace. */
-            const int count = 3 + (int)(shape * 11.0f);
-            for (k = 0; k < count; k++)
-                cv_rect(x0 + 8 + k * 7, 116, 3, 2,
-                        k == count - 1 ? LK_WHITE : VG_STRATA[g][2]);
-        }
-    }
-}
 /* The same irregular volcano section is used by LIFE, but the four parameter
  * families affect different physical marks: bulk plume, deflection, ejecta,
  * and fine ash/weathering. */

@@ -130,9 +130,9 @@ static int sd_at(int g, uint32_t elapsed_ms)
 }
 static void sd_note_set(int pos, int g, int cents)
 {
+    if (sd_linked()) g = 0;
     const int p = DR_GP(g, GP_PITCH);
     const dr_param_t *in = dr_param_info(p);
-    if (sd_linked()) g = 0;
     if (cents < in->lo) cents = in->lo;
     if (cents > in->hi) cents = in->hi;
     if (pos == 0) {
@@ -178,8 +178,12 @@ static void sd_key_leds(uint8_t *k)
     for (i = 0; i < sd.count; i++)
         for (g = 0; g < 2; g++) {
             const int cents = sd_pitch(g, i);
-            const int key = (cents + 50) / 100 - 53;
-            if (key >= 0 && key < NKEYS) {
+            int key = (cents + 50) / 100 - 53;
+            /* The keyboard spans only F3..G5; octave-fold off-panel
+             * fundamentals so their pitch classes remain indicated. */
+            while (key < 0) key += 12;
+            while (key >= NKEYS) key -= 12;
+            {
                 const uint8_t level = i == sd.position && (!g || !sd_linked()) ? 255 : 90;
                 if (k[key] < level) k[key] = level;
             }

@@ -1,6 +1,7 @@
 # SEQ pages 3-5: keyboard note entry, linked drone pitches, and
 # unequal event timing. Screenshots are for emulator review.
 notips
+legacykeys
 tap PLAY
 tap SEQ
 expect view 9

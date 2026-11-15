@@ -106,6 +106,7 @@ static uint16_t lk_msg_col(uint16_t c)
 }
 
 static uint16_t vl_layer_color(int v);
+static uint16_t vl_bright(uint16_t c, float f); /* defined by volcano_look.c below */
 static void vl_depth_marker(int v);
 static int32_t lk_ktext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c);
 static int32_t lk_ktext_w(const felucca_font_t *f, const char *s);
@@ -2820,7 +2821,7 @@ static void lk_values(void)
         cv_rect(0, 0, 240, 1, grid);
         cv_rect(120, 7, 1, 74, grid);        /* the two drones' pairs */
         for (j = 0; j < 4; j++) {
-            const int p = knob_param(j), g = j / 2, v = proj.par[p], on = lit(j);
+            const int p = knob_param(j), v = proj.par[p], on = lit(j);
             const int lo = dr_param_info(p)->lo, hi = dr_param_info(p)->hi;
             const int32_t cx = 36 + 56 * j;
             const uint16_t c = lk_ramp(LK_G, hi > lo ? (float)(v - lo) / (float)(hi - lo) : 0.5f);

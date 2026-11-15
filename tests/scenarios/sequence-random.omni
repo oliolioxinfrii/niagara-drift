@@ -1,0 +1,61 @@
+# Random Start updates the sequence without changing its selected length.
+# All notes follow the current tuning; adjacent pitches, including wrap, stay
+# within an octave. Active intervals remain >= 1 s and sum to the original loop.
+notips
+page 18
+expect view 18
+spin K3 3
+expect seqcount 4
+expect seqtotal 40
+spin K4 80
+expect seqtotal 120
+spin K4 -80
+expect seqtotal 40
+press SEL
+tap HOME
+release SEL
+expect view 18
+expect seqcount 4
+expect seqtotal 40
+expect seqgapmin >0
+expect seqmaxjump <1201
+shot seq-random-unlinked.png
+press SEL
+tap HOME
+release SEL
+expect seqcount 4
+expect seqtotal 40
+expect seqgapmin >0
+expect seqmaxjump <1201
+
+# Global Pitch Lock couples Drone II's random path to Drone I.
+set 74 1
+press SEL
+tap HOME
+release SEL
+expect par74 1
+expect seqcount 4
+expect seqtotal 40
+expect seqmaxjump <1201
+shot seq-random-locked.png
+
+# Pitch Link remains enabled and keeps its derived Drone II notes.
+set 74 0
+set 45 1
+press SEL
+tap HOME
+release SEL
+expect par45 1
+expect seqcount 4
+expect seqtotal 40
+expect seqmaxjump <1201
+
+# The interval page shows Drone II's phase displacement with identical times.
+set 45 0
+page 18
+spin K4 25
+expect seqphase 25
+expect seqtotal 40
+page 19
+shot seq-interval-phase25.png
+expect seqtotal 40

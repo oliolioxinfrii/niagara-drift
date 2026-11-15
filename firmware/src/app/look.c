@@ -165,7 +165,8 @@ static int lk_glide(uint32_t now, float *line, int *bank)
         lk_gl.t0 = ui.morph_t0;
         lk_gl.real = ui.morph_ms;
         lk_gl.ms = ui.morph_ms > LK_GLIDE_MIN ? ui.morph_ms : LK_GLIDE_MIN;
-        lk_gl.to = (int8_t)(ui.morph == VISIT_BACK ? (ui.scene_at >= 0 ? ui.scene_at : -2) : ui.morph);
+        lk_gl.to = (int8_t)(ui.morph == MENU_TRANSITION ? -3 :
+                             ui.morph == VISIT_BACK ? (ui.scene_at >= 0 ? ui.scene_at : -2) : ui.morph);
         lk_gl.bank = proj.bank;
         /* a scene key let go part way: the sound goes back, so the line it filled empties, still naming that scene
          * (Evan, 2026-11-08: filling a new line to "→ A5" looked as if the change went on) */
@@ -308,6 +309,8 @@ static void lk_bar(void)
         char *q = scopy(key, "\\ ");
         if (glide == -2)
             scopy(q, "back");
+        else if (glide == -3)
+            scopy(q, "target");
         else
             scene_name(q, gbank, glide);
         sound = BANK_IS_PRESETS(gbank) && glide >= 0 ? preset_name(glide + (gbank == BANK_PRESETS2 ? NPLAY : 0)) : 0;
@@ -3087,46 +3090,81 @@ static void lk_keymap(void)
     cv_blit(0, LK_VAL_Y);
 }
 
-/* SAVE's bank browser shares the standard palette and three screen bands.
- * All stored scenes remain in their existing bank objects. */
+/* SAVE browser and bank naming popup. Three bands as on other Niagara
+ * pages; the actual bank/slot/action/amount are the four bottom readouts. */
 static void lk_save_menu(void)
 {
     const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
     const int filled = scene_has(bank, slot);
-    const uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
-                                                   (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),
-                            plat_ms() < ui.msg_until ? ui.msg_until : 0u);
-    char key[12];
+    const char *name = project_bank_name(bank);
+    uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
+                                                     (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),
+                      (uint32_t)ui.menu_pct | (uint32_t)ui.save_menu << 8 | (uint32_t)ui.name_pos << 16);
+    char key[12], pct[8];
+    int i;
+    if (ui.save_menu == 2)
+        for (i = 0; i < BANK_NAME_LEN; i++)
+            h = hash(h, (uint8_t)ui.name_draft[i]);
+    for (i = 0; name[i]; i++)
+        h = hash(h, (uint8_t)name[i]);
+    if (plat_ms() < ui.msg_until) h = hash(h, ui.msg_until);
     if (ui.sig[0] == h) return;
     ui.sig[0] = h;
     scene_name(key, bank, slot);
+    itoa_u(ui.menu_pct, pct);
+    { char *q = pct; while (*q) q++; scopy(q, "%"); }
+
     cv_begin(240, LK_BAR_H, LK_BG);
-    cv_text(9, 4, &LK_F_PAGE, "SCENES", LK_WHITE);
-    cv_text(173, 7, &LK_F_TAG, "SAVE", LK_GOLD);
+    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 2 ? "NAME BANK" : "SCENES", LK_WHITE);
     cv_blit(0, 0);
 
     cv_begin(240, LK_PIC_H, LK_BG);
     cv_rect(8, 4, 224, 1, LK_RULE);
-    cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
-    cv_text(76, 10, &FONT_T20, BANK_N[bank], LK_GOLD);
-    cv_text(12, 45, &LK_F_SMALL, "SLOT", LK_LABEL);
-    cv_text(76, 41, &FONT_N1, key, LK_WHITE);
-    cv_text(12, 82, &LK_F_SMALL, "STATE", LK_LABEL);
-    cv_text(76, 80, &FONT_T20, filled ? "STORED" : "EMPTY", filled ? LK_WHITE : LK_UNLIT);
-    if (plat_ms() < ui.msg_until) {
-        cv_rect(7, 101, 226, 19, LK_BAND);
-        cv_text(10, 103, &LK_F_TAG, ui.msg[0], ui.msg_col ? lk_msg_col(ui.msg_col) : LK_GOLD);
+    if (ui.save_menu == 2) {
+        int32_t cx = 14;
+        cv_text(12, 11, &LK_F_SMALL, "EDIT BANK NAME", LK_LABEL);
+        for (i = 0; i < BANK_NAME_LEN - 1; i++) {
+            const char ch[2] = {ui.name_draft[i], 0};
+            const int32_t w = text_w(&FONT_T20, ch);
+            if (i == ui.name_pos) cv_rect(cx, 55, w > 3 ? w : 8, 2, LK_GOLD);
+            cv_text(cx, 33, &FONT_T20, ch, i == ui.name_pos ? LK_GOLD : LK_WHITE);
+            cx += w;
+        }
+        cv_text(12, 84, &LK_F_SMALL, "K1 CURSOR   K2 LETTER", LK_LABEL);
+        cv_text(12, 108, &FONT_XS, "[SAVE] YES      [HOME] BACK", LK_LABEL);
+    } else {
+        cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
+        cv_text(74, 9, &FONT_T20, name, LK_GOLD);
+        cv_text(12, 46, &LK_F_SMALL, "SLOT", LK_LABEL);
+        cv_text(74, 39, &FONT_N2, key, LK_WHITE);
+        if (BANK_IS_PRESETS(bank))
+            cv_text(12, 79, &FONT_T20,
+                    preset_name(slot + (bank == BANK_PRESETS2 ? NPLAY : 0)), LK_WHITE);
+        else
+            cv_text(12, 79, &FONT_T20, filled ? "STORED" : "EMPTY", filled ? LK_WHITE : LK_UNLIT);
+        cv_text(12, 108, &FONT_XS, "[SAVE] YES  [HOME] BACK  [REC] NAME", LK_LABEL);
     }
+    if (plat_ms() < ui.msg_until)
+        cv_text(10, 119, &FONT_XS, ui.msg[0], LK_GOLD);
     cv_blit(0, LK_PIC_Y);
 
     cv_begin(240, LK_VAL_H, LK_BG);
     cv_rect(8, 0, 224, 1, LK_RULE);
-    text_c(60, 8, &FONT_T20, "K2: ACTION", LK_LABEL);
-    text_c(174, 8, &FONT_T20, "K1: SLOT", LK_LABEL);
-    text_c(120, 30, &FONT_N2, ui.menu_load == 3 ? "SAVE SOUND" : ui.menu_load == 2 ? "SELECT BANK" : ui.menu_load ? "LOAD SCENE" : "SAVE SCENE",
-           !ui.menu_load && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_GOLD);
-    cv_text(11, 63, &FONT_XS, "SELECT: BANK", LK_LABEL);
-    cv_text(11, 75, &FONT_XS, "[SAVE] APPLY   [HOME] BACK", LK_LABEL);
+    if (ui.save_menu == 1) {
+        const int32_t cx[4] = {31, 89, 148, 207};
+        const char *const label[4] = {"BANK", "SLOT", "ACTION", "MORPH"};
+        const char *const action[3] = {"SAVE", "LOAD", "TRANS"};
+        char short_bank[4] = {BANK_L[bank], bank == BANK_PRESETS ? '1' : bank == BANK_PRESETS2 ? '2' : 0, 0};
+        const char *const value[4] = {short_bank, key, action[ui.menu_load], pct};
+        for (i = 0; i < 4; i++) {
+            text_c(cx[i], 8, &FONT_XS, label[i], LK_LABEL);
+            text_c(cx[i], 31, &FONT_T20, value[i],
+                   i == 2 && ui.menu_load == 0 && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_WHITE);
+        }
+    } else {
+        text_c(120, 13, &FONT_T20, "A-Z   0-9   -   SPACE", LK_LABEL);
+        text_c(120, 45, &FONT_XS, "11 CHARACTERS MAX", LK_LABEL);
+    }
     cv_blit(0, LK_VAL_Y);
 }
 

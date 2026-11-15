@@ -174,6 +174,8 @@ static struct {
     uint8_t save_menu;                /* 0 off, 1 scene browser, 2 bank-name popup */
     uint8_t menu_bank, menu_slot, menu_load; /* 0 save, 1 load, 2 transition */
     uint8_t menu_pct;                /* final blend percentage for Transition */
+    uint8_t scene_keys_enabled;      /* normally 0: scene keys are reserved for future uses.
+                                       * Host-only legacy scenarios may enable them. */
     uint8_t name_pos;                /* character currently edited in the popup */
     char name_draft[BANK_NAME_LEN];
     uint8_t page_last[8];              /* each page button's page last shown (0: its first): opened again there */
@@ -2350,7 +2352,8 @@ static void input(void)
             save_dn = 0;
         }
     }
-    for (i = 0; i < NPLAY; i++) {                      /* the white keys 1-8: scenes (SAVE held: store) */
+    if (ui.scene_keys_enabled)
+    for (i = 0; i < NPLAY; i++) {                      /* legacy scene pad testing only */
         if ((ch & keys) >> WHITE_K[i] & 1u) {
             if (btn >> B_SAVE & 1u) {
                 ui.btn_used |= 1u << B_SAVE;           /* SAVE let go: not a plain save */
@@ -2775,7 +2778,8 @@ static void leds(void)
             v = 2;
         k[BLACK_K[i]] = v == 1 ? LED_DIM : v == 2 || (v == 3 && blink(1000u)) ? 255 : 0;
     }
-    for (i = 0; i < NPLAY; i++)                      /* the scene keys: the bank's slots that hold a scene; the */
+    if (ui.scene_keys_enabled)
+    for (i = 0; i < NPLAY; i++)                      /* legacy scene-key LEDs (the unassigned keys remain dark) */
         if (scene_has(proj.bank, (int)i) &&            /* one the sound is, blinking slowly */
             (ui.scene_at != (int8_t)i || blink(720u)))
             k[WHITE_K[i]] = 255;

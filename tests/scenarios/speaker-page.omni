@@ -1,0 +1,39 @@
+# V1.1: GLO's third page mutes the physical speaker, not USB audio.
+# Existing view IDs are intentionally unchanged; V_SPEAKER is appended as 17.
+notips
+expect speaker_mute 0
+expect phones 0
+tap GLO
+expect view 11
+tap GLO
+expect view 12
+tap GLO
+expect view 17
+wait 250
+shot speaker-on.png
+spin K1 1
+expect speaker_mute 1
+expect phones 1
+wait 250
+shot speaker-off.png
+# Other knobs are not assigned; this is a simple single-setting page.
+spin K2 5
+expect speaker_mute 1
+tap HOME
+expect view 0
+tap GLO
+expect view 17
+spin K1 -1
+expect speaker_mute 0
+expect phones 0
+tap GLO
+expect view 11
+tap GLO
+expect view 12
+tap GLO
+expect view 17
+# Swell and FX retain existing view IDs despite three GLO pages.
+tap ARP
+expect view 13
+tap FX
+expect view 15

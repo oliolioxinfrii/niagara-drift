@@ -510,13 +510,16 @@ spin K1 7
 expect par51 32
 wait 100
 shot setup.png
-# GLO again: Setup 2, the room's: Tune, Stereo, Pressure (KNOB 4 nothing: the speaker's cut is automatic); again: Setup 1
+# GLO cycles Setup 1 -> Setup 2 -> Speaker -> Setup 1.
+# The new Speaker page is third; it does not replace the original Setup 2 controls.
 tap GLO
 expect view 12
 spin K4 -10
 expect par97 40
 spin K4 10
 expect par97 50
+tap GLO
+expect view 17
 tap GLO
 expect view 11
 # a page button opens the page last shown there: Reverb, then home, then FX held (a peek) shows Reverb; HOME is

@@ -50,5 +50,7 @@ enum { OBJ_PROJ, OBJ_PANEL, OBJ_BANKB, OBJ_BANKC, OBJ_BANKP, OBJ_BANKD, OBJ_BANK
 
 /* audio load in % of the render budget, and xruns since boot (device: from the ISR) */
 int plat_headphones(void);              /* 1: headphones in (the speaker off) */
+void plat_speaker_mute(int mute);         /* silence physical speaker, never the USB audio stream */
+int plat_speaker_muted(void);            /* 1: internal speaker muted by the user */
 uint32_t plat_cpu_pct(void);
 uint32_t plat_xruns(void);

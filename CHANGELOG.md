@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.1 development (feature/swell-v1.1; unreleased)
+
+- **GLO 3/3 — Speaker:** KNOB 1 turns the physical built-in speaker On/Off, default On; does not mute USB recording or the headphone output.
+- The existing unused Speaker filter parameter is repurposed as a binary, saved room setting, without changing the project format.
+- **OCT− / OCT+:** LED wave levels are normalized so their pulses can reach zero brightness even when LFO amplitude is below 100%.
+- **ARP:** LED now follows the actual Swell envelope, including its shape, skew, width and swing, rather than a separate cosine.
+- **LED PWM:** fractional 1/256 duty steps replace the former minimum 1/32 duty for any nonzero brightness.
+- Added GLO Speaker page regression scenario. Host tests and physical hardware validation are pending.
+
+This does not implement USB host audio. The separate USB-host branch is not merged.
+
 ## Custom fork baseline (2026-11-13; not an upstream release)
 
 This fork's `main` includes the tested Swell/UI development work from `feature/swell-patterns`:

@@ -110,7 +110,7 @@ enum {
     P_SCENE_T,                      /* 0..100 = 0.1 s .. 5 min (x^4: 1 s at 23): a scene's morph (the white keys) */
     P_II_OUT,                       /* drone II faded out on its own (1; SEL + OCT+), a sound's (P12 Clean: one
                                      * oscillator); was Tuning until 30, 0 since */
-    P_SPEAKER,                      /* 0..100: a low cut for a small speaker, 0 off (headphones) .. 240 Hz */
+    P_SPEAKER,                      /* v1.1: 0 internal speaker on, 1 muted; global room setting, USB/headphones unaffected */
     P_PLOCK,                        /* the pitches locked (1): the pitch knobs do nothing (a switch) */
     P_MOVE,                         /* MOVEMENT, 0..100 = every LFO depth x 0 .. x 2 (50: as set) */
     P_FEEDBACK,                     /* 0..100: the finished sound (after the effects) fed back into both drones'
@@ -302,6 +302,7 @@ float dr_lfo_wave(int tap, int shape, float ph);   /* a tap's shape (1..10; 0 of
                                                     * random, ph 0..1 the last cycle, 1..2 this one */
 float dr_lfo_rmod_k(float rm, int src, int w1, int w2);  /* rate mod's speed scale (the screen's picture) */
 float dr_pulse_wave(float ph);
+float dr_pulse_led_level(float ph);  /* 0..1 shape, independent of Swell depth, zero at the trough */
 float dr_pulse_wave_for(int g, float ph);                 /* the pulse's gain at ph (0..2) as set now, 0..1 */
 float dr_time_s(int p, int v);                 /* Fade, Morph, Scene time at v, seconds (v0.3: a power curve, 1 s
                                                 * near a quarter of the dial; Evan, 2026-11-07) */

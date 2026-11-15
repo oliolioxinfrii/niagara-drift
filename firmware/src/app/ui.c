@@ -51,9 +51,9 @@
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
 enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO_WAVES, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
-       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, NVIEWS };
+       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, NVIEWS };
 static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO waves", "LFO sends",
-                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details"};
+                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker"};
 /* what each knob moves on each page: a drone's parameter (g 0 or 1, GP_*), a global one (g G, P_*), or
  * nothing (g NONE) */
 #define G 2
@@ -85,6 +85,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
      * SEL the delay's type over Time and what goes into the reverb over Type (sel_job) */
     {{G, P_DLY_REPEATS}, {G, P_DLY_MIX}, {G, P_REV_LEN}, {G, P_REV_MIX}},
     {{G, P_DLY_DRIVE}, {G, P_DLY_TIME}, {G, P_REV_DAMP}, {G, P_REV_TYPE}},
+    {{G, P_SPEAKER}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO 3: internal speaker only */
 };
 /* A KNOB's SECOND JOB with SEL held, on the pages that have one (its card shows both, the second "+ SEL"): the
  * choices set before playing, so a player who never finds them loses nothing. FX's KNOB 4: the delay's type, what goes
@@ -105,7 +106,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 2}, {B_GLO, V_SETUP, 2}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 2}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -330,6 +331,10 @@ static void param_set(int p, int v)
         return;
     proj.par[p] = (int16_t)v;
     dr_set(p, v);
+    if (p == P_SPEAKER) {
+        plat_speaker_mute(v);                  /* only analog output, not the USB audio tap */
+        dr_phones = (uint8_t)(ui.jack || v);   /* disable the speaker-only bass cut for USB recording */
+    }
     if (p == P_TUNING)                                 /* a new Tuning, by the knob or with a sound: SEL's fine tuning
                                                         * let go, the knobs land on its own notes (Evan, 2026-11-07: an
                                                         * offset set against one Tuning's notes means nothing on
@@ -726,7 +731,21 @@ static void sw_toggle(sw_t w)
 }
 
 /* ------------------------------------------------------------ buttons --- */
-static int on_pages(int i) { return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n; }
+/* Speaker is appended to preserve the existing saved view IDs and test scripts. */
+static int on_pages(int i)
+{
+    if (PAGE_BTN[i].btn == B_GLO)
+        return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_SPEAKER;
+    return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
+}
+static int page_step(int i, int v)
+{
+    return PAGE_BTN[i].btn == B_GLO && v == V_SPEAKER ? 2 : v - PAGE_BTN[i].first;
+}
+static int page_target(int i, int step)
+{
+    return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_SPEAKER : PAGE_BTN[i].first + step;
+}
 static void set_view(int v)
 {
     uint32_t i;
@@ -749,7 +768,7 @@ static void set_view(int v)
         tip(TIP_KN_SETUP2);
     for (i = 0; i < NPAGE_BTN; i++)                    /* remembered: the button opens it next time */
         if (on_pages((int)i))
-            ui.page_last[i] = (uint8_t)(v - PAGE_BTN[i].first);
+            ui.page_last[i] = (uint8_t)page_step((int)i, v);
 }
 
 static int page_btn(int b)                             /* the index in PAGE_BTN, or -1 */
@@ -775,7 +794,7 @@ static void page_down(int b)
     if (b == B_ARP)
         return;   /* a hold must not briefly open the Swell pages */
     if (!ui.hold_cycle)
-        set_view(PAGE_BTN[i].first + (b == B_HOME || b == B_FX ? 0 : ui.page_last[i]));   /* HOME and FX: the page played */
+        set_view(page_target(i, b == B_HOME || b == B_FX ? 0 : ui.page_last[i]));   /* HOME and FX: the page played */
 }
 /* let go: after a hold (or a knob turned while held), back where it was; after a tap, stay (or step on) */
 static void page_up(int b)
@@ -789,7 +808,7 @@ static void page_up(int b)
             param_set(P_PULSE, !proj.par[P_PULSE]);
             say("SWELL", proj.par[P_PULSE] ? "ON" : "OFF");
         } else if (ui.hold_cycle)
-            set_view(PAGE_BTN[i].first + (ui.view - PAGE_BTN[i].first + 1) % PAGE_BTN[i].n);
+            set_view(page_target(i, (page_step(i, ui.view) + 1) % PAGE_BTN[i].n));
         else
             set_view(V_PULSE);
         ui.hold_btn = -1;
@@ -799,7 +818,7 @@ static void page_up(int b)
         if (!ui.hold_cycle)
             set_view(ui.hold_from);
     } else if (ui.hold_cycle) {
-        set_view(PAGE_BTN[i].first + (ui.view - PAGE_BTN[i].first + 1) % PAGE_BTN[i].n);
+        set_view(page_target(i, (page_step(i, ui.view) + 1) % PAGE_BTN[i].n));
     }
     ui.hold_btn = -1;
 }
@@ -2003,14 +2022,14 @@ static void input(void)
     }
     if (!(btn >> B_SEL & 1u))
         ui.km_key = -1;
-    {   /* THE HEADPHONE JACK: the Speaker low cut only while the speaker plays (Evan, 2026-10-20); a plug settled
+    {   /* HEADPHONE JACK: the speaker bass cut is enabled only when its built-in speaker plays; a plug settled
          * for 150 ms (its contacts bounce) */
         int ph = plat_headphones();
         if (ph != ui.jack) {
             ui.jack = (uint8_t)ph;
             ui.jack_t = plat_ms();
-        } else if (ph != dr_phones && plat_ms() - ui.jack_t >= 150u) {
-            dr_phones = (uint8_t)ph;                   /* (no message: you hear which it is, Evan) */
+        } else if ((ph || proj.par[P_SPEAKER]) != dr_phones && plat_ms() - ui.jack_t >= 150u) {
+            dr_phones = (uint8_t)(ph || proj.par[P_SPEAKER]);    /* either phones or speaker mute bypasses bass cut */
         }
     }
     for (i = 0; i < NB; i++) {
@@ -2497,16 +2516,19 @@ static void leds(void)
         b[B_PLAY] = (uint8_t)(40.0f + 215.0f * (0.5f - 0.5f * fm_cosf(6.2831853f * (float)(now % 3600u) / 3600.0f)));
     if (ui.dirty)                                      /* SAVE: a dim glow while something isn't saved yet */
         b[B_SAVE] = 90;
+    /* The audio engine publishes LFO samples *after* amplitude scaling.
+     * Divide out the level for a phase indicator that reaches true darkness
+     * at -1 even when the LFO's audio send is less than 100%. */
     if (proj.par[P_LFO_W1] && proj.par[P_LFO_AMP1] > 0)
-        b[B_OCTDN] = still ? LED_DIM : wave_lvl(dr_lfo[0]);
+        b[B_OCTDN] = still ? LED_DIM :
+                     wave_lvl(dr_lfo[0] / fm_maxf((float)proj.par[P_LFO_AMP1] * 0.01f, 0.01f));
     if (proj.par[P_LFO_W2] && proj.par[P_LFO_AMP2] > 0)
-        b[B_OCTUP] = still ? LED_DIM : wave_lvl(dr_lfo[1]);
-    if (proj.par[P_PULSE]) {                           /* ARP: breathing with the swell, a beat a breath; stopped,
-                                                        * still */
-        float b1 = 1.0f + (float)proj.par[P_PULSE_SWING] * 0.01f, ph = dr_pulse_ph;
-        float u = ph < b1 ? ph / b1 : (ph - b1) / (2.0f - b1);
-        b[B_ARP] = still ? LED_DIM : wave_lvl(fm_cosf(6.2831853f * u));
-    }
+        b[B_OCTUP] = still ? LED_DIM :
+                     wave_lvl(dr_lfo[1] / fm_maxf((float)proj.par[P_LFO_AMP2] * 0.01f, 0.01f));
+    /* Follow the actual Swell shape, skew, width and swing, not a cosine. */
+    if (proj.par[P_PULSE] && proj.par[P_PULSE_DEPTH] > 0)
+        b[B_ARP] = still ? LED_DIM :
+                   (uint8_t)(255.0f * dr_pulse_led_level(dr_pulse_ph) + 0.5f);
     if (ui.loop == L_PLAY)                             /* REC: steady looping; recording, once a second, fast in the
                                                         * last 20 s before it's full (fast all along was an alarm) */
         b[B_REC] = 255;
@@ -2591,7 +2613,9 @@ void ui_init(void)
     ui.press = -1;
     ui.scene_at = -1;
     ui.km_key = -1;
-    ui.jack = dr_phones = (uint8_t)plat_headphones();
+    ui.jack = (uint8_t)plat_headphones();
+    plat_speaker_mute(proj.par[P_SPEAKER] != 0);
+    dr_phones = (uint8_t)(ui.jack || plat_speaker_muted());   /* restore user preference; default speaker ON */
     ui.save_q = -2;
     ui.splash_t0 = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);

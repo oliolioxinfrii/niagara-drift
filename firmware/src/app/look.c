@@ -94,8 +94,8 @@ static void lk_page_name(int v, char *name)
     }
     name[i] = 0;
     for (b = 0; b < (int)NPAGE_BTN; b++)
-        if (v >= PAGE_BTN[b].first && v < PAGE_BTN[b].first + PAGE_BTN[b].n && PAGE_BTN[b].n > 1 && i > 2 &&
-            name[i - 2] == ' ' && name[i - 1] == '1' + v - PAGE_BTN[b].first)
+        if (on_pages(b) && PAGE_BTN[b].n > 1 && i > 2 &&
+            name[i - 2] == ' ' && name[i - 1] == '1' + page_step(b, v))
             name[i - 2] = 0;
 }
 
@@ -239,7 +239,7 @@ static void lk_bar(void)
     lk_page_name(ui.view, name);
     for (i = 0; i < (int)NPAGE_BTN; i++)       /* which of its button's pages: "1/2" */
         if (on_pages(i) && PAGE_BTN[i].n > 1) {
-            half[0] = (char)('1' + ui.view - PAGE_BTN[i].first);
+            half[0] = (char)('1' + page_step(i, ui.view));
             half[1] = '/';
             half[2] = (char)('0' + PAGE_BTN[i].n);
             half[3] = 0;
@@ -2201,12 +2201,22 @@ static void lk_pic_space(void)
     cv_text(130, 2, &LK_F_SMALL, "REVERB", LK_REV_C);
 }
 
+/* GLO 3: physical speaker output only. USB capture is always unaffected. */
+static void lk_pic_speaker(void)
+{
+    cv_text(10, 10, &FONT_T20, "INTERNAL SPEAKER", LK_NEUTRAL);
+    text_c(120, 48, &FONT_N1, proj.par[P_SPEAKER] ? "MUTED" : "ON", LK_WHITE);
+    text_c(120, 103, &LK_F_SMALL, "USB AUDIO UNAFFECTED", LK_LABEL);
+}
+
 static void lk_pic(void)
 {
     const int msg = plat_ms() < ui.msg_until;
     uint32_t h = hash(hash(2166136261u, 0x4C50u | (uint32_t)msg | (uint32_t)lit(0) << 1 | (uint32_t)lit(2) << 2 |
                                             (ui.btn >> B_SEL & 1u) << 3 | (uint32_t)ui.view << 4),
                       msg ? ui.msg_until : 0);
+    if (ui.view == V_SPEAKER)
+        h = hash(h, (uint32_t)proj.par[P_SPEAKER]);
     if (h == ui.sig[1] && ui.frame % SCOPE_EVERY)
         return;
     ui.sig[1] = h;
@@ -2226,6 +2236,7 @@ static void lk_pic(void)
     case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
     case V_SETUP: lk_pic_setup1(); break;
     case V_SETUP2: lk_pic_setup2(); break;
+    case V_SPEAKER: lk_pic_speaker(); break;
     case V_FX:
     case V_FX2: lk_pic_space(); break;
     default: lk_pic_drones2(); break;
@@ -2691,6 +2702,13 @@ static void lk_values(void)
         return;
     ui.sig[2] = h;
     cv_begin(240, LK_VAL_H, LK_BG);
+    if (ui.view == V_SPEAKER) {
+        cv_rect(8, 0, 224, 1, LK_RULE);
+        cv_text(10, 11, &FONT_T20, "KNOB 1", LK_NEUTRAL);
+        cv_text(10, 43, &LK_F_SMALL, proj.par[P_SPEAKER] ? "SPEAKER OFF" : "SPEAKER ON", LK_WHITE);
+        cv_blit(0, LK_VAL_Y);
+        return;
+    }
     if (ui.view == V_LFO) {                   /* release-0.2's LFO Depths value row only */
         const uint16_t bg = RGB(20, 0, 15), grid = RGB(70, 30, 64);
         const uint16_t dim = RGB(160, 128, 148), paper = RGB(251, 233, 242);

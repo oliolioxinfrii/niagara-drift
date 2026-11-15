@@ -41,6 +41,11 @@ static void render_block(int32_t *o)                /* ALNK0: one half, measured
 #endif
         }
     }
+    /* The USB recording stream has already captured the full stereo mix.
+     * Suppress only the physical codec DMA samples, and only when no
+     * headphones are connected; USB and headphone output remain intact. */
+    if (plat_speaker_muted() && !plat_headphones())
+        memset(o, 0, 2u * HALF_FRAMES * sizeof *o);
     us = (fm1_ticks() - t0) / FM1_TICKS_PER_US;
     om_dbg.cpu_q8 = (om_dbg.cpu_q8 * 15u + (us * 256u) / budget) / 16u;
     audio_cpu_pct = (om_dbg.cpu_q8 * 100u) >> 8;

@@ -50,7 +50,7 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     {"Time", 0, DR_DLY_TMAX, 50}, {"Repeats", 0, 100, 50}, {"Dly mix", 0, 100, 25}, {"Rev mix", 0, 100, 35},
     {"Type", 0, DR_NREV - 1, 2}, {"Dly LFO", DR_LFO_I, DR_LFO_BOTH, DR_LFO_I}, {"Delay mod", -100, 100, 20},
     {"LFO lock", 0, 1, 0}, {"Speed mod", -100, 100, 0}, {"Source", DR_LFO_I, DR_LFO_BOTH, DR_LFO_II},
-    {"Morph", 0, 100, 34}, {"Scene time", 0, 100, 40}, {"II out", 0, 1, 0}, {"Speaker", 0, 100, 0},
+    {"Morph", 0, 100, 34}, {"Scene time", 0, 100, 40}, {"II out", 0, 1, 0}, {"Speaker", 0, 1, 0},
     {"Pitch lock", 0, 1, 1}, {"Movement", 0, 100, 50}, {"Feedback", 0, 100, 0}, {"Character", 0, 100, 0},
     {"Wander", 0, 100, 0}, {"Age", 0, 100, 0}, {"Shift move", 0, 2 * DR_SHIFT_MID, 2 * DR_SHIFT_MID}, {"Scale", 0, DR_NWSCALE - 1, 0},
     {"I out", 0, 1, 0}, {"Phase", 0, 100, 0}, {"Wave", 0, 100, 0}, {"Skew", -100, 100, 0},
@@ -618,16 +618,8 @@ void dr_param_text(int i, int v, char *b)
     } else if (i == P_SWELL_WAVE) {
         copy_s(b, v == 0 ? "Original" : v == 33 ? "Double" : v == 67 ? "Steps" : v == 100 ? "Hold" : "Blend");
     }
-    else if (i == P_SPEAKER) {                   /* "off", "120Hz" */
-        if (!v)
-            copy_s(b, "Off");
-        else {
-            itoa_s((int)(40.0f * fm_exp2f((float)v * 0.0258496f) + 0.5f), b);
-            while (*b)
-                b++;
-            copy_s(b, "Hz");
-        }
-    } else if (gp == GP_SUBOCT)
+    else if (i == P_SPEAKER)                  /* output status: 0 enabled, 1 muted */
+        copy_s(b, v ? "Off" : "On"); else if (gp == GP_SUBOCT)
         copy_s(b, v == 6 ? "-4 oct" : v == 5 ? "-3 oct" : v == 4 ? "1/5" : v == 3 ? "1/3" : v == 2 ? "-2 oct" : "-1 oct");
     else {
         if ((i == P_PLINK_OFF || i == P_DLY_LFO_DEPTH || i == P_LFO_RMOD || gp == GP_OLFO_DEPTH || gp == GP_FLFO_DEPTH) && v > 0)
@@ -847,7 +839,7 @@ static uint32_t fb_w;
  * (the energy fed in against the oscillators'), taken off the output: never louder than without it */
 static float fb_d = 300.0f, fb_c = 1.0f, fb_ein, fb_eosc, fb_esn;   /* (fb_esn: Snarl's bend, its power) */
 static float spk[2][2];                          /* the speaker low cut's states, left and right */
-volatile uint8_t dr_phones;
+volatile uint8_t dr_phones;                  /* headphones inserted OR speaker muted: no speaker-only bass cut */
 #define SPK_CUT 61.0f                            /* the speaker's low cut, fixed (2026-10-20: ~120 Hz; P_SPEAKER unused) */
 static float spk_x, spk_f;                       /* ... how far it's in (0..1), its knob (the corner) */
 /* every parameter as it sounds: gliding to its setting. A knob's detent glides over the time until the
@@ -2536,6 +2528,13 @@ float dr_pulse_wave_for(int g, float ph)
                       g ? (float)par[P_SWELL_PHASE] * 0.01f : 0.0f);
 }
 float dr_pulse_wave(float ph) { return dr_pulse_wave_for(0, ph); }
+/* Normalize the actual envelope, rather than using an unrelated cosine.
+ * Even a soft Swell can take its LED all the way to zero at the trough. */
+float dr_pulse_led_level(float ph)
+{
+    const float d = pulse_depth(par[P_PULSE_DEPTH]);
+    return d > 0.0f ? fm_clampf((dr_pulse_wave_for(0, ph) - (1.0f - d)) / d, 0.0f, 1.0f) : 0.0f;
+}
 float dr_pulse_hz(int v)                       /* the screen's: as pulse_run's rate */
 {
     const float dbeats = DIV_BEATS[(unsigned)par[P_PULSE_DIV] < DR_NDIV ? par[P_PULSE_DIV] : 2];

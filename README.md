@@ -19,9 +19,9 @@ teal drone II, lilac the LFO. The black keys are switches (lit = on; on the LFO 
 LFO's routing, and cross-mod lets drone I move drone II's filter, or the drones and their sound bend each other's pitch); white keys 1–8 hold scenes, in
 eight banks you pick with SEL and the gesture keys; keys 9–12 and the top four are gestures. The page buttons' pages, each tap the next: HOME
 Drones, Pitch · ENV Life, Tone · EDIT Osc, Sub · Drive · SEQ Partner, Pitch moves ·
-LFO Waves, Sends, Mods · ARP Swell, Swell shape · FX Space, Details · GLO Setup 1, 2.*
+LFO Waves, Sends, Mods · ARP Swell, Swell shape · FX Space, Details · GLO Setup 1, 2, Speaker (v1.1 branch).*
 
-**Status:** The custom branch has been compiled and its full automated test suite passed under WSL
+**Status:** The Swell/UI baseline on `main` was compiled and its full automated test suite passed under WSL
 (November 2026); a custom build has also been installed on an FM-1. The [creator's online emulator](https://evanyerburgh.github.io/niagara-drift/)
 runs the upstream code, **not necessarily this fork**. For this exact firmware use the local web
 emulator (`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory build/emu`).
@@ -56,6 +56,18 @@ emulator (`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory b
 - **Feedback** (the finished sound fed back into the drones) and **Character** (clean to vintage).
 - **Drift**: the drones are never quite still; pitch, cutoff, timbre, level and detune slowly wander.
 - **Morph**: buttons and keys never jump: the sound moves to a new setting over a time you set.
+
+
+### v1.1 development branch
+
+The [`feature/swell-v1.1`](https://github.com/oliolioxinfrii/niagara-drift/tree/feature/swell-v1.1)
+branch adds **GLO → Speaker (3/3)**: KNOB 1 switches the *internal physical speaker* On/Off while
+USB audio recording remains active and the 3.5 mm headphone output remains usable. The choice is
+saved as a room setting and defaults to On. It also adjusts OCT−/OCT+ and ARP lights to track
+their waveform/envelope down to zero, and increases the effective low-level LED duty resolution.
+These changes have not yet been verified on physical hardware; `main` remains the stable baseline.
+
+The former `feature/usb-audio-routing` experiment is retained separately and is not part of v1.1.
 
 ## Installing this custom build
 

@@ -2891,105 +2891,58 @@ void ui_init(void)
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 
-/* ------------------------------------------------------------- the start --- */
-/* As the web page: a red field, two thick bands (violet, and one that darkens what it crosses) drifting in from
- * the right and settling across the name, which turns pale pink where they cross it; it holds still for half a
- * second where it lands, then fades to the Drones page slowly. About 3.5 s (the last 1.3 s the fade); any button
- * or key ends it at once (and does what it does). The drones stay silent until PLAY. Not in the host
- * simulator's scenarios, which start at once (the browser emulator has it; OM_SPLASH shows it on the host). */
+/* ------------------------------------------------------- VOLCANO wake --- */
+/* Two 120-row blits: static mineral strata and a vent, then an eruptive column.
+ * Deliberately flat and pixel-drawn; no image assets or retained framebuffer. */
 #if defined(OM_HOST) && !defined(OM_WEB) && !defined(OM_SPLASH)
 #define SPLASH_MS 0u
 #else
 #define SPLASH_MS 3500u
 #endif
-#define SPLASH_HOLD_AT 1700u                  /* where it lands: held still from here (Evan: half a second) */
-#define SPLASH_HOLD 500u
-#define SP_RED RGB(254, 0, 0)
-#define SP_VIOLET RGB(118, 5, 149)
-#define SP_DARK_RED RGB(58, 0, 0)             /* the dark band over the red (multiplied, as on the page) */
-#define SP_DARK_VIOLET RGB(27, 0, 49)         /* ... over the violet */
-#define SP_INK RGB(20, 0, 15)
-#define SP_PALE RGB(255, 214, 240)
-static int16_t sp_l[2][240], sp_r[2][240];    /* each band's edges, row by row */
-
-static int sp_in(int32_t x, int32_t y)
+static void draw_splash(uint32_t ms)
 {
-    return (x >= sp_l[0][y] && x < sp_r[0][y]) || (x >= sp_l[1][y] && x < sp_r[1][y]);
-}
-static float sp_ease(float x) { x = fm_clampf(x, 0.0f, 1.0f); return 1.0f - (1.0f - x) * (1.0f - x); }
-
-/* text whose colour depends on where it is: near-black on the red, pale over a band; q of 16 faded in */
-static void sp_text(int32_t x, int32_t y, int32_t y0, const felucca_font_t *f, const char *s, int q, uint16_t out_c,
-                    uint16_t in_c)
-{
-    for (; *s; s++) {
-        uint32_t gi = glyph(f, (uint8_t)*s), gx, gy, w = f->bw[gi], bpr = (w + 1u) / 2u;
-        const uint8_t *gd = f->data + f->off[gi];
-        for (gy = 0; gy < f->h; gy++)
-            for (gx = 0; gx < w; gx++) {
-                uint32_t a = gd[gy * bpr + gx / 2u];
-                int32_t px = x - f->pad + (int32_t)gx, sy = y + (int32_t)gy, py = sy - y0;
-                a = (gx & 1u) ? (a & 15u) : (a >> 4);
-                a = a * (uint32_t)q / 16u;
-                if (!a || (uint32_t)px >= cv_w || py < 0 || py >= (int32_t)cv_h || sy < 0 || sy >= 240)
-                    continue;
-                {
-                    uint16_t c = sp_in(px, sy) ? in_c : out_c, bg = swap16(cv_px[(uint32_t)py * cv_w + (uint32_t)px]);
-                    cv_px[(uint32_t)py * cv_w + (uint32_t)px] = swap16(blend(bg, c, (int)a, 15));
-                }
-            }
-        x += f->adv[gi];
-    }
-}
-
-static void draw_splash(uint32_t t0)
-{
-    /* its own time stops for the hold: everything after it is as before, half a second later */
-    const uint32_t t = t0 < SPLASH_HOLD_AT ? t0 : t0 < SPLASH_HOLD_AT + SPLASH_HOLD ? SPLASH_HOLD_AT : t0 - SPLASH_HOLD;
-    const float tt = (float)t * 0.001f;
-    const float in = sp_ease(tt / 1.4f), fade = fm_clampf(tt / 0.4f, 0.0f, 1.0f),
-                out = fm_clampf(((float)t - (float)(SPLASH_MS - SPLASH_HOLD) + 1300.0f) / 1300.0f, 0.0f, 1.0f);
-    const int lit = (int)(16.0f * fade * (1.0f - out) + 0.5f);        /* the whole picture, from black and back */
-    const int tq = (int)(16.0f * fm_clampf((tt - 0.4f) / 0.8f, 0.0f, 1.0f) + 0.5f);   /* the name */
-    const int32_t rise = (int32_t)(8.0f * (1.0f - sp_ease((tt - 0.4f) / 0.8f)));
-    static const float LEN[2] = {0.9f, 0.8f}, PH[2] = {0.0f, 0.5f};
-    static char ver[40];                                             /* "niagara-drift 0.1" (the build's version) */
-    int32_t y, half, b;
-    if (!ver[0]) {
-        char *q = scopy(ver, "niagara-drift ");
-        const char *v = OM_VERSION;
-        for (; *v && q < ver + sizeof ver - 1; v++)
-            *q++ = (char)(*v >= 'A' && *v <= 'Z' ? *v + 32 : *v);
-        *q = 0;
-    }
-    for (b = 0; b < 2; b++)                                          /* the bands: from off the right, settling */
-        for (y = 0; y < 240; y++) {
-            float a = 6.2831853f * (float)y / (240.0f * LEN[b]) + PH[b] + tt * 0.6f;
-            float cx = 240.0f * (1.15f - 0.6f * in + 0.12f * fm_sinf(a));
-            float hw = 240.0f * 0.065f * (1.0f + 0.2f * fm_sinf(a * 1.4f + PH[b]));
-            sp_l[b][y] = (int16_t)fm_clampf(cx - hw, -1.0f, 241.0f);
-            sp_r[b][y] = (int16_t)fm_clampf(cx + hw, -1.0f, 241.0f);
+    const uint16_t RED = RGB(221, 30, 24), LAVA = RGB(253, 81, 25),
+                   ORANGE = RGB(255, 157, 34), SULFUR = RGB(255, 214, 64),
+                   ROCK = RGB(69, 17, 19), DARK = RGB(119, 24, 22),
+                   PAPER = RGB(255, 242, 222);
+    const int32_t flicker = (int32_t)((ms / 170u) % 3u), px[8] = {0, 32, 55, 77, 99, 137, 190, 239};
+    const int32_t py[8] = {160, 152, 145, 112, 115, 150, 155, 160};
+    int half, i, y;
+    for (half = 0; half < 2; half++) {
+        const int y0 = half * 120;
+        cv_begin(240, 120, RED);
+        /* Hot suspended ash marks: deterministic rather than noisy redraw. */
+        for (i = 0; i < 70; i++) {
+            const int x = (i * 71 + 19) % 240, sy = (i * 47 + 11) % 240;
+            cv_rect(x, sy - y0, 1 + (i % 13 == 0), 1,
+                    i % 5 == 0 ? SULFUR : ORANGE);
         }
-    for (half = 0; half < 2; half++) {                               /* the screen in two halves (the canvas) */
-        const int32_t y0 = half * 120;
-        cv_begin(240, 120, K_BG);
-        for (y = 0; y < 120; y++) {
-            int32_t sy = y0 + y, ol = sp_l[0][sy] > sp_l[1][sy] ? sp_l[0][sy] : sp_l[1][sy],
-                    orr = sp_r[0][sy] < sp_r[1][sy] ? sp_r[0][sy] : sp_r[1][sy];
-            cv_rect(0, y, 240, 1, SP_RED);
-            cv_rect(sp_l[0][sy], y, sp_r[0][sy] - sp_l[0][sy], 1, SP_VIOLET);
-            cv_rect(sp_l[1][sy], y, sp_r[1][sy] - sp_l[1][sy], 1, SP_DARK_RED);
-            if (orr > ol)
-                cv_rect(ol, y, orr - ol, 1, SP_DARK_VIOLET);
+        /* Central conduit and rising plume, with vertical dramatic scale. */
+        cv_line(100, 118 - y0, 95, 90 - y0, SULFUR);
+        cv_line(106, 117 - y0, 109, 82 - y0, LAVA);
+        cv_line(99, 91 - y0, 116 + flicker, 58 - y0, ORANGE);
+        cv_line(111, 92 - y0, 92 - flicker, 37 - y0, DARK);
+        cv_line(112, 65 - y0, 129, 20 - y0, ROCK);
+        cv_line(124, 43 - y0, 113, 5 - y0, ROCK);
+        cv_line(115, 39 - y0, 141, 5 - y0, DARK);
+        /* Cone's sharp silhouette. */
+        for (i = 1; i < 8; i++) {
+            cv_line(px[i-1], py[i-1] - y0, px[i], py[i] - y0, ROCK);
+            cv_line(px[i-1], py[i-1] + 3 - y0, px[i], py[i] + 3 - y0, ORANGE);
+            cv_line(px[i-1], py[i-1] + 15 - y0, px[i], py[i] + 15 - y0, DARK);
         }
-        sp_text(14, 64 + rise, y0, &FONT_L, "NIAGARA", tq, SP_INK, SP_PALE);
-        sp_text(14, 98 + rise, y0, &FONT_L, "DRIFT", tq, SP_INK, SP_PALE);
-        sp_text(14, 214, y0, &FONT_S, ver, tq, SP_INK, SP_PALE);
-        if (lit < 16) {                                              /* from black, and back to it */
-            uint32_t i, n = cv_w * cv_h;
-            for (i = 0; i < n; i++)
-                cv_px[i] = swap16(blend(K_BG, swap16(cv_px[i]), lit, 16));
+        /* Abstract flowing rock below the cone. */
+        for (i = 0; i < 6; i++) {
+            const int sy = 170 + i * 13;
+            cv_line(0, sy - y0, 78, sy - 5 - y0, i & 1 ? DARK : ROCK);
+            cv_line(78, sy - 5 - y0, 156, sy + 5 - y0, i & 1 ? DARK : ROCK);
+            cv_line(156, sy + 5 - y0, 239, sy - y0, i & 1 ? DARK : ROCK);
+            cv_line(79, sy + 2 - y0, 105, sy - 8 - y0, ORANGE);
         }
+        /* Paper-white condensed lettering over the intense vermilion field. */
+        cv_text(15, 72 - y0, &FONT_L, "VOLCANO", PAPER);
+        cv_text(17, 112 - y0, &FONT_S, "M-VAVE FM-1", ROCK);
+        cv_text(17, 216 - y0, &FONT_S, "VOLCANO  " OM_VERSION, ROCK);
         cv_blit(0, (uint32_t)y0);
     }
 }

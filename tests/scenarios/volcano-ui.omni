@@ -5,7 +5,12 @@ expect view 0
 wait 150
 shot surface.png
 page 1
-wait 150
+# Pitch shows scope traces at rest; turning Reso temporarily shows filter curves.
+wait 500
+shot pitch-scope.png
+spin K2 5
+shot pitch-resonance.png
+wait 650
 shot pitch.png
 page 2
 wait 150
@@ -49,7 +54,7 @@ wait 150
 shot atmosphere.png
 page 11
 wait 150
-shot planet-setup.png
+shot setup-time-overlay.png
 page 12
 wait 150
 shot planet-tuning-stereo.png

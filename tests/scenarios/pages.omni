@@ -64,7 +64,9 @@ tap LFO
 expect view 7
 tap OCT+
 tap OCT+
+press SEL
 spin SELECT -20
+release SEL
 spin K2 30
 spin K4 -20
 tapkey b0

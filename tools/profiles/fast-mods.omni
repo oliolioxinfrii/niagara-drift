@@ -1,0 +1,39 @@
+# Reproducible host profile: audio engine and the three changing UI pages.
+# Compare against slow-mods.omni; the commands and time spent on each page match.
+notips
+set 47 106
+set 56 50
+set 48 1
+set 49 1
+set 13 1
+set 14 65
+set 16 1
+set 17 65
+set 34 2
+set 35 65
+set 37 2
+set 38 65
+set 55 1
+set 57 70
+tap PLAY
+page 18
+spin K3 3
+spin K1 1
+tapkey b5
+spin K1 1
+tapkey w4
+spin K1 1
+tapkey b8
+page 19
+spin K4 -32
+press SEL
+tap PLAY
+release SEL
+page 18
+wait 5000
+page 19
+wait 5000
+tap ARP
+wait 5000
+tap LFO
+wait 5000

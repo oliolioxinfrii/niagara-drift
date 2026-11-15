@@ -29,7 +29,7 @@ static const char *const INTERVAL_NAME[DR_NINTERVALS] = {"-Oct", "-5th", "-5th j
         {"Drive", 0, 100, 20}, {"Level", 0, 100, level}, {"Partner", 0, 1, 1},                                 \
         {"Osc LFO", DR_LFO_OFF, DR_LFO_BOTH, olfo}, {"Osc depth", -100, 100, 0},                                \
         {"Osc LFO to", DR_TO_PITCH, DR_TO_XWAVE, DR_TO_PITCH}, {"Filter LFO", DR_LFO_OFF, DR_LFO_BOTH, flfo},     \
-        {"Filt depth", -100, 100, fdep}, {"Filt LFO to", DR_TO_CUTOFF, DR_TO_RESO, DR_TO_CUTOFF},           \
+        {"Filt depth", -100, 100, fdep}, {"Filt LFO to", DR_TO_CUTOFF, DR_TO_PAN, DR_TO_CUTOFF},           \
         {"Noise", 0, 100, 0}, {"Color", 0, 100, 100}
 
 /* THE STARTING SOUND (2026-10-17, Evan: Lyra-like; measured against two Lyra-8 recordings: changes mostly slower
@@ -433,7 +433,7 @@ void dr_param_text(int i, int v, char *b)
     } else if (gp == GP_OLFO || gp == GP_FLFO)
         copy_s(b, TAP[(unsigned)v < 4u ? v : 0]);
     else if (gp == GP_FLFO_DEST)
-        copy_s(b, v ? "Reso" : "Cutoff");
+        copy_s(b, v == DR_TO_PAN ? "Pan" : v == DR_TO_RESO ? "Reso" : "Cutoff");
     else if (gp == GP_OLFO_DEST)
         copy_s(b, v ? "X-Wave" : "Pitch");
     else if (i == P_LFO_W1)
@@ -731,8 +731,8 @@ typedef struct {
                                                    * the limited sound's mean */
     uint8_t rt[2], rp[2];                         /* the LFO routes (osc, filter): the tap now, the one before */
     float rw[2];                                  /* ... from the one before to now, 0..1 */
-    float dw[2];                                  /* their destinations: osc 0 pitch .. 1 X-WAVE, filter 0
-                                                   * cutoff .. 1 resonance */
+    float dw[2];                                  /* oscillation pitch..X-WAVE, filter cutoff..reso */
+    float dp;                                     /* filter route to stereo pan, independently crossfaded */
 } grp_t;
 
 static int16_t par[DR_NPARAMS];                   /* the values heard: the sound's own plus the macros' offsets */
@@ -1833,6 +1833,7 @@ static void morph_snap(int g)                    /* all of a drone's switches wh
     v->rw[0] = v->rw[1] = 1.0f;
     v->dw[0] = p[GP_OLFO_DEST] == DR_TO_XWAVE ? 1.0f : 0.0f;
     v->dw[1] = p[GP_FLFO_DEST] == DR_TO_RESO ? 1.0f : 0.0f;
+    v->dp = p[GP_FLFO_DEST] == DR_TO_PAN ? 1.0f : 0.0f;
 }
 static void morph_tick(int g, float step)        /* one control tick of the switches' moves */
 {
@@ -1889,6 +1890,7 @@ static void morph_tick(int g, float step)        /* one control tick of the swit
     }
     v->dw[0] = toward(v->dw[0], p[GP_OLFO_DEST] == DR_TO_XWAVE ? 1.0f : 0.0f, step);
     v->dw[1] = toward(v->dw[1], p[GP_FLFO_DEST] == DR_TO_RESO ? 1.0f : 0.0f, step);
+    v->dp = toward(v->dp, p[GP_FLFO_DEST] == DR_TO_PAN ? 1.0f : 0.0f, step);
 }
 /* a route's widest swing in its waves: twice for BOTH (I + II summed), during a switch's crossfade too */
 static inline float route_n(const grp_t *v, int i)
@@ -1985,7 +1987,12 @@ static void render_group(int g, uint32_t n)
     const float lvl = pv[GP_LEVEL] * pv[GP_LEVEL] * 0.0001f * 0.6f * age_mk;   /* an audio taper: squared (50 is -12 dB) */
     /* drone I left, drone II right, as far apart as Width says (as it glides: read raw, each detent clicked); a drone
      * alone (the other out, II OUT) moves to the middle as the other fades (Evan, 2026-11-10: Bare sat on the left) */
-    const float width = pfs[P_WIDTH] * 0.01f * grp[1 - g].gf, pan = g ? 0.5f + 0.5f * width : 0.5f - 0.5f * width;
+    const float width = pfs[P_WIDTH] * 0.01f * grp[1 - g].gf;
+    const float pan0 = g ? 0.5f + 0.5f * width : 0.5f - 0.5f * width;
+    const float pan_depth = pv[GP_FLFO_DEPTH] * 0.005f * mv * v->dp;
+    const float pan = fm_fabsf(pan_depth) > 1e-6f ?
+        lfo_fit(pan0, route_at(v, 1, 0) * pan_depth,
+                fm_fabsf(pan_depth) * route_n(v, 1)) : pan0;
     const float gl1 = fm_sqrtf(1.0f - pan) * 1.41421356f, gr1 = fm_sqrtf(pan) * 1.41421356f;
     float pdl, pdr, gl, gr;
     if (v->pl == 0.0f && v->pr == 0.0f) {        /* the first block: where it's set (both never 0 otherwise) */
@@ -2136,7 +2143,7 @@ static void render_group(int g, uint32_t n)
          * to +-5 octaves, or the resonance, its whole range at depth 100), each its route's wave(s) */
         om = route_at(v, 0, j0 / CR) * oamt;
         fl = route_at(v, 1, j0 / CR);
-        fmod = (1.0f - v->dw[1]) * fl * famt * 5.0f;
+        fmod = fm_maxf(0.0f, 1.0f - v->dw[1] - v->dp) * fl * famt * 5.0f;
         r = lfo_fit(r0, v->dw[1] * fl * ramt, v->dw[1] * fm_fabsf(ramt) * route_n(v, 1));
         dr_reso[g] = r * 1000.0f;                /* as it sounds, with the LFO (the screen) */
         k = 2.0f - 2.1f * r;

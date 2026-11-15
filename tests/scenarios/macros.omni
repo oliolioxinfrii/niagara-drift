@@ -1,3 +1,4 @@
+legacykeys
 # the gestures (v0.2): Weight, Shift, Clean, Wash on D5-G5 (w12-w15), always the same, offsets on top of the sound, the sound's own
 # values untouched; each part comes in over its own stretch of the way in and goes over its own on the way out.
 # heardN is what's heard (the sound plus the macros), parN the sound's own, mpitchG a drone's pitch move by the
@@ -9,11 +10,9 @@ set 7 700
 set 28 680
 set 11 75
 set 32 61
-# a new FM-1 plays the Presets; these scenes go in bank A (SEL + G4)
+# A new FM-1 starts on Presets; scene tests select bank A explicitly.
 expect bank 3
-press SEL
-tapkey w8
-release SEL
+bank 0
 expect bank 0
 # scenes switch in ~4 s here (the Scene time at 46; ~15 s on a new FM-1 since 2026-10-25)
 set 71 34
@@ -210,7 +209,7 @@ expect par93 100
 expect heard63 >60
 # a restart brings the whole sound back to the engine, the gestures too (the last values of a load were once
 # dropped)
-tap SAVE
+save
 wait 500
 reboot
 wait 5000
@@ -219,7 +218,7 @@ expect heard63 >60
 # SAVE again with nothing changed: nothing is written (each write is a late block while playing); one so far: the
 # project
 expect store_writes 1
-tap SAVE
+save
 wait 500
 expect store_writes 1
 # GESTURE TIME (PRESETS), respread (Evan, 2026-10-28): slower evenly in seconds to x12 (Weight in over ~34 s), faster

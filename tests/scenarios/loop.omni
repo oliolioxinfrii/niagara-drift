@@ -1,3 +1,4 @@
+legacykeys
 # from the starting sound before 2026-10-17 (these checks were made on it)
 classic
 # Pitch lock off (on at start since 2026-10-19): these move the pitch
@@ -125,9 +126,7 @@ wait 8000
 expect gam0 0
 # A SCENE TAPPED IN THE LOOP: a scene with the cutoff up (bank A, key 1), the sound back down; recorded, the tap;
 # looped, each pass starts on the sound the recording began on and goes to the scene again
-press SEL
-tapkey w8
-release SEL
+bank 0
 expect bank 0
 set 71 0
 spin K2 20

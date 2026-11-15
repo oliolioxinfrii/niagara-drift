@@ -3,6 +3,7 @@
 # figure is set up before the recording (its moves take ~10 s); the clip starts on it stepping.
 # "# @" marks the listening times (tools/make_manual.py --times).
 notips
+legacykeys
 phones 1
 set 74 0
 set 71 0

@@ -165,7 +165,8 @@ static int lk_glide(uint32_t now, float *line, int *bank)
         lk_gl.t0 = ui.morph_t0;
         lk_gl.real = ui.morph_ms;
         lk_gl.ms = ui.morph_ms > LK_GLIDE_MIN ? ui.morph_ms : LK_GLIDE_MIN;
-        lk_gl.to = (int8_t)(ui.morph == VISIT_BACK ? (ui.scene_at >= 0 ? ui.scene_at : -2) : ui.morph);
+        lk_gl.to = (int8_t)(ui.morph == MENU_TRANSITION ? -3 :
+                             ui.morph == VISIT_BACK ? (ui.scene_at >= 0 ? ui.scene_at : -2) : ui.morph);
         lk_gl.bank = proj.bank;
         /* a scene key let go part way: the sound goes back, so the line it filled empties, still naming that scene
          * (Evan, 2026-11-08: filling a new line to "→ A5" looked as if the change went on) */
@@ -308,6 +309,8 @@ static void lk_bar(void)
         char *q = scopy(key, "\\ ");
         if (glide == -2)
             scopy(q, "back");
+        else if (glide == -3)
+            scopy(q, "target");
         else
             scene_name(q, gbank, glide);
         sound = BANK_IS_PRESETS(gbank) && glide >= 0 ? preset_name(glide + (gbank == BANK_PRESETS2 ? NPLAY : 0)) : 0;
@@ -1653,7 +1656,7 @@ static void lk_pic_lfo(void)
         else
             scopy(scopy(t, g ? "II " : "I "),
                   osc ? (gpar(g, GP_OLFO_DEST) == DR_TO_XWAVE ? "wave" : "pitch")
-                      : (gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff"));
+                      : (gpar(g, GP_FLFO_DEST) == DR_TO_PAN ? "pan" : gpar(g, GP_FLFO_DEST) == DR_TO_RESO ? "reso" : "cutoff"));
 
         ax = 232 - text_w(&FONT_S, t);
         for (w = 0; w < 2; w++) {
@@ -2007,11 +2010,14 @@ static void lk_pic_swell(void)
     float dot;
     const int32_t x0 = 12, h = 100;
     int32_t top, lo = 9999, hi = -9999;
-    int16_t y[LK_SW_N];
+    int16_t y[LK_SW_N], path[2][LK_SW_N];
     int g, i;
+    /* The peak-to-peak scan also supplies the waveform samples. The gain
+     * conversion need only run once per point, not once per scan and draw. */
     for (g = 0; g < 2; g++)
         for (i = 0; i < LK_SW_N; i++) {
-            const int32_t yi = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), 0, h);
+            const int16_t yi = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), 0, h);
+            path[g][i] = yi;
             lo = yi < lo ? yi : lo;
             hi = yi > hi ? yi : hi;
         }
@@ -2023,7 +2029,7 @@ static void lk_pic_swell(void)
     for (g = 1; g >= 0; g--) {
         const uint16_t c = on ? LK_DRONE[g] : LK_UNLIT;
         for (i = 0; i < LK_SW_N; i++)
-            y[i] = lk_swell_y(g, 4.0f * (float)i / (float)(LK_SW_N - 1), top, h);
+            y[i] = (int16_t)(top + path[g][i]);
         if (on && g == 1)                    /* a cyan edge stays visible where both traces align */
             for (i = 1; i < LK_SW_N; i++)
                 cv_line(x0 + 2 * (i - 1), y[i - 1] - 1, x0 + 2 * i, y[i] - 1, c);
@@ -2210,6 +2216,7 @@ static void lk_pic_speaker(void)
 }
 
 static void lk_pic_sequence(int timing);
+static void lk_pic_seq_shape(void);
 static void lk_pic(void)
 {
     const int msg = plat_ms() < ui.msg_until;
@@ -2218,18 +2225,22 @@ static void lk_pic(void)
                       msg ? ui.msg_until : 0);
     if (ui.view == V_SPEAKER)
         h = hash(h, (uint32_t)proj.par[P_SPEAKER]);
-    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME) {
+    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE) {
         int j;
         h = hash(h, (uint32_t)sd.count | (uint32_t)sd.position << 8 | (uint32_t)sd.phase << 16 |
                     (uint32_t)sd.enabled << 24 | (uint32_t)sd.paused << 25 | (uint32_t)sd_linked() << 26 |
                     (uint32_t)sd.stopping << 27);
         for (j = 0; j < SD_MAX; j++) {
             h = hash(h, (uint32_t)(uint16_t)sd.note[0][j] | (uint32_t)(uint16_t)sd.note[1][j] << 16);
-            h = hash(h, sd.gap_s[j]);
+            h = hash(h, sd.gap_s[j] | (uint32_t)(uint8_t)sd.shape[j] << 16);
         }
         if (sd.enabled) h = hash(h, plat_ms() / 100u);
     }
-    if (h == ui.sig[1] && ui.frame % SCOPE_EVERY)
+    /* These views have no autonomous animation while stopped or paused.
+     * Redraw them only when their state changes, not on the scope cadence. */
+    const int still = ui.view == V_SEQ_SHAPE || ui.view == V_SPEAKER ||
+                      (ui.view == V_SEQ_TIME && (!sd.enabled || sd.paused));
+    if (h == ui.sig[1] && (still || ui.frame % SCOPE_EVERY))
         return;
     ui.sig[1] = h;
     cv_begin(240, LK_PIC_H, LK_BG);
@@ -2246,6 +2257,7 @@ static void lk_pic(void)
     case V_LFO2: lk_pic_mods(); break;
     case V_SEQ_NOTES: lk_pic_sequence(0); break;
     case V_SEQ_TIME: lk_pic_sequence(1); break;
+    case V_SEQ_SHAPE: lk_pic_seq_shape(); break;
     case V_PULSE: lk_pic_swell(); break;
     case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
     case V_SETUP: lk_pic_setup1(); break;
@@ -2591,7 +2603,7 @@ cents:
             lk_swing(t2, fm_fabsf(c) * 100.0f, "%");
         else if (gp == GP_OLFO_DEPTH)
             fm_fabsf(c) * 24.0f < 1.0f ? lk_swing(t2, fm_fabsf(c) * 2400.0f, "c") : lk_swing(t2, fm_fabsf(c) * 24.0f, " st");
-        else if (gpar(g, GP_FLFO_DEST) == DR_TO_RESO)
+        else if (gpar(g, GP_FLFO_DEST) == DR_TO_PAN || gpar(g, GP_FLFO_DEST) == DR_TO_RESO)
             lk_swing(t2, fm_fabsf(d) * mv * 100.0f, "%");
         else
             lk_swing(t2, fm_fabsf(c) * 5.0f, " oct");
@@ -2681,7 +2693,7 @@ static int lk_readout(void)
 static void lk_values(void)
 {
     const int held = (int)(ui.btn >> B_SEL & 1u);
-    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME) {
+    if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE) {
         lk_values_sequence();
         return;
     }
@@ -2954,10 +2966,10 @@ static void lk_values(void)
 }
 
 /* ---------------------------------------------------- SEL held: the key map --- */
-/* the keyboard in the picture's place (the board 321:284): the white keys dark, each black key lit in its group's
+/* the keyboard in the picture's place: the white keys dark, each black key lit in its group's
  * color when on (drone I amber, the global two neutral, drone II cyan, the links green; on the LFO pages the LFO's
- * routing), the groups named above a bracket each, the one touched outlined in white with a mark under it; the top
- * four whites the banks (A B C P), the one playing in gold. In the values' place the key touched, its group and
+ * routing), the groups named above a bracket each, the one touched outlined in white with a mark under it.
+ * In the values' place the key touched, its group and
  * setting ("LINKS · [D#5]", "HARD SYNC ON"); none yet, how to ask. The header "KEYS [SEL] held" */
 typedef struct {
     uint8_t k0, n;
@@ -3016,20 +3028,6 @@ static void lk_keymap(void)
     for (i = 0; i < 16; i++)                   /* the white keys, 15 px each, as outlines on the ground (Evan, 2026-11-07:
                                                 * the filled slate keyboard was the one big flat fill on any screen) */
         lk_box(i * 15, LK_KEY_Y, 14, LK_KEY_WH, LK_WHITE_KEY);
-    {                                          /* G4-G5 with SEL: the banks, in a row (A .. F, the Presets' two) */
-        const int32_t base = LK_KEY_Y + 87;
-        cv_text(NPLAY * 15 - 4 - text_w(&LK_F_SMALL, "banks"), base - LK_B(LK_F_SMALL), &LK_F_SMALL, "banks", LK_LABEL);
-        for (i = 0; i < 8; i++) {
-            const int bk = KEY_BANK[i], on = proj.bank == bk;
-            const int32_t cx = (NPLAY + i) * 15 + 7;
-            const felucca_font_t *f = BANK_IS_PRESETS(bk) ? &FONT_U2 : &LK_F_SMALL;   /* "P1", "P2" at the units' size */
-            char l[3] = {BANK_L[bk], bk == BANK_PRESETS ? '1' : bk == BANK_PRESETS2 ? '2' : 0, 0};
-            if (on)
-                cv_round(cx - 7, base - 13, 14, 17, 2, LK_GOLD);
-            cv_text(cx - text_w(f, l) / 2, base - (BANK_IS_PRESETS(bk) ? LK_B(FONT_U2) : LK_B(LK_F_SMALL)), f, l,
-                    on ? LK_BG : LK_LABEL);
-        }
-    }
     for (i = 0; i < 11; i++) {                 /* the black keys, lit as the panel's */
         const int32_t x = LK_KX[i];
         const int on = lk_key_on(i);
@@ -3088,8 +3086,92 @@ static void lk_keymap(void)
         text_c(120, 59 - lk_fbase(f), f, v, LK_WHITE);   /* on the board's line (y 382-432) */
     }
     {                                          /* what SEL does with the white keys and OCT */
-        const char *hint = "[G4]-[G5] bank \xC2\xB7 [OCT] wave back";
+        const char *hint = "[SAVE] bank and scenes \xC2\xB7 [OCT] wave back";
         lk_ktext(120 - lk_ktext_w(&LK_F_SMALL, hint) / 2, 70, &LK_F_SMALL, hint, LK_LABEL);
+    }
+    cv_blit(0, LK_VAL_Y);
+}
+
+/* SAVE browser and scene-slot naming popup. Three bands as on other Niagara
+ * pages; the actual bank/slot/action/amount are the four bottom readouts. */
+static void lk_save_menu(void)
+{
+    const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+    const int filled = scene_has(bank, slot);
+    const char *name = project_slot_name(bank, slot);
+    uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
+                                                     (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),
+                      (uint32_t)ui.menu_pct | (uint32_t)ui.save_menu << 8 | (uint32_t)ui.name_pos << 16);
+    char key[12], pct[8];
+    int i;
+    if (ui.save_menu == 2)
+        for (i = 0; i < BANK_NAME_LEN; i++)
+            h = hash(h, (uint8_t)ui.name_draft[i]);
+    if (name)
+        for (i = 0; name[i]; i++)
+            h = hash(h, (uint8_t)name[i]);
+    if (plat_ms() < ui.msg_until) h = hash(h, ui.msg_until);
+    if (ui.sig[0] == h) return;
+    ui.sig[0] = h;
+    scene_name(key, bank, slot);
+    itoa_u(ui.menu_pct, pct);
+    { char *q = pct; while (*q) q++; scopy(q, "%"); }
+
+    cv_begin(240, LK_BAR_H, LK_BG);
+    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 3 ? "OVERWRITE?" : ui.save_menu == 2 ? "NAME SLOT" : "SCENES", LK_WHITE);
+    cv_blit(0, 0);
+
+    cv_begin(240, LK_PIC_H, LK_BG);
+    cv_rect(8, 4, 224, 1, LK_RULE);
+    if (ui.save_menu == 2) {
+        cv_text(12, 11, &LK_F_SMALL, "EDIT SLOT NAME", LK_LABEL);
+        cv_text(195, 11, &FONT_XS, key, LK_GOLD);
+        for (i = 0; i < BANK_NAME_LEN - 1; i++) {
+            const char ch[2] = {ui.name_draft[i], 0};
+            const int32_t cx = 20 + 20 * i;
+            if (i == ui.name_pos) cv_rect(cx - 8, 55, 16, 2, LK_GOLD);
+            text_c(cx, 33, &FONT_T20, ch, i == ui.name_pos ? LK_GOLD : LK_WHITE);
+        }
+        cv_text(12, 84, &LK_F_SMALL, "K1 CURSOR   K2 LETTER", LK_LABEL);
+        cv_text(12, 108, &FONT_XS, "[SAVE] YES      [HOME] BACK", LK_LABEL);
+    } else if (ui.save_menu == 3) {
+        cv_text(12, 12, &LK_F_SMALL, "REPLACE THE STORED SOUND?", LK_GOLD);
+        text_c(120, 38, &FONT_N2, key, LK_WHITE);
+        text_c(120, 79, &FONT_T20, name ? name : "EXISTING SCENE", LK_LABEL);
+    } else {
+        cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
+        cv_text(74, 9, &FONT_T20, BANK_N[bank], LK_GOLD);
+        cv_text(12, 46, &LK_F_SMALL, "SLOT", LK_LABEL);
+        cv_text(74, 39, &FONT_N2, key, LK_WHITE);
+        cv_text(12, 79, &FONT_T20,
+                name ? name : filled ? "STORED" : "EMPTY",
+                name ? LK_WHITE : filled ? LK_WHITE : LK_UNLIT);
+        cv_text(12, 108, &FONT_XS, "[SAVE] YES  [HOME] BACK  [REC] NAME", LK_LABEL);
+    }
+    if (plat_ms() < ui.msg_until)
+        cv_text(10, 119, &FONT_XS, ui.msg[0], LK_GOLD);
+    cv_blit(0, LK_PIC_Y);
+
+    cv_begin(240, LK_VAL_H, LK_BG);
+    cv_rect(8, 0, 224, 1, LK_RULE);
+    if (ui.save_menu == 1) {
+        const int32_t cx[4] = {31, 89, 148, 207};
+        const char *const label[4] = {"BANK", "SLOT", "ACTION", "MORPH"};
+        const char *const action[3] = {"SAVE", "LOAD", "TRANS"};
+        char short_bank[4] = {BANK_L[bank], bank == BANK_PRESETS ? '1' : bank == BANK_PRESETS2 ? '2' : 0, 0};
+        const char *const value[4] = {short_bank, key, action[ui.menu_load], pct};
+        for (i = 0; i < 4; i++) {
+            text_c(cx[i], 8, &FONT_XS, label[i], LK_LABEL);
+            text_c(cx[i], 31, &FONT_T20, value[i],
+                   i == 2 && ui.menu_load == 0 && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_WHITE);
+        }
+    } else if (ui.save_menu == 3) {
+        text_c(120, 10, &FONT_XS, "EXISTING SCENE WILL BE LOST", LK_LABEL);
+        text_c(60, 39, &FONT_T20, "SAVE: YES", LK_GOLD);
+        text_c(177, 39, &FONT_T20, "HOME: BACK", LK_WHITE);
+    } else {
+        text_c(120, 13, &FONT_T20, "A-Z   0-9   -   SPACE", LK_LABEL);
+        text_c(120, 45, &FONT_XS, "11 CHARACTERS MAX", LK_LABEL);
     }
     cv_blit(0, LK_VAL_Y);
 }
@@ -3097,12 +3179,16 @@ static void lk_keymap(void)
 /* a frame of the new look (every page since 0.3's PR H), the key map while SEL is held */
 static void lk_frame(void)
 {
-    static int was = -1;                       /* into or out of the key map: every band afresh */
-    const int km = keymap_on();
+    static int was = -1;                       /* into or out of overlays: every band afresh */
+    const int km = ui.save_menu ? 2 : keymap_on();
     if (km != was) {
         was = km;
         ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         lcd_fill(0, 0, 240, 240, LK_BG);
+    }
+    if (km == 2) {
+        lk_save_menu();
+        return;
     }
     if (km) {
         lk_keymap();

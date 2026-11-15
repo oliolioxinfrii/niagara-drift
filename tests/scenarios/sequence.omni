@@ -1,6 +1,7 @@
-# Experimental SEQ 3/4: keyboard note entry, linked drone pitches and
+# SEQ pages 3-5: keyboard note entry, linked drone pitches, and
 # unequal event timing. Screenshots are for emulator review.
 notips
+legacykeys
 tap PLAY
 tap SEQ
 expect view 9
@@ -48,6 +49,11 @@ spin K3 30
 spin K4 20
 wait 250
 shot seq-timing-two.png
+# The new fifth page has four independent transition curves.
+tap SEQ
+expect view 20
+wait 250
+shot seq-shapes.png
 # Add nodes back, demonstrate independent placements.
 tap SEQ
 expect view 9

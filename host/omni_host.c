@@ -89,6 +89,9 @@ int32_t plat_enc(int role)
     return v;
 }
 uint32_t plat_master(void) { return master; }
+#ifndef OM_WEB
+static uint8_t legacy_scene_keys;            /* only the host script runner can opt into old pads */
+#endif
 static uint8_t pressure_v[NKEYS];              /* the script's "pressure KEY V": the 20 lower keys sense it */
 static int has_pressure;                       /* none until a script uses it (the emulator has none): 0.1's visit */
 int plat_pressure(uint32_t k)
@@ -339,6 +342,10 @@ static void wav_close(void)
 /* --------------------------------------------------------- the device --- */
 static double audio_due_ms, render_ns_total, render_budget_ns_total;
 static uint32_t ui_due;
+#ifndef OM_WEB
+static double ui_ns_total, ui_ns_peak, ui_ns_page[NVIEWS];
+static uint32_t ui_count, ui_count_page[NVIEWS];
+#endif
 static double now_ns(void)
 {
     struct timespec t;
@@ -412,7 +419,20 @@ static void run_ms(uint32_t ms)
         }
         if (now_ms >= ui_due) {
             ui_due = now_ms + 16;
+#ifndef OM_WEB
+            const double t0 = now_ns();
+#endif
             ui_frame();
+#ifndef OM_WEB
+            const double dt = now_ns() - t0;
+            ui_ns_total += dt;
+            if (dt > ui_ns_peak) ui_ns_peak = dt;
+            ui_count++;
+            if (ui.view < NVIEWS) {
+                ui_ns_page[ui.view] += dt;
+                ui_count_page[ui.view]++;
+            }
+#endif
         } else {
             ui_input_only();
         }
@@ -526,6 +546,27 @@ static int expect(const char *what, const char *val)
         got = proj.scene_used;
     else if (!strcmp(what, "bank"))                /* the bank the scene keys play: 0 A, 1 B, 2 C, 3 Presets */
         got = proj.bank;
+    else if (!strcmp(what, "savemenu"))
+        got = ui.save_menu;
+    else if (!strcmp(what, "menuaction"))
+        got = ui.menu_load;
+    else if (!strcmp(what, "menupct"))
+        got = ui.menu_pct;
+    else if (!strncmp(what, "sceneparam", 10)) {
+        int bank, slot, param;
+        const int16_t *stored = 0;
+        if (sscanf(what + 10, "%d_%d_%d", &bank, &slot, &param) == 3 &&
+            param >= 0 && param < DR_NPARAMS)
+            stored = scene_get(bank, slot);
+        got = stored ? stored[param] : -999;   /* check flash slot contents, not live sound */
+    }
+    else if (!strncmp(what, "slotname", 8)) {
+        const int bank = what[8] - '0', slot = what[9] - '0';
+        const char *nm = project_slot_name(bank, slot);
+        got = nm ? (unsigned char)nm[0] : 0;
+    }
+    else if (!strncmp(what, "seqshape", 8))
+        got = sd.shape[atoi(what + 8) & 3];
     else if (!strcmp(what, "bscenes")) {           /* the current bank's slots in use, as a bit mask */
         int n;
         got = 0;
@@ -668,6 +709,14 @@ int main(int argc, char **argv)
             run_ms((uint32_t)atoi(a));
         else if (!strcmp(cmd, "seqsnap"))
             sequence_snapshot();
+        else if (!strcmp(cmd, "legacykeys")) { /* test legacy scene pressure/recall separately from v1.4 defaults */
+            legacy_scene_keys = 1;
+            ui.scene_keys_enabled = 1;
+        }
+        else if (!strcmp(cmd, "save")) {       /* project persistence fixture, not a button gesture */
+            save_ask(-1);
+            run_ms(150);
+        }
         else if (!strcmp(cmd, "press") || !strcmp(cmd, "release") || !strcmp(cmd, "tap")) {
             int i = find_name(BTN_N, NB, a);
             if (i < 0) {
@@ -721,6 +770,18 @@ int main(int argc, char **argv)
                 enc_acc[e] += s;
                 run_ms(gap);
             }
+        } else if (!strcmp(cmd, "bank")) {
+            /* Fixture setup for scenes; the SAVE menu itself has separate
+             * interaction tests. The selected bank persists with the project. */
+            int b = atoi(a);
+            if (b < 0 || b >= NBANKS) {
+                printf("line %d: invalid bank %d\n", lineno, b);
+                return 2;
+            }
+            proj.bank = (uint8_t)b;
+            ui.scene_at = -1;
+            mark_dirty();
+            run_ms(2);
         } else if (!strcmp(cmd, "page")) {          /* page V: page V at once, in no time (the pages moved in v0.3:
                                                     * the scripts kept their timing, sample for sample) */
             set_view(atoi(a));
@@ -834,6 +895,7 @@ int main(int argc, char **argv)
         } else if (!strcmp(cmd, "reboot")) {
             memset(&proj, 0, sizeof proj);
             boot();
+            ui.scene_keys_enabled = legacy_scene_keys;
         } else if (!strcmp(cmd, "echo"))
             printf("%s", line + 5);
         else {
@@ -847,6 +909,15 @@ int main(int argc, char **argv)
     printf("host: %u ms simulated, %u blits, render %.1f%% of real time (host CPU)%s\n", now_ms, blits,
            render_budget_ns_total > 0 ? 100.0 * render_ns_total / render_budget_ns_total : 0.0,
            fails ? ", EXPECTATIONS FAILED" : "");
+    if (ui_count) {
+        int v;
+        printf("ui: %.1f us/frame mean, %.1f us max (%u frames)\n",
+               ui_ns_total / (double)ui_count / 1000.0, ui_ns_peak / 1000.0, ui_count);
+        for (v = 0; v < NVIEWS; v++)
+            if (ui_count_page[v] >= 10u)
+                printf("ui page %d %s: %.1f us/frame (%u frames)\n", v, VIEW_NAME[v],
+                       ui_ns_page[v] / (double)ui_count_page[v] / 1000.0, ui_count_page[v]);
+    }
     return fails ? 1 : 0;
 }
 #endif /* OM_WEB */

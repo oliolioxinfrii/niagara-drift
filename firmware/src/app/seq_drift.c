@@ -9,6 +9,7 @@
 static struct {
     uint8_t count, position, drone, phase, enabled, paused, stopping;
     uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
+    int8_t shape[SD_MAX];               /* -100: late jump, 0: sine ease, +100: early jump */
     uint16_t node_frac[SD_MAX];          /* Q16 cycle positions; K4 scale changes do not re-round their source */
     int16_t note[2][SD_MAX];
     int16_t sent[2];
@@ -165,31 +166,56 @@ static void sd_toggle(void)
     }
 }
 
+/* A segment's shape applies to both drones. Endpoints at +/-100 have
+ * discontinuous changes; all intermediate settings preserve both endpoints.
+ * The midpoint is one half-period of a cosine. */
+static float sd_interp(int seg, float x)
+{
+    const int shape = sd.shape[seg];
+    float s, bias;
+    if (x <= 0.0f) return shape == 100 ? 1.0f : 0.0f;
+    if (x >= 1.0f) return 1.0f;
+    if (shape <= -100) return 0.0f;
+    if (shape >= 100) return 1.0f;
+    s = 0.5f - 0.5f * fm_cosf(3.14159265f * x);
+    if (!shape) return s;
+    bias = (float)(shape < 0 ? -shape : shape) * 0.01f;
+    bias = 32.0f * bias * bias;
+    return shape > 0 ? s * (1.0f + bias) / (1.0f + bias * s) :
+                       s / (1.0f + bias * (1.0f - s));
+}
+
 /* Smoothly interpolate across unequal event intervals. In Pitch Link mode,
  * drone II follows drone I at the saved offset, with no phase disagreement. */
-static int sd_at(int g, uint32_t elapsed_ms)
+/* Screen traces sample many times per frame. Reuse the frame's cycle length
+ * and link state rather than recomputing them for each plotted point. */
+static int sd_at_len(int g, uint32_t elapsed_ms, uint32_t len_ms, int linked)
 {
-    const uint32_t len_ms = sd_total_s() * 1000u;
     uint32_t t;
-    int i, base = g && sd_linked() ? 0 : g;
+    const int base = g && linked ? 0 : g;
+    int i;
     if (!len_ms) return sd_pitch(g, 0);
     t = elapsed_ms % len_ms;
-    if (g && !sd_linked())
+    if (g && !linked)
         t = (t + (uint32_t)sd.phase * len_ms / 100u) % len_ms;
     for (i = 0; i < sd.count; i++) {
         const uint32_t gap = (uint32_t)sd.gap_s[i] * 1000u;
         if (t < gap) {
             const int a = sd.note[base][i];
-            const int b = sd.note[base][(i + 1) % sd.count];
+            const int b = sd.note[base][i + 1 < sd.count ? i + 1 : 0];
             const float x = (float)t / (float)gap;
-            const float smooth = x * x * (3.0f - 2.0f * x);
+            const float smooth = sd_interp(i, x);
             const float v = (float)a + (float)(b - a) * smooth +
-                            (g && sd_linked() ? (float)sd_offset() : 0.0f);
+                            (g && linked ? (float)sd_offset() : 0.0f);
             return (int)(v + (v >= 0.0f ? 0.5f : -0.5f));
         }
         t -= gap;
     }
     return sd_pitch(g, 0);
+}
+static int sd_at(int g, uint32_t elapsed_ms)
+{
+    return sd_at_len(g, elapsed_ms, sd_total_s() * 1000u, sd_linked());
 }
 static void sd_note_set(int pos, int g, int cents)
 {
@@ -498,4 +524,17 @@ static void sd_time_knob(int i, int32_t e)
         if (target > (int)SD_LIMIT_S) target = (int)SD_LIMIT_S;
         sd_scale_total((uint32_t)target);
     }
+}
+
+/* The four controls shape the four chronological segments, including the
+ * wrap from the final step to step 1. Inactive segments are not editable. */
+static void sd_shape_knob(int i, int32_t e)
+{
+    int value;
+    if (sd.count < 2 || i >= sd.count) return;
+    value = (int)sd.shape[i] + (int)accel(EN_K1 + i, e, 200);
+    if (value < -100) value = -100;
+    if (value > 100) value = 100;
+    sd.shape[i] = (int8_t)value;
+    sd.sent[0] = sd.sent[1] = -32768;
 }

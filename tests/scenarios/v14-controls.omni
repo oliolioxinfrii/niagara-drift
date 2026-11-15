@@ -1,0 +1,146 @@
+# SELECT navigates only the pages in the current family.
+notips
+expect view 0
+spin SELECT 1
+expect view 1
+spin SELECT 1
+expect view 0
+tap SEQ
+expect view 9
+spin SELECT -1
+expect view 20
+spin SELECT 1
+expect view 9
+tap HOME
+expect view 0
+expect par47 74
+press SEL
+spin SELECT 1
+release SEL
+expect view 0
+expect par47 75
+
+# SAVE is the confirmation for an explicit action; HOME cancels.
+# K1 selects the bank and K2 the slot, K3 the action, K4 the target %.
+expect bank 3
+set 7 300
+tap SAVE
+expect savemenu 1
+spin K1 2
+tap SAVE
+expect savemenu 0                  # previously empty A1: immediate save
+expect bank 0
+expect scenes 1
+expect sceneparam0_0_7 300
+
+# Keys 1-8 are unassigned on ordinary pages; they do not recall the slot.
+set 7 200
+tapkey w0
+wait 200
+expect par7 200
+
+# A filled slot must not change until the second explicit SAVE.
+tap SAVE
+expect savemenu 1
+tap SAVE
+expect savemenu 3                 # overwrite question, no write yet
+expect sceneparam0_0_7 300
+spin K1 1                         # all knobs are ignored in the confirmation
+spin K2 1
+spin K3 1
+expect savemenu 3
+tap HOME                          # cancel: return to the browser
+expect savemenu 1
+expect sceneparam0_0_7 300
+tap HOME                          # leave the browser
+expect savemenu 0
+expect sceneparam0_0_7 300
+
+# Confirmed overwrite replaces A1, without touching A2.
+tap SAVE
+tap SAVE
+expect savemenu 3
+tap SAVE
+expect savemenu 0
+expect sceneparam0_0_7 200
+expect sceneparam0_1_7 -999
+
+# Factory Presets cannot be overwritten, but they remain valid LOAD targets.
+tap SAVE
+spin K1 -2
+tap SAVE
+expect savemenu 1
+spin K3 1
+expect menuaction 1
+tap SAVE
+expect savemenu 0
+expect bank 3
+wait 16000
+
+# A partial transition approaches a stored preset over Scene time, preserving
+# the source sound's remaining percentage.
+set 7 200
+tap SAVE
+spin K3 2
+expect menuaction 2
+spin K4 -60
+expect menupct 40
+tap SAVE
+expect savemenu 0
+wait 16000
+expect par7 >200
+expect par7 <600
+
+# REC names the selected user slot, not the bank; SAVE commits, HOME cancels.
+tap SAVE
+spin K1 2
+tap REC
+expect savemenu 2
+spin K2 1
+tap SAVE
+expect savemenu 1
+tap HOME
+expect savemenu 0
+expect slotname00 66
+expect slotname01 0
+reboot
+expect slotname00 66
+expect slotname01 0
+
+# Each filter-LFO destination cycles cutoff -> resonance -> pan -> cutoff.
+tap LFO
+expect view 6
+expect par18 0
+tapkey b3
+expect par18 1
+tapkey b3
+expect par18 2
+tapkey b3
+expect par18 0
+expect par39 0
+tapkey b4
+expect par39 1
+tapkey b4
+expect par39 2
+tapkey b4
+expect par39 0
+
+# A fifth SEQ page shapes each active segment independently.
+page 18
+spin K3 3
+page 20
+expect view 20
+spin K1 -100
+spin K2 100
+spin K3 50
+spin K4 -50
+expect seqshape0 -100
+expect seqshape1 100
+expect seqshape2 50
+expect seqshape3 -50
+shot seq-shape-edges.png
+page 18
+spin K3 -2
+page 20
+spin K3 -30
+expect seqshape2 50

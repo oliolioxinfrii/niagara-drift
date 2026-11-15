@@ -2,12 +2,11 @@
 # A recipe's render (tools/make_manual.py --renders): from P11, headphones, Pitch lock off, Scene time 0.
 # "# @" marks the listening times (tools/make_manual.py --times).
 notips
+legacykeys
 phones 1
 set 74 0
 set 71 0
-press SEL
-tapkey w15
-release SEL
+bank 7
 tapkey w2
 tap PLAY
 wait 3000

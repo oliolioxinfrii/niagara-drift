@@ -1,3 +1,4 @@
+legacykeys
 # MIDI CLOCK IN (v0.3, step 3): the tempo and the jitter of a clock from a DAW, as the test build shows them.
 # clkbpm is the tempo x 10, clkjit / clkmax the jitter (RMS / largest) in us
 tap PLAY
@@ -55,9 +56,7 @@ expect swerr <30
 set 71 0
 expect par55 1
 expect par100 7
-press SEL
-tapkey w15
-release SEL
+bank 7
 tapkey w3
 wait 1000
 expect par55 1
@@ -65,7 +64,9 @@ expect par100 7
 expect swerr <30
 # THE LFO on the clock: SELECT turns its cycle (LFO div, 101; 7 = a quarter note), steered to the beat
 expect par101 3
+press SEL
 spin SELECT 4
+release SEL
 expect par101 7
 wait 4000
 expect lfoerr <30

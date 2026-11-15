@@ -1,3 +1,4 @@
+legacykeys
 # THE TUNING (v0.3, Setup 2 KNOB 4, par110): a pitch knob's detent is the grid's next step, up or down (Evan,
 # 2026-10-30, after #61's glide-and-land: every detent moves the pitch, and the card shows the note it goes to).
 # Drone I's pitch (par0, cents over MIDI 0; D3 5000); the host's spin turns its detents at once: a first turn, no
@@ -190,9 +191,7 @@ tap GLO
 set 110 2
 expect par110 2
 tap HOME
-press SEL
-tapkey w8
-release SEL
+bank 0
 press SAVE
 tapkey w0
 release SAVE
@@ -212,9 +211,7 @@ expect par110 2
 expect tunoff0 0
 # the Presets (SEL + F5), Pitch lock on: P1 Niagara names no Tuning, so 12-tone
 set 74 1
-press SEL
-tapkey w14
-release SEL
+bank 3
 tapkey w0
 wait 1500
 expect par110 0
@@ -222,9 +219,7 @@ expect par110 0
 # notes) +3; A1 (19-tone) pressed in past half way lets it go; let go, the sound goes back: 12-tone and +3 return;
 # tapped, then SEL + SAVE (undo): the same
 set 74 0
-press SEL
-tapkey w8
-release SEL
+bank 0
 set 0 5000
 wait 300
 press SEL

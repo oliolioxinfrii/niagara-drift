@@ -58,7 +58,7 @@ enum {
     GP_OLFO_DEST,   /* what the oscillator's LFO moves: DR_TO_PITCH, DR_TO_XWAVE (a switch) */
     GP_FLFO,        /* the filter's LFO tap: DR_LFO_OFF, _I, _II, _BOTH (a switch) */
     GP_FLFO_DEPTH,  /* -100..100: up to +-5 octaves of cutoff, or the whole resonance range at 100; 0 none */
-    GP_FLFO_DEST,   /* what the filter's LFO moves: DR_TO_CUTOFF, DR_TO_RESO (a switch) */
+    GP_FLFO_DEST,   /* what the filter's LFO moves: DR_TO_CUTOFF, DR_TO_RESO, DR_TO_PAN (a switch) */
     GP_NOISE,       /* NOISE, 0..100: its level, added to the oscillators (they stay as they are); 100 is level
                      * with a saw, 50 about -7 dB, 25 -12 */
     GP_NCOLOR,      /* the noise's COLOUR, 0..100: white .. pink (-3 dB/oct), a blend (v0.2; it was 0 / 1) */
@@ -172,7 +172,7 @@ enum { DR_LP, DR_BP, DR_HP };
 enum { DR_SINE, DR_TRI, DR_SAW, DR_SQUARE };          /* the X-WAVE's four waves, in its order */
 enum { DR_LFO_OFF, DR_LFO_I, DR_LFO_II, DR_LFO_BOTH };   /* a route's wave; BOTH: I + II, summed */
 enum { DR_TO_PITCH, DR_TO_XWAVE };
-enum { DR_TO_CUTOFF, DR_TO_RESO };
+enum { DR_TO_CUTOFF, DR_TO_RESO, DR_TO_PAN };
 #define DR_NGEST 8                             /* the gesture keys: D5-G5 (by time), G4-C5 (by pressure, v0.3) */
 enum { DR_G_WEIGHT, DR_G_SHIFT, DR_G_CLEAN, DR_G_WASH, DR_G_TICK, DR_G_CHORD, DR_G_SNARL, DR_G_STUTTER,
        DR_NGTYPE };                       /* what each key plays, fixed: D5-G5, then G4-C5 */

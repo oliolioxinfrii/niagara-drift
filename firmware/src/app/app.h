@@ -49,11 +49,12 @@
                                           * the LFO rate mod, 10: the LFO lock, 9: the filter LFO's destination, 8: the
                                           * effects, 7: the pulse, 6: scenes) */
 #define NSCENES 12                       /* a bank's slots: the 12 lower white keys (F3 .. C5, which sense pressure) */
-#define NPLAY 8                          /* ... the scenes it plays: keys 1-8 (F3 .. F4); 9-12 are gestures (v0.3) */
+#define NPLAY 8                          /* eight stored slots per active bank */
+#define BANK_NAME_LEN 12                 /* 11 visible characters plus NUL */
 #define NBANKS 8                         /* the banks, by number: A, B, C (yours), the Presets (P1-P8, fixed, in the
                                           * firmware), D, E, F (yours, v0.3), the Presets' second bank (P9-P16): numbered
                                           * so a project from before keeps its bank (3 the Presets); on the keys in a
-                                          * row, A .. F, P1-P8, P9-P16 (ui.c KEY_BANK) */
+                                          * row in the SAVE browser, A .. F, P1-P8, P9-P16 */
 #define BANK_PRESETS 3
 #define BANK_PRESETS2 7
 #define BANK_D 4                         /* D, E, F: 4, 5, 6 (their own flash objects, 8 scenes each) */
@@ -64,7 +65,7 @@ typedef struct {
     uint32_t magic, format;
     int16_t par[DR_NPARAMS];             /* drone.h parameters */
     uint8_t leds;                        /* key lights on */
-    uint8_t bank;                        /* the bank the scene keys play (0 A .. 3 Presets) */
+    uint8_t bank;                        /* current scene bank (0 A .. 3 Presets; managed through SAVE) */
     uint8_t mtime;                       /* GESTURE TIME, 0..100 (PRESETS): every gesture's time x0.25 .. x12, 50 as set
                                           * (the player's, not a scene's; was the macro PRESETS played, format <= 25) */
     uint8_t gkey_old[4];                 /* unused since 29 (what each gesture key played, 27-28) */
@@ -76,6 +77,10 @@ typedef struct {
     uint8_t rsv[4];                      /* room to grow: an older, shorter project loads (zeros here) */
     uint16_t scene_used;                 /* bank A: bit n, scene n holds a sound */
     int16_t scene[NSCENES][DR_NPARAMS];  /* bank A: every parameter, recalled but for the room's settings */
+    /* Trailing v1.4 metadata: old format-45 flash objects have zeroes here.
+     * The prefix, slot positions and bank objects remain binary-compatible. */
+    char bank_name[NBANKS][BANK_NAME_LEN]; /* legacy v1.4 bank labels; retained so stored prefixes never move */
+    char slot_name[6][NPLAY][BANK_NAME_LEN]; /* A-F slots, 11 characters; factory Presets have fixed names */
 } project_t;
 _Static_assert(sizeof(project_t) <= PLAT_STORE_MAX, "the project must fit one flash object");
 
@@ -104,6 +109,8 @@ int project_save(void);                  /* 0 = saved and verified */
 extern int proj_note_moved, proj_note_stored, proj_note_presets;   /* the load's moves for 0.3's keys 9-12 */
 int scene_has(int bank, int n);                 /* scene n of a bank holds a sound */
 const int16_t *scene_get(int bank, int n);   /* scene n of a bank, or 0 if empty (a Preset's: until another is asked for) */
+const char *project_slot_name(int bank, int slot); /* 0 for an unnamed user scene; Presets use preset_name */
+int project_slot_rename(int bank, int slot, const char *name); /* never edits factory Presets */
 const char *preset_name(int n);          /* the Preset's name (P1 "NIAGARA" ..) */
 int scene_put(int bank, int n);         /* the sound now into scene n of a bank of yours (marks it to save); 0 ok */
 void project_apply(void);                /* every value to the engine (boot, load) */

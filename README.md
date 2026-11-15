@@ -7,6 +7,15 @@
 > gestures, and UI improvements. This is **not** an official Niagara Drift release;
 > the original project is [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift).
 
+> **Experimental v1.4 branch:** This branch changes SELECT navigation, the
+> SAVE browser, per-segment sequencer curves, and per-slot scene naming. Keys 1–8 are
+> reserved (unassigned) outside SEQ note entry; the controls illustrated
+> below describe the stable **v1.3** layout. For the v1.4 control map,
+> including **SAVE = yes**, **HOME = back**, and **REC = rename** inside
+> the SAVE browser, see [v1.4 controls](docs/v1.4-controls.md).
+> **Not yet verified on hardware. Do not install until the host and web
+> emulator regression tests pass.**
+
 Niagara Drift is open-source firmware that turns the M-VAVE
 FM-1 into a drone synthesizer: two always-on drones you tune, shape and move rather than play note by
 note.

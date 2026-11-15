@@ -1,3 +1,4 @@
+legacykeys
 # from the starting sound before 2026-10-17 (these checks were made on it)
 classic
 # scenes switch in 1.1 s here (the Scene time at 30; 46, ~4 s, on a new FM-1 since 2026-10-19)
@@ -18,11 +19,9 @@ expect par74 0
 # Pages: 0 Drones 1 Pitch 2 Life 3 Tone 4 Osc 5 Sub · Drive 6 LFO sends 7 Mods 8 Partner 9 Pitch moves
 # 10 Setup 1 11 Setup 2 12 Swell 13 Space 14 Details. "page V" goes to page V at once, in no time: since v0.3 moved
 # the knobs, the script turns each on its new page and comes back, its timing (and its sound) as before.
-# a new FM-1 plays the Presets; these scenes go in bank A (SEL + G4)
+# a new FM-1 plays the Presets; the host fixture selects bank A for scene tests
 expect bank 3
-press SEL
-tapkey w8
-release SEL
+bank 0
 expect bank 0
 wav drone.wav
 wait 300
@@ -259,9 +258,11 @@ tapkey b0
 expect par13 1
 tapkey b0
 expect par13 2
-# the filter LFO onto the resonance and back (the fourth key)
+# the filter LFO cycles cutoff, resonance, pan, cutoff (fourth key)
 tapkey b3
 expect par18 1
+tapkey b3
+expect par18 2
 tapkey b3
 expect par18 0
 tapkey b1
@@ -552,8 +553,10 @@ tap FX
 page 15
 expect view 15
 tap HOME
-# SELECT: the LFO rate; PRESETS: nothing yet (the macro to come), the waves stay
+# SEL+SELECT: the LFO rate; PRESETS: gesture time, waves unchanged
+press SEL
 spin SELECT 10
+release SEL
 expect par47 108
 spin PRESET 2
 expect par48 1
@@ -562,8 +565,8 @@ expect par49 1
 midi 91 3C 64
 wait 20
 expect par21 6000
-# SAVE while playing: the output dips out (20 ms), the write, back (30 ms); one write: the project
-tap SAVE
+# Persist the project (separate fixture; the SAVE browser is tested in v14-controls).
+save
 wait 150
 expect store_writes 1
 expect dirty 0
@@ -673,11 +676,9 @@ expect scene_at -1
 tapkey w0
 wait 1500
 expect par7 650
-# banks: SEL + one of the eight gesture keys (G4 .. G5: A B C D E F, the Presets' two) picks the bank; keys 1-8 play it
+# The host fixture selects a bank; the first eight white keys recall its scenes.
 expect bank 0
-press SEL
-tapkey w9
-release SEL
+bank 1
 expect bank 1
 expect bscenes 0
 press SAVE
@@ -691,9 +692,7 @@ tapkey w12
 expect bank 1
 # the Presets: eight on keys 1-8 (v0.3: 9-12 are gestures), fixed: none can be saved over (and picking the bank
 # doesn't play G5's gesture)
-press SEL
-tapkey w14
-release SEL
+bank 3
 expect bank 3
 expect par93 0
 expect bscenes 255
@@ -703,13 +702,11 @@ release SAVE
 wait 300
 expect bscenes 255
 # P16 (Bare): one oscillator, drone II out on its own; SEL + OCT+ brings it in, and out again (playing). P9-P16 are
-# the Presets' second bank (SEL + G5), keys 1-8
+# The Presets' second bank (P9-P16) uses the same eight scene keys.
 tap PLAY
 wait 1600
 expect playing 1
-press SEL
-tapkey w15
-release SEL
+bank 7
 tapkey w7
 wait 2500
 expect par72 1
@@ -721,9 +718,7 @@ wait 2500
 expect par72 0
 expect level1 >3
 # back to the Presets (P16 was their second bank's key 8)
-press SEL
-tapkey w14
-release SEL
+bank 3
 press SEL
 tap OCT+
 release SEL
@@ -748,18 +743,14 @@ expect par0 5000
 expect par21 5700
 tapkey b3
 # back to A; bank B's scene survives a reboot
-press SEL
-tapkey w8
-release SEL
+bank 0
 expect bank 0
 expect scenes 1
 # (the autosave first: it waits for the tails to fade, and comes at most every 30 s)
 wait 32000
 reboot
 wait 300
-press SEL
-tapkey w9
-release SEL
+bank 1
 expect bscenes 4
 # a black key during a scene change is the hand's: the scene leaves it alone (2026-10-25: the Sub key showed its next
 # step but held until the scene landed)

@@ -7,7 +7,7 @@
  *   KNOB 1-2       drone I's two values on the page shown, KNOB 3-4 drone II's; the Drones page (HOME):
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
- *   SELECT         LFO rate      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
+ *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
  *   PRESETS        GESTURE TIME: every gesture's speed, x0.1 .. x10 (v0.2)
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
@@ -52,9 +52,9 @@
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
 enum { V_PLAY, V_PLAY2, V_LIFE, V_TONE, V_OSC, V_SOURCE, V_LFO_WAVES, V_LFO, V_LFO2, V_PARTNER, V_MOVES, V_SETUP, V_SETUP2,
-       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, V_SEQ_NOTES, V_SEQ_TIME, NVIEWS };
+       V_PULSE, V_SWELL_SHAPE, V_FX, V_FX2, V_SPEAKER, V_SEQ_NOTES, V_SEQ_TIME, V_SEQ_SHAPE, NVIEWS };
 static const char *const VIEW_NAME[NVIEWS] = {"Drones", "Pitch", "Life", "Tone", "Osc", "Sub · Drive", "LFO waves", "LFO sends",
-                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker", "Sequence", "Intervals"};
+                                              "Mods", "Partner", "Pitch moves", "Setup 1", "Setup 2", "Swell", "Swell shape", "Space", "Details", "Speaker", "Sequence", "Intervals", "Transitions"};
 /* what each knob moves on each page: a drone's parameter (g 0 or 1, GP_*), a global one (g G, P_*), or
  * nothing (g NONE) */
 #define G 2
@@ -89,6 +89,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{G, P_SPEAKER}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO 3: internal speaker only */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* sequence edit controls are custom */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* unequal interval controls */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* segment curves */
 };
 /* A KNOB's SECOND JOB with SEL held, on the pages that have one (its card shows both, the second "+ SEL"): the
  * choices set before playing, so a player who never finds them loses nothing. FX's KNOB 4: the delay's type, what goes
@@ -109,7 +110,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 4}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 5}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -118,15 +119,14 @@ static const struct {
 /* the black keys (key numbers, F3 = 0) and what each does: normally, and on the LFO page */
 static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
 /* the white keys: the first NPLAY (F3 .. F4) the scenes of the bank; the next four (G4 .. C5, which sense pressure
- * too) the pressure gestures; the top four (D5 .. G5, no pressure) the gestures (Weight, Shift, Clean, Wash); SEL + any
- * of those eight: a bank (KEY_BANK) */
+ * too) the pressure gestures; the top four (D5 .. G5, no pressure) the gestures (Weight, Shift, Clean, Wash). */
 #define NWHITE 16
 static const uint8_t WHITE_K[NWHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const char BANK_L[NBANKS] = {'A', 'B', 'C', 'P', 'D', 'E', 'F', 'P'};
-/* SEL + the eight gesture keys (G4 .. C5, D5 .. G5, left to right): the banks in a row, A .. F, then the Presets'
- * two (Evan, 2026-11-07: 6 yours + 2 Presets, one row) */
-static const uint8_t KEY_BANK[8] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
 static const char *const BANK_N[NBANKS] = {"A", "B", "C", "PRESETS 1-8", "D", "E", "F", "PRESETS 9-16"};
+/* Browse user banks together, followed by the two immutable Preset banks.
+ * Storage IDs remain unchanged for saved projects and scene recalls. */
+static const uint8_t BANK_ORDER[NBANKS] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
 static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL",
                                                "STUTTER"};   /* D5-G5, then G4-C5: fixed */
 enum { S_NONE, S_PARTNER, S_SUBOCT, S_HP, S_OTAP, S_ODEST, S_FTAP, S_FDEST, S_PLINK, S_SYNC, S_XMOD, S_LFORESET, S_DTAP,
@@ -171,6 +171,13 @@ static struct {
     int8_t save_q;                     /* a save waiting for the dip (something heard): -2 none, -1 the sound, -3 the
                                         * autosave, N scene N */
     uint32_t save_t;                   /* ... asked then */
+    uint8_t save_menu;                /* 0 off, 1 scene browser, 2 slot-name popup, 3 overwrite confirmation */
+    uint8_t menu_bank, menu_slot, menu_load; /* 0 save, 1 load, 2 transition */
+    uint8_t menu_pct;                /* final blend percentage for Transition */
+    uint8_t scene_keys_enabled;      /* normally 0: scene keys are reserved for future uses.
+                                       * Host-only legacy scenarios may enable them. */
+    uint8_t name_pos;                /* character currently edited in the popup */
+    char name_draft[BANK_NAME_LEN];
     uint8_t page_last[8];              /* each page button's page last shown (0: its first): opened again there */
     uint32_t sel_t;                    /* when SEL went down (held 0.4 s: the black keys' map) */
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
@@ -201,6 +208,7 @@ static struct {
     float loop_g0[DR_NGEST];           /* each gesture's level then */
     uint8_t loop_scenes;               /* the loop moves scenes: each pass starts from the whole sound it began on */
     uint32_t morph_t0, morph_ms;
+    uint8_t morph_pct;               /* terminal progression for a targeted transition */
     int16_t morph_from[DR_NPARAMS];
     int16_t morph_to[DR_NPARAMS];      /* the scene being morphed to, as it was when its key was pressed */
     int8_t press;                      /* the scene key held in a pressure crossfade (v0.2), or -1 */
@@ -529,6 +537,7 @@ static void knob_turn(int i, int32_t e)
     knob_t k = VIEW_KNOB[ui.view][i];
     if (ui.view == V_SEQ_NOTES) { sd_note_knob(i, e); return; }
     if (ui.view == V_SEQ_TIME) { sd_time_knob(i, e); return; }
+    if (ui.view == V_SEQ_SHAPE) { sd_shape_knob(i, e); return; }
     if (p < 0)
         return;
     if (sel_job(ui.view, i) >= 0) {                  /* which half of the knob's card lights */
@@ -593,7 +602,7 @@ static int sw_get(sw_t w)                              /* 1: lit (on, or the sec
     case S_HP: return p[GP_MODE] == DR_HP ? 1 : p[GP_MODE] == DR_BP ? 2 : 0;   /* HP lit, BP winking */
     case S_OTAP: return tap_lit(p[GP_OLFO]);
     case S_ODEST: return p[GP_OLFO_DEST] == DR_TO_XWAVE;
-    case S_FDEST: return p[GP_FLFO_DEST] == DR_TO_RESO;
+    case S_FDEST: return p[GP_FLFO_DEST];
     case S_FTAP: return tap_lit(p[GP_FLFO]);
     case S_PLINK: return proj.par[P_PLINK] != 0;
     case S_SYNC: return proj.par[P_SYNC] != 0;
@@ -612,7 +621,8 @@ static int sw_look(sw_t w)
     switch (w.s) {
     case S_SUBOCT: return p[GP_SUBOCT] == 3 || p[GP_SUBOCT] == 4 ? 3 : p[GP_SUBOCT] <= 1 ? 1 : 2;
     case S_HP: return p[GP_MODE] == DR_HP ? 2 : p[GP_MODE] == DR_BP ? 3 : 1;
-    case S_ODEST: case S_FDEST: return sw_get(w) ? 2 : 1;
+    case S_ODEST: return sw_get(w) ? 2 : 1;
+    case S_FDEST: return p[GP_FLFO_DEST] == DR_TO_PAN ? 3 : p[GP_FLFO_DEST] == DR_TO_RESO ? 2 : 1;
     case S_OTAP: case S_FTAP: case S_DTAP:
         v = (w.s == S_DTAP ? proj.par[P_DLY_LFO] : p[w.s == S_OTAP ? GP_OLFO : GP_FLFO]) & 3;
         return v == DR_LFO_BOTH ? 3 : v == DR_LFO_II ? 2 : v ? 1 : 0;
@@ -672,9 +682,15 @@ static void sw_flip(sw_t w)
         st = WAVES[nx]; break;
     case S_ODEST: param_set(base + GP_OLFO_DEST, on); what = on ? "X-WAVE" : "PITCH"; st = WAVES[proj.par[base + GP_OLFO]];
         break;
-    case S_FDEST: param_set(base + GP_FLFO_DEST, on); what = on ? "RESONANCE" : "CUTOFF"; st = WAVES[proj.par[base + GP_FLFO]];
+    case S_FDEST: {
+        static const char *const DEST[3] = {"CUTOFF", "RESONANCE", "PAN"};
+        int v = (proj.par[base + GP_FLFO_DEST] + 1) % 3;
+        param_set(base + GP_FLFO_DEST, v);
+        what = DEST[v]; st = WAVES[proj.par[base + GP_FLFO]];
         break;
-    case S_FTAP: param_set(tp, nx); what = proj.par[base + GP_FLFO_DEST] == DR_TO_RESO ? "RESONANCE" : "CUTOFF";
+    }
+        break;
+    case S_FTAP: param_set(tp, nx); what = proj.par[base + GP_FLFO_DEST] == DR_TO_PAN ? "PAN" : proj.par[base + GP_FLFO_DEST] == DR_TO_RESO ? "RESONANCE" : "CUTOFF";
         st = WAVES[nx]; break;
     case S_PLINK: link_set(on); q = a; what = "PITCH LINK"; st = on ? "ON" : "OFF"; break;
     case S_SYNC: param_set(P_SYNC, on); q = a; what = "HARD SYNC"; st = on ? "ON" : "OFF"; break;
@@ -744,19 +760,19 @@ static int on_pages(int i)
     if (PAGE_BTN[i].btn == B_GLO)
         return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_SPEAKER;
     if (PAGE_BTN[i].btn == B_SEQ)
-        return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
+        return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
     return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
 }
 static int page_step(int i, int v)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
-        return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v - V_PARTNER;
+        return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v == V_SEQ_SHAPE ? 4 : v - V_PARTNER;
     return PAGE_BTN[i].btn == B_GLO && v == V_SPEAKER ? 2 : v - PAGE_BTN[i].first;
 }
 static int page_target(int i, int step)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
-        return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : V_PARTNER + step;
+        return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : step == 4 ? V_SEQ_SHAPE : V_PARTNER + step;
     return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_SPEAKER : PAGE_BTN[i].first + step;
 }
 static void set_view(int v)
@@ -1177,7 +1193,7 @@ static void save_run(void)                             /* each look at the input
 static void scene_store(int n)                         /* SAVE held + a white key: and into the flash */
 {
     if (BANK_IS_PRESETS(proj.bank)) {                  /* the Presets stay as they are (Evan, 2026-10-19) */
-        say_c("PRESETS ARE FIXED", "[SEL]+[G4]-[G5]: BANK", K_GOLD);
+        say_c("PRESETS ARE FIXED", "[SAVE]: SELECT BANK", K_GOLD);
         return;
     }
     scene_put(proj.bank, n);
@@ -1202,6 +1218,7 @@ static float scene_s(void)
 }
 
 #define VISIT_BACK NSCENES                     /* the morph's target: ui.visit_back (a visit's way back, an undo) */
+#define MENU_TRANSITION 100                    /* a percentage of the selected bank/slot, not a scene number */
 /* UNDO (v0.3, SEL + SAVE): back to the sound before the last scene tap or blend, over the Scene time; again, forward.
  * Its first time replacing a sound of the player's own (no scene's), a tip says how */
 static void undo_keep(void)
@@ -1347,7 +1364,7 @@ static void scene_recall(int n, int keep)              /* a white key: morph the
     int k;
     scene_name(t + 6, proj.bank, n);
     if (!sc) {
-        say(t, "EMPTY: [SAVE]+KEY");
+        say(t, "EMPTY: [SAVE] BROWSE");
         return;
     }
     if (keep)
@@ -1453,7 +1470,8 @@ static void scene_morph(void)
     x = ui.morph_ms ? (float)(plat_ms() - ui.morph_t0) / (float)ui.morph_ms : 1.0f;
     if (x > 1.0f)
         x = 1.0f;
-    sound_blend(ui.morph_from, ui.morph == VISIT_BACK ? ui.visit_back : ui.morph_to, x);
+    sound_blend(ui.morph_from, ui.morph == VISIT_BACK ? ui.visit_back : ui.morph_to,
+                ui.morph == MENU_TRANSITION ? x * (float)ui.morph_pct * 0.01f : x);
     if (x >= 1.0f)
         ui.morph = -1;
 }
@@ -1632,7 +1650,14 @@ static void button(int b)                              /* the other buttons, on 
             ui.btn_used |= 1u << B_SEL;
             scene_undo();
         } else {
-            save_ask(-1);
+            ui.save_menu = 1;
+            ui.menu_bank = 0;
+            while (ui.menu_bank < NBANKS - 1 && BANK_ORDER[ui.menu_bank] != proj.bank)
+                ui.menu_bank++;
+            ui.menu_slot = ui.scene_at < 0 ? 0 : (uint8_t)ui.scene_at;
+            ui.menu_load = 0;
+            ui.menu_pct = 100;
+            ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         }
         break;
     case B_REC:
@@ -2027,6 +2052,190 @@ static int rq_input(uint32_t btn)                      /* asking: SEL or HOME an
     return 1;
 }
 
+/* SAVE browser: the same bank/slot storage as before, but no keypad shortcuts.
+ * All actions require SAVE to commit; HOME always returns or closes.
+ * REC opens the selected slot's name popup (never on factory Presets). */
+static const char BANK_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
+static void menu_name_begin(void)
+{
+    const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+    char fallback[12];
+    const char *name = project_slot_name(bank, slot);
+    int i;
+    if (BANK_IS_PRESETS(bank)) {
+        say("FACTORY PRESET", "NAME IS FIXED");
+        return;
+    }
+    if (!name) {
+        scene_name(fallback, bank, slot);
+        name = fallback;
+    }
+    for (i = 0; i < BANK_NAME_LEN - 1; i++)
+        ui.name_draft[i] = ' ';
+    ui.name_draft[BANK_NAME_LEN - 1] = 0;
+    for (i = 0; i < BANK_NAME_LEN - 1 && name[i]; i++)
+        ui.name_draft[i] = name[i];
+    ui.name_pos = 0;
+    ui.save_menu = 2;
+}
+static void menu_name_input(uint32_t released)
+{
+    int32_t step;
+    uint32_t i;
+    if ((step = plat_enc(EN_K1)) != 0) {
+        int n = ((int)ui.name_pos + (int)step) % (BANK_NAME_LEN - 1);
+        if (n < 0) n += BANK_NAME_LEN - 1;
+        ui.name_pos = (uint8_t)n;
+    }
+    if ((step = plat_enc(EN_K2)) != 0) {
+        const int choices = (int)(sizeof BANK_CHARS - 1);
+        int at, next;
+        for (at = 0; at < choices && BANK_CHARS[at] != ui.name_draft[ui.name_pos]; at++) {}
+        if (at >= choices) at = 0;
+        next = (at + (int)(step % choices) + choices) % choices;
+        ui.name_draft[ui.name_pos] = BANK_CHARS[next];
+    }
+    for (i = 0; i < NE; i++)
+        if (i != EN_K1 && i != EN_K2) (void)plat_enc((int)i);
+    if (released >> B_HOME & 1u)
+        ui.save_menu = 1;
+    else if (released >> B_SAVE & 1u) {
+        const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+        int end = BANK_NAME_LEN - 1;
+        while (end > 0 && ui.name_draft[end - 1] == ' ')
+            ui.name_draft[--end] = 0;
+        if (project_slot_rename(bank, slot, ui.name_draft) == 0) {
+            mark_dirty();
+            save_ask(-1);              /* slot names persist through existing ducked flash path */
+            ui.save_menu = 1;
+        }
+    }
+}
+static void menu_start_transition(int bank, int slot)
+{
+    const int16_t *target = scene_get(bank, slot);
+    int i;
+    if (!target) {
+        say("EMPTY TARGET", "SELECT A SOUND");
+        return;
+    }
+    if (!ui.menu_pct) {
+        say("TRANSITION 0%", "SOUND UNCHANGED");
+        ui.save_menu = 0;
+        return;
+    }
+    undo_keep();
+    for (i = 0; i < DR_NPARAMS; i++) {
+        ui.morph_from[i] = proj.par[i];
+        ui.morph_to[i] = target[i];
+    }
+    hands_clear();
+    ui.press = ui.visit = -1;
+    ui.scene_at = -1;
+    ui.morph = MENU_TRANSITION;
+    ui.morph_pct = ui.menu_pct;
+    ui.morph_t0 = plat_ms();
+    ui.morph_ms = (uint32_t)(scene_s() * 1000.0f);
+    ui.save_menu = 0;
+    say("TRANSITION", "TARGET SET");
+}
+/* Commit only after the overwrite confirmation if this slot is occupied.
+ * Both paths share the existing scene-store and flash-write machinery. */
+static void menu_store_scene(int bank, int slot)
+{
+    proj.bank = (uint8_t)bank;
+    mark_dirty();
+    scene_store(slot);
+    ui.save_menu = 0;
+}
+
+static void menu_overwrite_input(uint32_t released)
+{
+    uint32_t i;
+    /* A confirmation is a two-button modal: knob turns have no effect.
+     * The selected bank and slot cannot change between question and answer. */
+    for (i = 0; i < NE; i++)
+        (void)plat_enc((int)i);
+    if (released >> B_HOME & 1u) {
+        ui.save_menu = 1;                  /* back to the browser, without a write */
+    } else if (released >> B_SAVE & 1u) {
+        const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+        if (!BANK_IS_PRESETS(bank) && scene_has(bank, slot))
+            menu_store_scene(bank, slot);
+        else
+            ui.save_menu = 1;              /* do not write if target changed or disappeared */
+    }
+}
+
+static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
+{
+    int32_t step;
+    uint32_t i;
+    const uint32_t released = changed & ~btn;
+    const uint32_t keyup = ui.keys & ~keys;
+    for (i = NPLAY; i < NWHITE; i++)
+        if (keyup >> WHITE_K[i] & 1u)
+            gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+    ui.keys = keys;
+    if (ui.save_menu == 2) {
+        menu_name_input(released);
+    } else if (ui.save_menu == 3) {
+        menu_overwrite_input(released);
+    } else {
+        if ((step = plat_enc(EN_K1)) != 0) {
+            int b = ((int)ui.menu_bank + (int)(step % NBANKS)) % NBANKS;
+            if (b < 0) b += NBANKS;
+            ui.menu_bank = (uint8_t)b;
+        }
+        if ((step = plat_enc(EN_K2)) != 0) {
+            int n = ((int)ui.menu_slot + (int)(step % NPLAY)) % NPLAY;
+            if (n < 0) n += NPLAY;
+            ui.menu_slot = (uint8_t)n;
+        }
+        if ((step = plat_enc(EN_K3)) != 0) {
+            int action = ((int)ui.menu_load + (int)(step % 3)) % 3;
+            if (action < 0) action += 3;
+            ui.menu_load = (uint8_t)action;
+        }
+        if ((step = plat_enc(EN_K4)) != 0) {
+            int n = (int)ui.menu_pct + (int)accel(EN_K4, step, 100);
+            ui.menu_pct = (uint8_t)(n < 0 ? 0 : n > 100 ? 100 : n);
+        }
+        for (i = 0; i < NE; i++)
+            if (i < EN_K1 || i > EN_K4) (void)plat_enc((int)i);
+        if (released >> B_HOME & 1u) {
+            ui.save_menu = 0;
+        } else if (released >> B_REC & 1u) {
+            menu_name_begin();
+        } else if (released >> B_SAVE & 1u) {
+            const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+            if (ui.menu_load && !scene_has(bank, slot)) {
+                say("EMPTY SLOT", "CHOOSE ANOTHER");
+            } else if (ui.menu_load == 0 && BANK_IS_PRESETS(bank)) {
+                say("PRESETS ARE FIXED", "SELECT BANK A-F");
+            } else if (ui.menu_load == 2) {
+                menu_start_transition(bank, slot);
+            } else if (ui.menu_load == 1) {
+                proj.bank = (uint8_t)bank;
+                mark_dirty();
+                scene_recall(slot, 1);
+                ui.save_menu = 0;
+            } else if (scene_has(bank, slot)) {
+                /* An occupied user scene requires a second, explicit SAVE.
+                 * No flash or in-RAM scene mutation occurs before confirmation. */
+                ui.save_menu = 3;
+            } else {
+                menu_store_scene(bank, slot);
+            }
+        }
+    }
+    loop_run();
+    sd_run();
+    midi_in();
+    clk_feed();
+    ui.act_t = plat_ms();
+}
+
 static void input(void)
 {
     uint32_t btn = plat_buttons(), keys = plat_keys(), ch, i;
@@ -2036,6 +2245,10 @@ static void input(void)
     save_run();
     ch = btn ^ ui.btn;
     ui.btn = btn;
+    if (ui.save_menu) {
+        save_menu_input(btn, ch, keys);
+        return;
+    }
     if ((ch & btn) >> B_SEL & 1u) {
         int g;
         ui.sel_t = plat_ms();
@@ -2171,13 +2384,14 @@ static void input(void)
                 if (btn >> B_SEL & 1u)
                     say_c("LET GO: UNDO", 0, K_GOLD);
                 else
-                    say_c(BANK_IS_PRESETS(proj.bank) ? "PRESETS ARE FIXED" : "KEY: STORE", "LET GO: SAVE", K_GOLD);
+                    say_c("SAVE MENU", "LET GO: BROWSE", K_GOLD);
             }
         } else {
             save_dn = 0;
         }
     }
-    for (i = 0; i < NPLAY; i++) {                      /* the white keys 1-8: scenes (SAVE held: store) */
+    if (ui.scene_keys_enabled)
+    for (i = 0; i < NPLAY; i++) {                      /* legacy scene pad testing only */
         if ((ch & keys) >> WHITE_K[i] & 1u) {
             if (btn >> B_SAVE & 1u) {
                 ui.btn_used |= 1u << B_SAVE;           /* SAVE let go: not a plain save */
@@ -2206,26 +2420,11 @@ static void input(void)
                                                                                           * gestures (v0.3) */
         if (!((ch & keys) >> WHITE_K[i] & 1u))
             continue;
-        if (btn >> B_SEL & 1u) {                       /* SEL + one: a bank, in a row (not while a scene key is
-                                                        * held: a visit's way back stays put) */
-            const uint8_t bk = KEY_BANK[i - NPLAY];
-            uint32_t j, held = 0;
-            ui.btn_used |= 1u << B_SEL;
-            for (j = 0; j < NPLAY; j++)
-                held |= keys >> WHITE_K[j] & 1u;
-            if (held)
-                continue;
-            if (proj.bank != bk) {
-                proj.bank = bk;
-                ui.scene_at = -1;
-                mark_dirty();
-            }
-            say_c("BANK", BANK_N[bk], K_GOLD);
-        } else {
-            gesture_down(g);                           /* the gestures (v0.2, v0.3) */
-        }
+        if (btn >> B_SEL & 1u)
+            ui.btn_used |= 1u << B_SEL;   /* SEL+gesture is not a request for the key map */
+        gesture_down(g);
     }
-    for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go (one that picked a bank: nothing) */
+    for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go */
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
             gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
     }
@@ -2238,15 +2437,33 @@ static void input(void)
 #ifdef OM_CLOCK_TEST
     clk_show();
 #endif
-    if ((e = plat_enc(EN_SELECT)) != 0)              /* SELECT: the LFO rate */
-        global_turn(EN_SELECT, dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE, dr_ext_spb > 0.0f ? "LFO CYCLE" : "LFO RATE", e);
+    if ((e = plat_enc(EN_SELECT)) != 0) {
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            global_turn(EN_SELECT, dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE,
+                        dr_ext_spb > 0.0f ? "LFO CYCLE" : "LFO RATE", e);
+        } else {
+            /* SELECT stays inside the current button's family (SEQ 1-5,
+             * LFO 1-3, etc.). The panel buttons still select families. */
+            uint32_t group;
+            for (group = 0; group < NPAGE_BTN; group++)
+                if (on_pages((int)group)) {
+                    int step = page_step((int)group, ui.view);
+                    int count = PAGE_BTN[group].n;
+                    step = (step + (int)(e % count) + count) % count;
+                    set_view(page_target((int)group, step));
+                    break;
+                }
+        }
+    }
     if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */
         global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
     if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */
         mtime_turn(e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
-            const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME;
+            const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
             knob_turn((int)i, e);
             if (ui.btn >> B_SEL & 1u)
                 ui.btn_used |= 1u << B_SEL;            /* SEL + a knob: SEL used (no map after it) */
@@ -2465,7 +2682,7 @@ static void sw_text(sw_t w, const char **name, const char **st)
     case S_XMOD: *name = "X-mod"; *st = proj.par[P_XMOD] == DR_XMOD_OUT ? "snarl" : proj.par[P_XMOD] == DR_XMOD_FM ? "pitch" : on ? "cutoff" : "off"; break;
     case S_OTAP: *name = "Osc LFO"; *st = TAP[(unsigned)p[GP_OLFO] & 3u]; break;
     case S_ODEST: *name = "Osc to"; *st = on ? "X-Wave" : "Pitch"; break;
-    case S_FDEST: *name = "Filt to"; *st = on ? "Reso" : "Cutoff"; break;
+    case S_FDEST: *name = "Filt to"; *st = p[GP_FLFO_DEST] == DR_TO_PAN ? "Pan" : p[GP_FLFO_DEST] == DR_TO_RESO ? "Reso" : "Cutoff"; break;
     case S_FTAP: *name = "Filt LFO"; *st = TAP[(unsigned)p[GP_FLFO] & 3u]; break;
     case S_DTAP: *name = "Dly LFO"; *st = TAP[(unsigned)proj.par[P_DLY_LFO] & 3u]; break;
     default: *name = ""; *st = ""; break;
@@ -2593,13 +2810,17 @@ static void leds(void)
             tip(TIP_KEEP);
         }
     }
-    for (i = 0; i < 11u; i++) {                      /* the black keys: dark off, dim a first choice, lit, winking */
-        int v = sw_look(sw_layer()[i]);
-        if (sw_layer()[i].s == S_LFORESET && (ui.keys >> BLACK_K[i] & 1u))
-            v = 2;
-        k[BLACK_K[i]] = v == 1 ? LED_DIM : v == 2 || (v == 3 && blink(1000u)) ? 255 : 0;
+    {                                                  /* the black keys' active switch layer */
+        const sw_t *layer = sw_layer();
+        for (i = 0; i < 11u; i++) {
+            int v = sw_look(layer[i]);
+            if (layer[i].s == S_LFORESET && (ui.keys >> BLACK_K[i] & 1u))
+                v = 2;
+            k[BLACK_K[i]] = v == 1 ? LED_DIM : v == 2 || (v == 3 && blink(1000u)) ? 255 : 0;
+        }
     }
-    for (i = 0; i < NPLAY; i++)                      /* the scene keys: the bank's slots that hold a scene; the */
+    if (ui.scene_keys_enabled) {                    /* legacy scene-key LEDs and glides; pads normally stay dark */
+    for (i = 0; i < NPLAY; i++)
         if (scene_has(proj.bank, (int)i) &&            /* one the sound is, blinking slowly */
             (ui.scene_at != (int8_t)i || blink(720u)))
             k[WHITE_K[i]] = 255;
@@ -2619,14 +2840,12 @@ static void leds(void)
         k[WHITE_K[ui.scene_at]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
     else if (ui.flash_t && ui.press >= 0 && now - ui.flash_t < 480u)
         k[WHITE_K[ui.press]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
+    }
     for (i = 0; i < DR_NGEST; i++) {                 /* gestures: actual amount, no minimum light when off */
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
     }
-    if (keymap_on())                                   /* SEL held, the map on screen: the eight gesture keys are
-                                                        * the banks, the one playing lit (as the map draws them) */
-        for (i = 0; i < 8u; i++)
-            k[WHITE_K[NPLAY + i]] = proj.bank == KEY_BANK[i] ? 255 : LED_DIM;
+    /* SEL no longer turns gesture keys into bank selectors. */
     if (ui.view == V_SEQ_NOTES)
         sd_key_leds(k);
     boxed_blink(b, k);
@@ -3023,7 +3242,7 @@ static void sp_does_k(int k, int key)
         break;
     }
     case S_ODEST: sp_cat(on ? " for pitch" : " for x-wave"); break;
-    case S_FDEST: sp_cat(on ? " for cutoff" : " for reso"); break;
+    case S_FDEST: sp_cat(p[GP_FLFO_DEST] == DR_TO_CUTOFF ? " for reso" : p[GP_FLFO_DEST] == DR_TO_RESO ? " for pan" : " for cutoff"); break;
     case S_XMOD: sp_cat(" for "); sp_cat(XM[(proj.par[P_XMOD] + 1) % (DR_XMOD_OUT + 1)]); break;
     case S_LFORESET: sp_cat(proj.par[P_LFO_LOCK] ? " for free, hold to reset LFO" :
                                                 " for lock to Swell, hold to reset LFO"); break;

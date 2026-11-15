@@ -306,13 +306,13 @@ static void sd_note_knob(int i, int32_t e)
         const int g = sd_linked() ? 0 : sd.drone;
         const int p = DR_GP(g, GP_PITCH);
         const int old = sd_pitch(g, sd.position);
-        const int next = grid_at(p, grid_k(p, old) + (e > 0 ? 1 : -1));
+        const int next = grid_at(p, grid_k(p, old) + (int)e);
         sd_note_set(sd.position, g, next);
         ui.sel_turned = 1;
         ui.btn_used |= 1u << B_SEL;
     } else if (i == 0) {
-        v = (int)sd.position + (e > 0 ? 1 : -1);
-        sd.position = (uint8_t)((v + sd.count) % sd.count);
+        v = (int)sd.position + (int)e;
+        sd.position = (uint8_t)(((v % sd.count) + sd.count) % sd.count);
     } else if (i == 1) {
         if (sd_linked()) {
             sd.drone = 0;
@@ -322,7 +322,7 @@ static void sd_note_knob(int i, int32_t e)
         }
     } else if (i == 2) {
         const int old = sd.count;
-        v = (int)sd.count + (e > 0 ? 1 : -1);
+        v = (int)sd.count + (int)e;
         sd.count = (uint8_t)(v < 1 ? 1 : v > SD_MAX ? SD_MAX : v);
         if (sd.position >= sd.count) sd.position = sd.count - 1;
         if (sd.count > old) {

@@ -3116,7 +3116,7 @@ static void lk_save_menu(void)
     { char *q = pct; while (*q) q++; scopy(q, "%"); }
 
     cv_begin(240, LK_BAR_H, LK_BG);
-    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 2 ? "NAME SLOT" : "SCENES", LK_WHITE);
+    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 3 ? "OVERWRITE?" : ui.save_menu == 2 ? "NAME SLOT" : "SCENES", LK_WHITE);
     cv_blit(0, 0);
 
     cv_begin(240, LK_PIC_H, LK_BG);
@@ -3132,6 +3132,10 @@ static void lk_save_menu(void)
         }
         cv_text(12, 84, &LK_F_SMALL, "K1 CURSOR   K2 LETTER", LK_LABEL);
         cv_text(12, 108, &FONT_XS, "[SAVE] YES      [HOME] BACK", LK_LABEL);
+    } else if (ui.save_menu == 3) {
+        cv_text(12, 12, &LK_F_SMALL, "REPLACE THE STORED SOUND?", LK_GOLD);
+        text_c(120, 38, &FONT_N2, key, LK_WHITE);
+        text_c(120, 79, &FONT_T20, name ? name : "EXISTING SCENE", LK_LABEL);
     } else {
         cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
         cv_text(74, 9, &FONT_T20, BANK_N[bank], LK_GOLD);
@@ -3159,6 +3163,10 @@ static void lk_save_menu(void)
             text_c(cx[i], 31, &FONT_T20, value[i],
                    i == 2 && ui.menu_load == 0 && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_WHITE);
         }
+    } else if (ui.save_menu == 3) {
+        text_c(120, 10, &FONT_XS, "EXISTING SCENE WILL BE LOST", LK_LABEL);
+        text_c(60, 39, &FONT_T20, "SAVE: YES", LK_GOLD);
+        text_c(177, 39, &FONT_T20, "HOME: BACK", LK_WHITE);
     } else {
         text_c(120, 13, &FONT_T20, "A-Z   0-9   -   SPACE", LK_LABEL);
         text_c(120, 45, &FONT_XS, "11 CHARACTERS MAX", LK_LABEL);

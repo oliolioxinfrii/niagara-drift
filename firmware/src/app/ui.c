@@ -2101,7 +2101,7 @@ static void input(void)
                 }
                 ui.playing = (uint8_t)!ui.playing;
                 dr_play(ui.playing);
-                if (!ui.playing) sd_stop();
+                sd_global_play(ui.playing);
             }
         } else if (i == B_OCTDN || i == B_OCTUP) {
             const int w = i == B_OCTUP;

@@ -171,7 +171,7 @@ static struct {
     int8_t save_q;                     /* a save waiting for the dip (something heard): -2 none, -1 the sound, -3 the
                                         * autosave, N scene N */
     uint32_t save_t;                   /* ... asked then */
-    uint8_t save_menu;                /* 0 off, 1 scene browser, 2 bank-name popup */
+    uint8_t save_menu;                /* 0 off, 1 scene browser, 2 slot-name popup, 3 overwrite confirmation */
     uint8_t menu_bank, menu_slot, menu_load; /* 0 save, 1 load, 2 transition */
     uint8_t menu_pct;                /* final blend percentage for Transition */
     uint8_t scene_keys_enabled;      /* normally 0: scene keys are reserved for future uses.
@@ -2139,6 +2139,34 @@ static void menu_start_transition(int bank, int slot)
     ui.save_menu = 0;
     say("TRANSITION", "TARGET SET");
 }
+/* Commit only after the overwrite confirmation if this slot is occupied.
+ * Both paths share the existing scene-store and flash-write machinery. */
+static void menu_store_scene(int bank, int slot)
+{
+    proj.bank = (uint8_t)bank;
+    mark_dirty();
+    scene_store(slot);
+    ui.save_menu = 0;
+}
+
+static void menu_overwrite_input(uint32_t released)
+{
+    uint32_t i;
+    /* A confirmation is a two-button modal: knob turns have no effect.
+     * The selected bank and slot cannot change between question and answer. */
+    for (i = 0; i < NE; i++)
+        (void)plat_enc((int)i);
+    if (released >> B_HOME & 1u) {
+        ui.save_menu = 1;                  /* back to the browser, without a write */
+    } else if (released >> B_SAVE & 1u) {
+        const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
+        if (!BANK_IS_PRESETS(bank) && scene_has(bank, slot))
+            menu_store_scene(bank, slot);
+        else
+            ui.save_menu = 1;              /* do not write if target changed or disappeared */
+    }
+}
+
 static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
 {
     int32_t step;
@@ -2151,6 +2179,8 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
     ui.keys = keys;
     if (ui.save_menu == 2) {
         menu_name_input(released);
+    } else if (ui.save_menu == 3) {
+        menu_overwrite_input(released);
     } else {
         if ((step = plat_enc(EN_K1)) != 0) {
             int b = ((int)ui.menu_bank + (int)(step % NBANKS)) % NBANKS;
@@ -2185,14 +2215,17 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
                 say("PRESETS ARE FIXED", "SELECT BANK A-F");
             } else if (ui.menu_load == 2) {
                 menu_start_transition(bank, slot);
-            } else {
+            } else if (ui.menu_load == 1) {
                 proj.bank = (uint8_t)bank;
                 mark_dirty();
-                if (ui.menu_load == 1)
-                    scene_recall(slot, 1);
-                else
-                    scene_store(slot);
+                scene_recall(slot, 1);
                 ui.save_menu = 0;
+            } else if (scene_has(bank, slot)) {
+                /* An occupied user scene requires a second, explicit SAVE.
+                 * No flash or in-RAM scene mutation occurs before confirmation. */
+                ui.save_menu = 3;
+            } else {
+                menu_store_scene(bank, slot);
             }
         }
     }

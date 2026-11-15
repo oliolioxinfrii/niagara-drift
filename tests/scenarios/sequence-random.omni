@@ -54,9 +54,13 @@ expect seqmaxjump <1201
 set 45 0
 page 18
 spin K4 -100
+expect seqphase 0
+page 19
+shot seq-interval-phase0.png
+expect seqtotal 40
+page 18
 spin K4 25
 expect seqphase 25
-expect seqtotal 40
 page 19
 shot seq-interval-phase25.png
 expect seqtotal 40

@@ -17,7 +17,7 @@ expect par47 75
 expect bank 3
 tap SAVE
 expect savemenu 1
-spin SELECT -3
+spin SELECT 2
 spin K2 -1
 expect menuaction 2
 tap SAVE

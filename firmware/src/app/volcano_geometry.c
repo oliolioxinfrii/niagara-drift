@@ -107,60 +107,120 @@ static void vg_ground(int x0, int w, int base, int depth, float brightness)
 
 /* Tremor-like arrival packets. The trace is intentionally event-driven rather
  * than a conventional repeating oscilloscope waveform. */
-static void vg_seismic(int y0, float activity)
+/* Each half is its own seismometer channel: level sets amplitude and cutoff
+ * sets the horizontal extent of active signal. The quiet region retains ticks. */
+static void vg_seismic(int drone, int x0, int y0, float level, float cutoff)
 {
-    static const uint8_t EVENT[6] = {19, 54, 91, 137, 180, 214};
-    const int tick = (int)((plat_ms() / 140u) % 37u);
-    int x, lasty = y0, lastx = 9, k;
-    cv_rect(9, y0, 223, 1, LK_RULE);
-    for (x = 9; x <= 231; x += 20) cv_rect(x, y0 - 3, 1, 7, LK_RULE);
-    for (x = 9; x <= 231; x++) {
-        const uint32_t h = vg_hash((uint32_t)((x + tick) * 41));
-        int env = 1;
-        for (k = 0; k < 6; k++) {
-            const int d = vg_abs(x - (9 + (int)EVENT[k]));
-            const int reach = 5 + k % 3 * 4;
-            if (d < reach) env += (reach - d) * (k & 1 ? 2 : 3) / 4;
+    static const uint8_t events[4] = {13, 35, 61, 82};
+    const int width = 104, active = (int)(cutoff * (float)width + 0.5f);
+    const int tick = (int)((plat_ms() / 140u + (uint32_t)drone * 19u) % 83u);
+    const uint16_t col = LK_DRONE[drone];
+    int j, lastx = x0, lasty = y0;
+    cv_rect(x0, y0, width, 1, LK_RULE);
+    for (j = 0; j <= width; j += 12)
+        cv_rect(x0 + j, y0 - 3, 1, 7, LK_RULE);
+    for (j = 0; j < width; j++) {
+        uint32_t h = vg_hash((uint32_t)((j + tick) * 59 + drone * 173));
+        int env = 3, k, amp, yy = y0;
+        for (k = 0; k < 4; k++) {
+            const int d = vg_abs(j - (int)events[k]);
+            const int reach = 4 + (k % 3) * 4;
+            if (d < reach)
+                env += (reach - d) * (k % 2 ? 7 : 5) / 2;
         }
-        int amp = (int)((int)(h % 15u) - 7) * env * (int)(3.0f + activity * 6.0f) / 24;
-        int py = y0 - vg_max(-10, vg_min(10, amp));
-        const uint16_t ink = (vg_abs(amp) >= 7 && activity > 0.55f) ? LK_WHITE :
-                             x % 3 == 0 ? VG_STRATA[0][0] : VG_STRATA[0][2];
-        cv_line(lastx, lasty, x, py, ink);
-        lastx = x; lasty = py;
+        if (j < active && level > 0.0f) {
+            const int soften = active - j < 7 ? vg_max(0, active - j) : 7;
+            amp = ((int)(h % 23u) - 11) * env * (int)(2.0f + level * 12.0f) / 128;
+            amp = amp * soften / 7;
+            yy = y0 - vg_max(-11, vg_min(11, amp));
+        }
+        cv_line(lastx, lasty, x0 + j, yy,
+                vg_abs(y0 - yy) >= 9 ? LK_WHITE : col);
+        lastx = x0 + j; lasty = yy;
+    }
+}
+static void vg_lava_flow(float level)
+{
+    /* At zero level there is no lava. At full level the front has risen
+     * through the conduit, crossed the vent and run down the right flank. */
+    static const int16_t x[15] = {119, 119, 118, 118, 117, 117, 118, 122, 131, 141, 152, 166, 185, 209, 237};
+    int16_t y[15];
+    const float advance = level * 14.0f;
+    int j;
+    if (level <= 0.0f) return;
+    y[0] = 91; y[1] = 81; y[2] = 70; y[3] = 58; y[4] = 48;
+    y[5] = 37; y[6] = vg_ridge(118) - 18;
+    for (j = 7; j < 15; j++) y[j] = (int16_t)(vg_ridge(x[j]) - 17);
+    for (j = 1; j < 15; j++) {
+        const float remaining = advance - (float)(j - 1);
+        int xe, ye;
+        if (remaining <= 0.0f) break;
+        if (remaining >= 1.0f) {
+            xe = x[j]; ye = y[j];
+        } else {
+            xe = x[j - 1] + (int)((float)(x[j] - x[j - 1]) * remaining);
+            ye = y[j - 1] + (int)((float)(y[j] - y[j - 1]) * remaining);
+        }
+        cv_line(x[j - 1] - 1, y[j - 1], xe - 1, ye, VL_MANTLE);
+        cv_line(x[j - 1] + 1, y[j - 1], xe + 1, ye, VL_CRUST);
+        cv_line(x[j - 1], y[j - 1], xe, ye, VL_SURFACE);
+        if (remaining < 1.0f) break;
+    }
+    /* Small incandescent front moves only within the exposed flow. */
+    if (advance > 2.0f) {
+        const int k = 2 + (int)((plat_ms() / 140u) % (uint32_t)vg_max(1, (int)advance - 1));
+        if (k < 15) cv_rect(x[k] - 1, y[k] - 1, 3, 3, LK_WHITE);
+    }
+}
+static void vg_smoke(float level)
+{
+    const int strands = (int)(10.0f * level + 0.5f);
+    const float drift = vl_norm(P_DRIFT);
+    const float time = (float)(plat_ms() % 4500u) * 0.0014f;
+    int k, i;
+    if (!strands) return;
+    for (k = 0; k < strands; k++) {
+        int px = 117 + k / 2, py = vg_ridge(118) - 20;
+        const float spread = (float)(k - strands / 2);
+        for (i = 1; i <= 22; i++) {
+            const float t = (float)i / 22.0f;
+            const int nx = 117 + (int)(spread * (1.0f + t * 1.2f) + 25.0f * drift * t * t +
+                                      4.0f * fm_sinf((float)i * 0.4f + (float)k * 0.34f + time));
+            const int ny = vg_ridge(118) - 20 - i * 2;
+            cv_line(px, py, nx, ny,
+                    vg_dim(k % 3 == 0 ? LK_LABEL : VG_STRATA[1][4 + k % 4], 0.35f + 0.5f * level));
+            px = nx; py = ny;
+        }
+    }
+    for (i = 0; i < (int)(level * 80.0f); i++) {
+        const uint32_t h = vg_hash((uint32_t)(i * 149 + (plat_ms() / 320u) % 13u));
+        const int yy = (int)((h >> 9) % 47u);
+        const int xx = 116 + (int)(h % 57u) - 13 + (46 - yy) / 7;
+        if (xx > 0 && xx < 239)
+            cv_rect(xx, yy, 1, 1, vg_dim(VG_STRATA[1][3 + i % 4], 0.46f));
     }
 }
 static void vl_surface(int pitch)
 {
     int g;
     if (!pitch) {
-        const float v = 0.5f * (vl_norm(DR_GP(0, GP_LEVEL)) + vl_norm(DR_GP(1, GP_LEVEL)));
-        const float energy = fm_clampf(v * dr_fade, 0.0f, 1.0f);
+        const float lava = vl_norm(DR_GP(0, GP_LEVEL)) * dr_fade;
+        const float smoke = vl_norm(DR_GP(1, GP_LEVEL)) * dr_fade;
         cv_text(9, 1, &FONT_XS, "SURFACE / OBSERVATION", LK_LABEL);
-        vg_ground(0, 239, -16, 8, 0.67f + 0.33f * energy);
-        /* Exposed conduit, incandescent vent and thin drifting plume. */
-        cv_line(115, 38, 120, 71, VG_STRATA[0][0]);
-        cv_line(118, 40, 117, 70, VG_STRATA[0][3]);
-        for (g = 0; g < 5; g++) {
-            int i, ox = 115 + g * 2, oy = 39;
-            for (i = 1; i <= 9; i++) {
-                const int nx = 115 + g * 2 + i * i / 10 + (i * (g + 1)) % 5 - 2;
-                const int ny = 39 - 4 * i;
-                cv_line(ox, oy, nx, ny, g & 1 ? VG_STRATA[1][1] : VG_STRATA[0][3]);
-                ox = nx; oy = ny;
-            }
+        vg_ground(0, 239, -16, 8, 0.52f); /* Geological beds do not change brightness. */
+        vg_lava_flow(lava);
+        vg_smoke(smoke);
+        cv_rect(119, 96, 1, 27, LK_RULE);
+        for (g = 0; g < 2; g++) {
+            const int x0 = g ? 127 : 9;
+            const float level = vl_norm(DR_GP(g, GP_LEVEL)) * dr_fade;
+            const float cutoff = vl_norm(DR_GP(g, GP_CUTOFF));
+            cv_text(x0 + 2, 93, &FONT_XS, g ? "II" : "I", LK_DRONE[g]);
+            vg_seismic(g, x0, 112, level, cutoff);
         }
-        for (g = 0; g < 43; g++) {
-            uint32_t h = vg_hash((uint32_t)(g * 67 + 23));
-            int x = 109 + (int)(h % 52u);
-            int y = (int)((h >> 7) % 47u);
-            cv_rect(x, y, 1, 1, g % 7 == 0 ? LK_WHITE : VL_ROCK);
-        }
-        cv_rect(8, 93, 224, 1, LK_RULE);
-        vg_seismic(108, energy);
         return;
     }
-    /* The second HOME page exposes the two crusts independently. */
+    /* Pitch retains the dual buckling crust diagrams. */
     cv_rect(119, 3, 1, 117, LK_RULE);
     for (g = 0; g < 2; g++) {
         const int x0 = 8 + 120 * g;

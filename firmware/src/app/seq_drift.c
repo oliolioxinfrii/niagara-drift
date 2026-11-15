@@ -7,11 +7,11 @@
 #define SD_LIMIT_S 240u
 #define SD_DEFAULT_S 10u
 static struct {
-    uint8_t count, position, drone, phase, enabled, running;
+    uint8_t count, position, drone, phase, enabled, running, paused;
     uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
     int16_t note[2][SD_MAX];
     int16_t sent[2];
-    uint32_t started_ms, sent_ms;
+    uint32_t started_ms, sent_ms, paused_ms;
     int8_t preview_key;                  /* most recently pressed keyboard key; -1: none */
     uint8_t preview_sounded;             /* audition temporarily started PLAY's audio */
     uint8_t preview_active;              /* audible preview replaced the normal pitch */
@@ -47,9 +47,15 @@ static int sd_pitch(int g, int pos)
     return sd.note[g][pos];
 }
 
+static uint32_t sd_elapsed_ms(void)
+{
+    return sd.paused ? sd.paused_ms : plat_ms() - sd.started_ms;
+}
 static void sd_reset_clock(void)
 {
     sd.started_ms = plat_ms();
+    sd.paused_ms = 0;
+    sd.paused = 0;
     sd.sent_ms = 0;
     sd.sent[0] = sd.sent[1] = -32768;
 }
@@ -99,17 +105,37 @@ static void sd_stop(void)
     sd_reset_clock();
     if (sd.preview_key < 0) sd_restore_pitch();
 }
-static void sd_start(void)
+static int sd_at(int g, uint32_t elapsed_ms);
+static void sd_toggle(void)
 {
-    sd_sync_home();
-    sd.enabled = 1;
-    sd.running = 1;
-    sd_reset_clock();
-    /* Pitch Link applies to the authored notes, not the engine's live cursor.
-     * Force the audio engine into independent pitch mode during progression;
-     * linked drone II is calculated from the currently active drone I pitch. */
-    dr_set(P_PLINK, 0);
-    say_c("SEQUENCE", "START AT STEP 1", K_GOLD);
+    if (!sd.enabled) {
+        sd_sync_home();
+        sd.enabled = 1;
+        sd.running = 1;
+        sd_reset_clock();
+        /* Pitch Link applies to the authored notes; the audio engine follows
+         * the sequence's two independently calculated cursor pitches. */
+        dr_set(P_PLINK, 0);
+        say_c("SEQUENCE", "PLAY", K_GOLD);
+    } else if (!sd.paused) {
+        int g;
+        sd.paused_ms = sd_elapsed_ms();
+        sd.paused = 1;
+        /* Freeze at the exact interpolation point, including the phase offset.
+         * The sound stays on; ordinary PLAY is the stop/reset control. */
+        for (g = 0; g < 2; g++) {
+            dr_slide(g, 25);
+            dr_set(DR_GP(g, GP_PITCH), sd_at(g, sd.paused_ms));
+        }
+        sd.sent[0] = sd.sent[1] = -32768;
+        say_c("SEQUENCE", "PAUSED", K_GOLD);
+    } else {
+        sd.started_ms = plat_ms() - sd.paused_ms;
+        sd.paused = 0;
+        sd.sent_ms = 0;
+        sd.sent[0] = sd.sent[1] = -32768;
+        say_c("SEQUENCE", "RESUME", K_GOLD);
+    }
 }
 
 /* Smoothly interpolate across unequal event intervals. In Pitch Link mode,
@@ -239,21 +265,17 @@ static void sd_run(void)
         if (!sd.enabled || !ui.playing)
             sd_restore_pitch();
     }
-    if (!sd.enabled || !ui.playing) {
-        sd.running = 0;
+    if (!sd.enabled || !ui.playing)
         return;
-    }
-    if (!sd.running) {
-        sd.running = 1;
-        sd_reset_clock();
-    }
+    if (sd.paused && sd.sent[0] != -32768 && sd.sent[1] != -32768)
+        return;
     if (sd.sent_ms && now - sd.sent_ms < 50u) return;
     sd.sent_ms = now | 1u;
     dr_set(P_PLINK, 0);               /* scene recalls cannot re-enable link on the audio cursor */
     for (g = 0; g < 2; g++) {
-        const int v = sd_at(g, now - sd.started_ms);
+        const int v = sd_at(g, sd_elapsed_ms());
         if (v != sd.sent[g]) {
-            dr_slide(g, 80);
+            dr_slide(g, sd.paused ? 25 : 80);
             dr_set(DR_GP(g, GP_PITCH), v);
             sd.sent[g] = (int16_t)v;
         }
@@ -301,7 +323,8 @@ static void sd_note_knob(int i, int32_t e)
             if (sd.gap_s[largest] < 2) break;
             sd.gap_s[largest]--;
         }
-        sd_reset_clock();
+        /* Changing the step count changes the loop map, not its clock. */
+        sd.sent[0] = sd.sent[1] = -32768;
     } else if (i == 3 && !sd_linked()) {
         v = (int)sd.phase + (int)accel(EN_K1 + i, e, 100);
         sd.phase = (uint8_t)(v < 0 ? 0 : v > 100 ? 100 : v);

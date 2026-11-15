@@ -1,3 +1,4 @@
+legacykeys
 # the gestures (v0.2): Weight, Shift, Clean, Wash on D5-G5 (w12-w15), always the same, offsets on top of the sound, the sound's own
 # values untouched; each part comes in over its own stretch of the way in and goes over its own on the way out.
 # heardN is what's heard (the sound plus the macros), parN the sound's own, mpitchG a drone's pitch move by the

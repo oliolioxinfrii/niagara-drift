@@ -198,6 +198,42 @@ static void sd_stop(void)
     sd_reset_clock();
     if (sd.preview_key < 0) sd_restore_pitch();
 }
+/* The authored progression is independent of transport and live STILL clocks.
+ * Every scene load starts stopped, at position 1, with its saved pattern. */
+static void sd_scene_capture(seq_scene_t *out)
+{
+    int i, g;
+    memset(out, 0, sizeof *out);
+    sd_sync_home();
+    out->count = sd.count;
+    out->drone = sd.drone;
+    out->phase = sd.phase;
+    for (i = 0; i < SD_MAX; i++) {
+        out->gap_s[i] = sd.gap_s[i];
+        out->shape[i] = sd.shape[i];
+        for (g = 0; g < 2; g++)
+            out->note[g][i] = sd.note[g][i];
+    }
+}
+static void sd_scene_restore(const seq_scene_t *saved)
+{
+    int i, g;
+    sd_stop();
+    sd_init();                      /* legacy scenes without a progression: one step */
+    if (!saved) return;
+    sd.count = saved->count;
+    sd.drone = saved->drone;
+    sd.phase = saved->phase;
+    for (i = 0; i < SD_MAX; i++) {
+        sd.gap_s[i] = saved->gap_s[i];
+        sd.shape[i] = saved->shape[i];
+        for (g = 0; g < 2; g++)
+            sd.note[g][i] = saved->note[g][i];
+    }
+    sd_sync_home();                 /* step 1 always follows the sound's live home pitch */
+    sd_capture_node_fracs();
+    sd_reset_clock();
+}
 /* PLAY fades the complete instrument before releasing the sequencer's pitch
  * cursor. Restoring step 1 while dr_fade is audible causes a pitch jump. */
 static void sd_global_play(int on)

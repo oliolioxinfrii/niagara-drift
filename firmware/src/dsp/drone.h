@@ -181,6 +181,8 @@ extern const char *const DR_GEST_NAME[DR_NGTYPE];
 extern const uint8_t DR_GEST_DEPTH[DR_NGTYPE], DR_GEST_TIME[DR_NGTYPE];   /* each one's full depth and its time */
 #define DR_NWSCALE 6                           /* Wander's scales */
 extern const char *const DR_WSCALE_NAME[DR_NWSCALE];
+void dr_subtract(int key, int amt);           /* white keys 1-8: 0..1000, four per drone */
+void dr_still_rejoin(int g, int on);         /* 1 cubic catch-up to master; 0 stop catching up */
 void dr_gesture(int g, int amt);               /* gesture key g's amount now, 0..1000 (the UI swells it) */
 float dr_wander(void);                         /* Wander's move of drone II now, semitones (the screen) */
 float dr_wander_to(void);                      /* ... and where it's going (the screen) */
@@ -297,6 +299,8 @@ extern volatile float dr_xw[DR_NGROUPS];       /* ... its X-WAVE now, with its L
 extern volatile float dr_reso[DR_NGROUPS];     /* its resonance (0..1000); both updated while the drones play */
 extern volatile float dr_fb;                   /* FEEDBACK's share of the sound now, 0..1 (v0.3; was the loop's level) */
 extern volatile float dr_snarl;                /* SNARL's bend now (how far it moves the drones' speed), 0..1 */
+extern volatile float dr_lfo_dr_ph[DR_NGROUPS];  /* per-drone LFO position */
+extern volatile float dr_pulse_dr_ph[DR_NGROUPS]; /* per-drone Swell position */
 extern volatile float dr_pulse_ph;             /* the pulse's phase now, 0..2 (its two beats) */
 float dr_lfo_wave(int tap, int shape, float ph);   /* a tap's shape (1..10; 0 off: flat) at ph, -1..1; for
                                                     * random, ph 0..1 the last cycle, 1..2 this one */

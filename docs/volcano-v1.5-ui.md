@@ -46,10 +46,13 @@ Both traces are **illustrated control-response diagrams**, not actual audio
 FFT bins or measured stereo waveforms. The 240 × 124-pixel picture strip and
 9.24-second cosine-eased forward/reverse motion remain unchanged.
 
-- **Moderate MIX readability.** Delay and reverb trace amplitudes use a
-  fourth-root display response, so their structures remain legible at typical
-  15–50% wet settings without requiring a 100% reverb or delay mix. A dry
-  (0%) setting still draws no wet waveform; the gain is continuous at zero.
+- **Moderate MIX readability.** The reverb retains its fourth-root
+  display response, keeping its multiple texture layers visible around 15–50%
+  wet. The delay now uses a more proportional blend of 75% linear and 25%
+  square-root gain, plus wet-dependent line brightness: its 12%, 52% and 100%
+  settings are visibly different without changing the six characteristic
+  algorithm patterns. A dry (0%) setting draws no wet waveform; the mapping
+  remains continuous at zero.
 - **Delay type.** The six response profiles mirror the DSP's delay-line ratio,
   loop tone, wow, stereo ping-pong, grain and self-modulation. Clean shows
   crisp, even repeats; Wide offsets and separates the stereo arrivals;
@@ -57,6 +60,10 @@ FFT bins or measured stereo waveforms. The 240 × 124-pixel picture strip and
   warped returns; Grain has fragmented, high-rate flecks; and Self exhibits
   larger, dynamically moving echo offsets. These drawings represent the
   algorithms qualitatively rather than pretending to show measured echoes.
+- **Graph labels.** Delay- and reverb-algorithm names are no longer printed
+  inside the waveform graphs. Their page/parameter readouts remain available;
+  removing the redundant labels clears the DRIVE gauge's upper-right area
+  without moving or changing that gauge.
 - **DRIVE (reddish orange).** The audio path is dry sound + delay, then
   saturation, then optional reverb send. A parallel line on the delay trace
   progressively shifts from cyan toward reddish-orange as DRIVE grows;

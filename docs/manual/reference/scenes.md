@@ -5,7 +5,34 @@ intro: The white keys: your sounds, gliding or crossfaded in by pressure
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-## Scenes and banks
+## Scenes and banks — Volcano development branch
+
+On the Volcano branch, **white keys 1–16 are gestures** except during SEQ
+keyboard note entry. Scenes are stored and recalled in the **SAVE browser**,
+not by pressing a scene key. This replaces the older white-key scene controls
+documented further down this page.
+
+Tap **SAVE** to open the browser. K1 selects the bank (A–F or the two factory
+Preset banks), K2 selects the slot, and K3 chooses **Save**, **Load**, or
+**Transition**. K4 chooses the final morph percentage only for Transition.
+Press SAVE to confirm, or HOME to exit; overwriting an occupied user slot
+requires a second SAVE confirmation.
+
+- **Save** stores the current sound **and its authored 1–4-step sequence**
+  in a user bank A–F. Factory Presets cannot be overwritten.
+- **Load** immediately applies the selected sound and sequence without
+  waiting for Scene Time. The sequence returns to step 1, stopped; room
+  settings remain global. This is intended for starting or returning to an
+  idea before performance.
+- **Transition** moves toward the target sound over the configured Scene
+  Time, ending at the K4 percentage. Partial transitions retain the current
+  sequence; a 100% transition switches to the target sequence at the end of
+  the timed sound change.
+
+## Earlier scene-key controls (historical)
+
+The following shortcuts apply to earlier Niagara Drift versions, **not**
+to the Volcano development branch.
 
 The white keys play your saved sounds, gliding in, or crossfading as you press.
 

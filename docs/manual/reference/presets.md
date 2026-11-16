@@ -45,10 +45,9 @@ In the SAVE browser, choose **Presets 9–16** and load a slot using the same co
 
 ## Good to know
 
-- **Pitch lock** ([[C#4]]) is on when a new FM-1 starts: the Presets keep the pitch you're on. Turn it off to hear
-  each at its own notes and Tuning.
+- **Immediate LOAD applies the preset's stored pitches even if Pitch Lock is enabled.** Pitch Lock remains a global setting and influences later pitch behavior; it does not prevent an explicit SAVE-browser LOAD.
 - **They're fixed:** to keep your changes, select a user bank A–F and **SAVE** in the scene browser
   ([recipe](../recipes/scenes.md#save)).
-- **Factory preset recalls reset a programmed multistep pitch sequence to one step.** Notes and timing remain in RAM rather than in scene slots; see [What a scene stores](scenes.md#what-a-scene-stores).
+- **Factory presets recall a one-step sequence.** New user scenes can save and restore a multi-step sequence with the sound. A loaded sequence starts stopped at step 1. See [What a scene stores](scenes.md#what-a-scene-stores).
 - **Most are rooted on D,** so moving between them keeps the root.
 - **Their loudest moments match P1's;** Bare is quieter on purpose.

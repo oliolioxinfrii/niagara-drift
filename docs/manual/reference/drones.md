@@ -52,8 +52,10 @@ Low-pass (LP), band-pass (BP) or high-pass (HP), on a black key: [[A#3]] for dro
 - **Pitch glides** from note to note, so a steady turn is one slide.
 - **A fine offset stays** (with SEL, +3 cents stays +3 from note to note) until you change the Tuning; "fine +3" shows
   it.
-- **VOLCANO's Drones display** shows fixed geological strata, with drone I's level shaping lava and drone II's level affecting smoke. Its two scope traces and overlaid filter responses use the actual sound and filter settings.
+- **VOLCANO's Drones display** shows fixed geological strata, with drone I's level shaping lava and drone II's level affecting smoke. STRIP/DARK change the source sound rather than providing new oscillator modes; STILL controls that drone's modulation and pitch progression, and TAIL changes the drone's contribution to the shared audio bus. Its two scope traces and overlaid filter responses use the actual sound and filter settings.
 - **The Pitch display** shows an oscilloscope-like pitch history. While adjusting resonance, the display exposes its filter-response curves.
 - **Hold HOME for 400 ms** from another page to inspect the activity atlas; release HOME to return. See [Controls](controls.md).
 
 > **Screenshot needed — Geological atlas:** `build/scenarios/volcano-ui/geological-atlas.png`.
+
+For the new per-drone controls, see [Subtractive gestures](gestures.md#subtractive-gestures-keys-1-8).

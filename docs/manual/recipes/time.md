@@ -13,11 +13,11 @@ Three timing controls appear on **GLO → Setup 1**: Fade (KNOB 1), Morph (KNOB 
 
 *Use Scene time to change the pace of recalling a sound.*
 
-1. Open **GLO → Setup 1** and turn **Scene time** toward the shortest duration for an immediate change.
-2. Open **SAVE**, choose an occupied scene, select **LOAD** and press SAVE.
-3. Increase Scene time and load another scene to hear a slower change.
+1. Open **GLO → Setup 1** and set **Scene Time** to a short duration to compare fast and slow performance transitions.
+2. Open **SAVE**, choose an occupied scene, select **TRANSITION** at 100% and press SAVE.
+3. Increase Scene Time and repeat a 100% TRANSITION to hear a slower movement. Choose **LOAD** instead for an immediate edit/startup recall.
 
-The scene browser can also choose **TRANSITION** and a percentage, ending partway toward a selected target sound instead of loading it completely.
+**LOAD** applies a scene immediately, regardless of Scene Time. To hear Scene Time, select **TRANSITION** and a percentage. A partial transition retains the working sequence; a 100% transition loads the target sequence only after the sound change completes.
 
 > **Screenshot needed — Scene time and partial transition:** Capture Setup 1 and a scene-browser transition value from the v1.5 firmware.
 
@@ -28,7 +28,7 @@ The scene browser can also choose **TRANSITION** and a percentage, ending partwa
 1. On Setup 1, increase **Morph** with KNOB 2.
 2. Tap a black key or change an LFO waveform. The parameter changes over the selected time.
 
-Morph applies to parameter changes such as oscillator/sub controls and LFO wave selection; **Scene time** controls scene loading and transitions.
+Morph applies to parameter changes such as oscillator/sub controls and LFO wave selection, **all 16 gesture rise/return movements**, and STILL rejoining. **PRESETS** controls the same Morph Time setting as GLO Setup 1. **Scene Time** controls TRANSITION, not LOAD.
 
 ### Fade in slowly, or fade out one drone {#fades}
 

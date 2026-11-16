@@ -44,7 +44,7 @@ Morph applies to parameter changes such as oscillator/sub controls and LFO wave 
 
 *Place successive notes at unequal times in the loop.*
 
-1. Open **SEQ → Sequence** and program two to four notes.
+1. [Program two to four notes](sequencing.md#first-sequence) on **SEQ → Sequence**.
 2. Open **SEQ → Intervals** and set each event's relative arrival using KNOBs 1–3.
 3. Adjust KNOB 4 to change the duration of the whole progression without changing those relative positions.
 
@@ -52,8 +52,8 @@ Morph applies to parameter changes such as oscillator/sub controls and LFO wave 
 
 *Make changes between notes smooth, early or late.*
 
-1. Open **SEQ → Transitions**.
-2. Turn each active segment's knob (1→2, 2→3, 3→4 or 4→1).
+1. Open **SEQ → Transitions** after programming at least two notes.
+2. Turn the knobs for the active segments. With three notes, KNOBs 1–3 shape **1→2, 2→3 and 3→1**; with four notes, KNOB 4 also shapes **4→1**.
 3. Compare smooth easing with early and late abrupt pitch changes.
 
 > **Screenshot needed — SEQ Intervals and Transitions:** Capture both v1.5 pages with a multistep programmed sequence.

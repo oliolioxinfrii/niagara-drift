@@ -1,8 +1,7 @@
 ---
 title: Gestures
 intro: Move several settings at once, in their own order, then let them go
-description: Recipes for Niagara Drift's gestures: hold, press harder, keep, stack, make one last a minute, change its speed.
-image: g-stack-0.png
+description: Recipes for Volcano's gestures: hold, press harder, keep, stack, make one last a minute, change its speed.
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
@@ -16,13 +15,9 @@ Gestures are macros: one key moves several settings at once. **PRESETS** sets ho
 1. Hold **Wash**, [[G5]], until the reverb has bloomed.
 2. Let go: it fades out as slowly as you held it in.
 
-![Drones, Wash at 100%](../media/g-hold-0.png "WASH 100%")
+> **Screenshot needed — Drones, Wash at 100%.** Regenerate this view from the Volcano v1.5 firmware.
 
-**Listen** (`g-hold`)
-
-- 0:00 P1 Niagara
-- 0:01 Wash held 4 s: the reverb grows
-- 0:05 let go: it fades over 4 s
+> **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 
 ### Swell into a chord and back {#press}
 
@@ -34,15 +29,9 @@ Gestures are macros: one key moves several settings at once. **PRESETS** sets ho
 > **Good to know.** Chord builds its chord on the **Scale**, on the **Pitch moves** page ([[SEQ]] twice, KNOB 4):
 > change the scale and the chord changes.
 
-![Drones, Chord at 90%](../media/g-press-0.png "CHORD 90%")
+> **Screenshot needed — Drones, Chord at 90%.** Regenerate this view from the Volcano v1.5 firmware.
 
-**Listen** (`g-press`)
-
-- 0:00 P3 Vespers
-- 0:01 Chord pressed lightly: the drones start to move
-- 0:04 harder: a full chord
-- 0:08 eased off: back toward the start
-- 0:11 let go
+> **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 
 ### Leave a gesture on while you play {#keep}
 
@@ -52,15 +41,10 @@ Gestures are macros: one key moves several settings at once. **PRESETS** sets ho
 2. Or hold a gesture key (or press it harder) until the screen shows a level you like, and tap [[SEL]] while still
    holding it: it latches at that level. Let go when you like.
 
-![Drones, Chord latched](../media/g-keep-0.png "Tapped: CHORD latched")
-![Drones, Chord pressed to 55%](../media/g-keep-1.png "CHORD 55%: tap SEL here")
+> **Screenshot needed — Drones, Chord latched.** Regenerate this view from the Volcano v1.5 firmware.
+> **Screenshot needed — Drones, Chord pressed to 55%.** Regenerate this view from the Volcano v1.5 firmware.
 
-**Listen** (`g-keep`)
-
-- 0:00 P2 Embers
-- 0:01 Chord tapped: all the way in, latched
-- 0:05 tapped again: it goes
-- 0:09 pressed to 55%, SEL tapped: latched there
+> **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 
 ### Build a climax {#stack}
 
@@ -69,14 +53,9 @@ Gestures are macros: one key moves several settings at once. **PRESETS** sets ho
 1. Press **Snarl**, [[B4]], firmly.
 2. Hold **Wash**, [[G5]], on top. Let go of both to come down.
 
-![Drones, Wash over Snarl](../media/g-stack-0.png "Wash over Snarl")
+> **Screenshot needed — Drones, Wash over Snarl.** Regenerate this view from the Volcano v1.5 firmware.
 
-**Listen** (`g-stack`)
-
-- 0:00 P6 Seance
-- 0:01 Snarl pressed: a growl
-- 0:05 Wash held on top: the climax
-- 0:10 both let go
+> **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 
 ### Transform a sound over half a minute {#minute}
 
@@ -85,12 +64,9 @@ Gestures are macros: one key moves several settings at once. **PRESETS** sets ho
 1. Turn **PRESETS** all the way left: **GESTURE TIME 33 s**.
 2. Tap a gesture key: it comes in on its own.
 
-![Drones, Weight latched, coming in slowly](../media/g-minute-0.png "WEIGHT latched, coming in")
+> **Screenshot needed — Drones, Weight latched, coming in slowly.** Regenerate this view from the Volcano v1.5 firmware.
 
-**Listen** (`g-minute`)
-
-- 0:00 P12 Ashram, Gesture time 33 s
-- 0:01 Weight tapped: it comes in on its own
+> **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 
 ### Hit it fast, let it fade slowly {#speed}
 
@@ -99,11 +75,7 @@ Gestures are macros: one key moves several settings at once. **PRESETS** sets ho
 1. Hold a gesture on a fast Gesture time, and let go.
 2. Turn **PRESETS** left: it fades slowly. (Or slow in, then fast out.)
 
-![Drones, Wash leaving slowly at 12%](../media/g-speed-0.png "WASH 12%, leaving slowly")
+> **Screenshot needed — Drones, Wash leaving slowly at 12%.** Regenerate this view from the Volcano v1.5 firmware.
 
-**Listen** (`g-speed`)
-
-- 0:00 P13 Telegraph, Gesture time fast
-- 0:01 Wash held 2 s: in fast
-- 0:03 let go, PRESETS turned left: a slow fade
+> **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 

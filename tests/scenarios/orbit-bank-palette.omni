@@ -1,0 +1,19 @@
+# Visual regression: SAVE orbit tracks bank identity from deep FX blue to icy blue.
+# Node centers remain deep blue; the satellite keeps its original gold palette.
+notips
+expect bank 3
+tap SAVE
+expect savemenu 1
+wait 50
+shot orbit-p1-deep-blue.png
+spin K1 1
+wait 50
+shot orbit-p2-icy-blue.png
+spin K1 1
+wait 50
+shot orbit-a-blue.png
+spin K1 5
+wait 50
+shot orbit-f-pale-blue.png
+tap HOME
+expect savemenu 0

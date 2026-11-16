@@ -74,11 +74,11 @@ static void vs_orbit_figure(int bank, int slot, int filled, const char *name)
     cv_line(59, 57, 62, 63, VL_SURFACE);
     cv_line(53, 61, 56, 67, VL_SURFACE);
     cv_line(57, 59, 60, 65, VL_SURFACE);
-    cv_line(36, 74, 38, 72, VG_STRATA[0][1]);
-    cv_line(49, 68, 51, 66, VG_STRATA[0][1]);
-    cv_round(38, 66, 11, 11, 2, LK_WHITE);
-    cv_round(40, 68, 7, 7, 2, VG_STRATA[0][2]);
-    cv_line(43, 66, 46, 59, LK_WHITE);
+    cv_line(34, 74, 35, 72, VG_STRATA[0][1]);
+    cv_line(46, 68, 49, 66, VG_STRATA[0][1]);
+    cv_round(35, 65, 11, 11, 2, LK_WHITE);
+    cv_round(37, 67, 7, 7, 2, VG_STRATA[0][2]);
+    cv_line(40, 65, 43, 59, LK_WHITE);
     if (name || filled)
         cv_text(12, 105, &FONT_XS, name ? name : "STORED", LK_WHITE);
     else

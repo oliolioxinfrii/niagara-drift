@@ -2741,7 +2741,6 @@ static void pulse_run(uint32_t n)
     float ph = pulse_ph, g = pulse_g, g2 = pulse_g2, pt = 1.0f, pt2 = 1.0f;
     const float phase = (float)par[P_SWELL_PHASE] * 0.01f;
     float local_ph[DR_NGROUPS] = {ph, ph};
-    float local_g[DR_NGROUPS] = {g, g2};
     uint32_t j;
     if (ext) {                                   /* steered by the clock: at its place when it starts (or a Start), else
                                                   * a fiftieth of the way a block */

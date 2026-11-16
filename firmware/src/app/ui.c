@@ -2937,9 +2937,9 @@ static void draw_splash(uint32_t ms)
         RGB(244, 151, 36), RGB(138, 32, 25), RGB(89, 19, 25),
         RGB(243, 99, 31), RGB(80, 17, 26)
     };
-    const uint16_t RED = RGB(230, 27, 24), SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
-                   BLACK = RGB(46, 14, 21), LAVA = RGB(255, 175, 45),
-                   SULFUR = RGB(255, 222, 80), PAPER = RGB(255, 243, 227);
+    const uint16_t SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
+                   LAVA = RGB(255, 175, 45), SULFUR = RGB(255, 222, 80),
+                   PAPER = RGB(255, 243, 227);
     /* 3.5 s startup: vent lights, the plume grows, then incandescent
      * ejecta appear. The geological silhouette and strata never move. */
     const int drift = (int)((ms / 120u) % 9u);

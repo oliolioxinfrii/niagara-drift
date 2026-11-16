@@ -18,7 +18,7 @@
  *   .. pink) · EDIT Osc (X-Wave, PW), Sub · Drive (Osc/Sub, Drive) · LFO LFO sends (each drone's two sends), Mods
  *   (Speed mod, Source, Delay mod, Cross-mod) · SEQ Partner, Pitch moves · FX Space (Repeats, Mix, Length, Mix),
  *   Details (Drive, Time, Damp, Type) · GLO Setup 1 (Fade, Morph, Scene time),
- *   Setup 2 (Tuning, Tune, Stereo, Pressure) (global). The top bar shows a dot for each of a
+ *   Setup 2 (Tuning, Tune, Stereo, Speaker) (global). The top bar shows a dot for each of a
  *   button's pages.
  *   OCT- / OCT+    the LFO's Wave I / Wave II (LFO I and II on screen): a tap is the next shape, round and
  *                  round; SEL + OCT the one before; lit while its wave is up
@@ -78,7 +78,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
     {{G, P_SHIFT_MOVE}, {G, P_GLIDE}, {G, P_WANDER}, {G, P_WSCALE}},   /* Shift's move, Glide; Wander, its scale */
     /* GLO: the room's settings only, none in a sound (Evan, 2026-10-18): the times, then the unit and the room */
     {{G, P_FADE}, {G, P_MORPH}, {G, P_SCENE_T}, {G, P_CLK_SYNC}},   /* Sync on KNOB 4 (v0.3) */
-    {{G, P_TUNING}, {G, P_TUNE}, {G, P_WIDTH}, {G, P_PRESS_SENS}},   /* Tuning and Tune side by side (2026-11-01) */
+    {{G, P_TUNING}, {G, P_TUNE}, {G, P_WIDTH}, {G, P_SPEAKER}},   /* Tuning, reference, stereo, speaker */
     {{G, P_PULSE_RATE}, {G, P_PULSE_DEPTH}, {G, P_SWELL_PHASE}, {G, P_PULSE_SWING}},
     {{G, P_SWELL_WAVE}, {G, P_SWELL_SKEW}, {G, P_SWELL_EDGE}, {G, P_SWELL_WIDTH}},
     /* FX (v0.3, Evan, 2026-11-08): Space, the amounts played (the delay's repeats and mix, the reverb's length and
@@ -86,7 +86,7 @@ static const knob_t VIEW_KNOB[NVIEWS][4] = {
      * SEL the delay's type over Time and what goes into the reverb over Type (sel_job) */
     {{G, P_DLY_REPEATS}, {G, P_DLY_MIX}, {G, P_REV_LEN}, {G, P_REV_MIX}},
     {{G, P_DLY_DRIVE}, {G, P_DLY_TIME}, {G, P_REV_DAMP}, {G, P_REV_TYPE}},
-    {{G, P_SPEAKER}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* GLO 3: internal speaker only */
+    {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}},   /* retired GLO 3; view id retained for compatibility */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* sequence edit controls are custom */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* unequal interval controls */
     {{NONE, 0}, {NONE, 0}, {NONE, 0}, {NONE, 0}}, /* segment curves */
@@ -110,7 +110,7 @@ static const char *sel_job_name(int p) { return p == P_DLY_ROUTE ? "Into" : p ==
 static const struct {
     uint8_t btn, first, n;
 } PAGE_BTN[] = {{B_HOME, V_PLAY, 2}, {B_ENV, V_LIFE, 2}, {B_EDIT, V_OSC, 2}, {B_LFO, V_LFO_WAVES, 3},
-                {B_SEQ, V_PARTNER, 5}, {B_GLO, V_SETUP, 3}, {B_FX, V_FX, 2},
+                {B_SEQ, V_PARTNER, 5}, {B_GLO, V_SETUP, 2}, {B_FX, V_FX, 2},
                 {B_ARP, V_PULSE, 2}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 #define HOLD_MS 400u                   /* a page button held this long (or a knob turned) is a peek */
@@ -151,10 +151,10 @@ static const sw_t SW_LFO[11] = {{S_OTAP, 0}, {S_ODEST, 0}, {S_FTAP, 0}, {S_FDEST
 /* who a message is from, for its banner's color (lk_msg_col in look.c): the drones (K_DRONE), the LFO (K_LFO), the
  * scenes, Presets, saves and the Swell (K_GOLD); 0 the system, neutral. The old screen's palette went with it (0.3's
  * new look, PR H); K_BG is the start's animation's black, the site's */
-#define K_BG RGB(20, 0, 15)
-#define K_LFO RGB(220, 188, 255)
-#define K_GOLD RGB(255, 214, 240)
-static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(255, 176, 74), RGB(69, 227, 211)};
+#define K_BG RGB(8, 8, 10)
+#define K_LFO RGB(207, 75, 63)
+#define K_GOLD RGB(247, 210, 70)
+static const uint16_t K_DRONE[DR_NGROUPS] = {RGB(247, 210, 70), RGB(246, 76, 60)};
 
 static struct {
     uint8_t view;
@@ -267,43 +267,20 @@ static void mark_dirty(void) { ui.dirty = 1; ui.chg_t = plat_ms(); }
  * what's been seen, the player's, as the Gesture time is). A tip waits for the screen: after any message */
 enum { TIP_BLEND, TIP_NAMES, TIP_GEST, TIP_FX, TIP_INTO, TIP_XMOD, TIP_CLOCK, TIP_UNDO, TIP_KN_LIFE, TIP_KN_MODS,
        TIP_KN_SETUP2, TIP_KEEP, TIP_KN_DRONES, TIP_KN_SPACE, NTIPS };
-static const char *const TIP_TEXT[NTIPS] = {   /* one line, the banner's width (~23) */
-    "PRESS HARDER: BLEND", "HOLD [SEL]: KEY NAMES", "HOLD: IN · TAP: LATCH", "TAP [FX]: TIME, TYPES",
-    "[SEL]+KNOB 4: INTO REV", "[F#5]: PITCH, SNARL", "SWELL KNOB 1: DIVISION", "[SEL] + [SAVE]: UNDO",
-    /* the knobs 0.3 moved (Evan, 2026-11-01), the first time a player from 0.2 opens their page (SEEN1_MOVED) */
-    "FEEDBACK NOW KNOB 1", "X-MOD NOW KNOB 4", "TUNE NOW KNOB 2",
-    "TAP [SEL]: KEEP IT",                      /* SEL glowing while a blend or a gesture can be kept */
-    "PITCH: TAP [HOME] AGAIN", "DRIVE, TIME: TAP [FX]"};   /* the pages 0.3 rearranged (2026-11-08), as the knobs */
-/* (a button or key in [ ]: the new look draws it in a box, the spec's rule 19; the old screen drops the brackets) */
-#define TIP_MS 3500u
-static int tip_seen(int t) { return proj.seen[t >> 3] >> (t & 7) & 1u; }
-static void tip(int t)
+/* VOLCANO's interface does not display automatic onboarding tips.
+ * Retain the call sites for compatibility; explicit messages and
+ * second-part announcements still use the normal message queue. */
+static void tip(int t) { (void)t; }
+static void tips_run(void)
 {
-    if (!tip_seen(t))
-        ui.tip_q |= (uint16_t)(1u << t);
-}
-static void tips_run(void)                             /* each frame: a tip waiting, the screen free */
-{
-    int t;
     if (plat_ms() < ui.msg_until + (ui.msg_next[0] ? 0u : 300u))
         return;
-    if (ui.msg_next[0]) {                              /* a message's second part, just after it */
-        char t[sizeof ui.msg_next];
-        memcpy(t, ui.msg_next, sizeof t);
-        say_c(t, 0, ui.msg_col);
-        return;
+    if (ui.msg_next[0]) {
+        char msg[sizeof ui.msg_next];
+        memcpy(msg, ui.msg_next, sizeof msg);
+        say_c(msg, 0, ui.msg_col);
     }
-    if (!ui.tip_q)
-        return;
-    for (t = 0; !(ui.tip_q >> t & 1u); t++)
-        ;
-    ui.tip_q &= (uint16_t)~(1u << t);
-    if (tip_seen(t))
-        return;
-    proj.seen[t >> 3] |= (uint8_t)(1u << (t & 7));   /* saved with the next save (no write of its own) */
-    say_c(TIP_TEXT[t], 0, K_GOLD);
-    ui.msg_tip = 1;
-    ui.msg_until = plat_ms() + TIP_MS;
+    ui.tip_q = 0; /* Ignore stale tips from an earlier firmware session. */
 }
 int ui_dirty(void) { return ui.dirty != 0; }
 
@@ -395,7 +372,7 @@ static int32_t accel(int role, int32_t s, int range)
  * smooth curve: 70 detents a second; Evan, on the FM-1, 4x went too far); with SEL held, 1 cent.
  * Each step slides over the time since the last detent (15..600 ms): the next one is due about then, so a steady turn
  * is one slide through the grid's notes, as an analog knob's; a first detent after a pause slides over 300 ms. */
-/* THE TUNING (v0.3, Setup 2 KNOB 4; Evan, 2026-10-30): every detent moves the pitch to the grid's next step, so the
+/* THE TUNING (Setup 2 KNOB 1; moved in v0.3, Evan 2026-10-30): every detent moves the pitch to the grid's next step, so the
  * screen shows the note it goes to (#61 glided 60 cents a detent and landed once stopped: on the uneven grids a detent
  * could land back on the same note, and the card showed the cents in between). A pitch SEL has fine-tuned off the
  * grid keeps that offset: +3 cents over a semitone steps to +3 over the next. A pitch off the grid (an old sound, a
@@ -758,7 +735,7 @@ static void sw_toggle(sw_t w)
 static int on_pages(int i)
 {
     if (PAGE_BTN[i].btn == B_GLO)
-        return ui.view == V_SETUP || ui.view == V_SETUP2 || ui.view == V_SPEAKER;
+        return ui.view == V_SETUP || ui.view == V_SETUP2;
     if (PAGE_BTN[i].btn == B_SEQ)
         return ui.view == V_PARTNER || ui.view == V_MOVES || ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
     return ui.view >= PAGE_BTN[i].first && ui.view < PAGE_BTN[i].first + PAGE_BTN[i].n;
@@ -767,13 +744,13 @@ static int page_step(int i, int v)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
         return v == V_SEQ_NOTES ? 2 : v == V_SEQ_TIME ? 3 : v == V_SEQ_SHAPE ? 4 : v - V_PARTNER;
-    return PAGE_BTN[i].btn == B_GLO && v == V_SPEAKER ? 2 : v - PAGE_BTN[i].first;
+    return v - PAGE_BTN[i].first;
 }
 static int page_target(int i, int step)
 {
     if (PAGE_BTN[i].btn == B_SEQ)
         return step == 2 ? V_SEQ_NOTES : step == 3 ? V_SEQ_TIME : step == 4 ? V_SEQ_SHAPE : V_PARTNER + step;
-    return PAGE_BTN[i].btn == B_GLO && step == 2 ? V_SPEAKER : PAGE_BTN[i].first + step;
+    return PAGE_BTN[i].first + step;
 }
 static void set_view(int v)
 {
@@ -1367,6 +1344,10 @@ static void scene_recall(int n, int keep)              /* a white key: morph the
         say(t, "EMPTY: [SAVE] BROWSE");
         return;
     }
+    if (BANK_IS_PRESETS(proj.bank)) {
+        sd_stop();
+        sd_init();  /* Factory sounds start with one step, independent of earlier RAM sequences. */
+    }
     if (keep)
         undo_keep();
     for (k = 0; k < DR_NPARAMS; k++) {
@@ -1390,6 +1371,10 @@ static void scene_play(int bank, int n)
     int k;
     if (!sc)
         return;
+    if (BANK_IS_PRESETS(bank)) {
+        sd_stop();
+        sd_init();
+    }
     for (k = 0; k < DR_NPARAMS; k++) {
         ui.morph_from[k] = proj.par[k];
         ui.morph_to[k] = sc[k];
@@ -1492,6 +1477,10 @@ static void scene_morph(void)
 #define PR_WAIT_MS 250u                /* ... held this long, the pressure starts to move the sound (a crossfade) */
 static void press_start(int n, const int16_t *sc)
 {
+    if (BANK_IS_PRESETS(proj.bank)) {
+        sd_stop();
+        sd_init();
+    }
     int k;
     float x0 = 0.0f;
     if (!(ui.morph == VISIT_BACK && ui.visit == -2 - n)) {  /* not already gliding back from this key: */
@@ -1515,10 +1504,8 @@ static void press_start(int n, const int16_t *sc)
     loop_note(LP_BLEND, proj.bank << 4 | n, 0);
 }
 
-/* a key's pressure at the player's sensitivity (Setup 2, KNOB 3): a curve, light .. firm, 50 as tuned; a full press
- * is always all the way (QA 2026-10-20: as a gain, at 0 a full press went only 38 % in) */
-static float press_gain(void) { return fm_exp2f(((float)proj.par[P_PRESS_SENS] - 50.0f) * 0.02f); }
-static float press_curve(float x) { return x > 0.0f ? fm_exp2f(fm_log2f(x) / press_gain()) : 0.0f; }   /* 0..1 */
+/* Scene-key pressure is a neutral linear blend; sensitivity is not a Setup control. */
+static float press_curve(float x) { return fm_clampf(x, 0.0f, 1.0f); }  /* neutral response */
 static int press_scaled(int p)
 {
     return p < 0 ? p : (int)fm_clampf(127.0f * press_curve((float)p * (1.0f / 127.0f)) + 0.5f, 0.0f, 127.0f);
@@ -2118,6 +2105,10 @@ static void menu_start_transition(int bank, int slot)
     if (!target) {
         say("EMPTY TARGET", "SELECT A SOUND");
         return;
+    }
+    if (BANK_IS_PRESETS(bank)) {
+        sd_stop();
+        sd_init();
     }
     if (!ui.menu_pct) {
         say("TRANSITION 0%", "SOUND UNCHANGED");
@@ -2891,105 +2882,232 @@ void ui_init(void)
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 
-/* ------------------------------------------------------------- the start --- */
-/* As the web page: a red field, two thick bands (violet, and one that darkens what it crosses) drifting in from
- * the right and settling across the name, which turns pale pink where they cross it; it holds still for half a
- * second where it lands, then fades to the Drones page slowly. About 3.5 s (the last 1.3 s the fade); any button
- * or key ends it at once (and does what it does). The drones stay silent until PLAY. Not in the host
- * simulator's scenarios, which start at once (the browser emulator has it; OM_SPLASH shows it on the host). */
+/* A 14-second optional startup, paced like a slow geologic event.
+ * The terrain remains static: magma rises, the eruption develops, two
+ * independent captions appear and leave, then the entire image fades.
+ * Any button or key still skips the sequence immediately. */
+#define SPLASH_FINISH_MS          14000u
+#define SPLASH_LAVA_BEGIN_MS       1000u
+#define SPLASH_LAVA_FULL_MS        5000u
+#define SPLASH_VERSION_IN_MS       2150u
+#define SPLASH_VERSION_VISIBLE_MS  3700u
+#define SPLASH_ERUPT_MS            5100u
+#define SPLASH_NAME_IN_MS          6300u
+#define SPLASH_NAME_VISIBLE_MS     7800u
+#define SPLASH_VERSION_OUT_MS      8750u
+#define SPLASH_VERSION_GONE_MS    10750u
+#define SPLASH_NAME_OUT_MS         9750u
+#define SPLASH_NAME_GONE_MS       11750u
+#define SPLASH_TERRAIN_OUT_MS     12000u
 #if defined(OM_HOST) && !defined(OM_WEB) && !defined(OM_SPLASH)
 #define SPLASH_MS 0u
 #else
-#define SPLASH_MS 3500u
+#define SPLASH_MS SPLASH_FINISH_MS
 #endif
-#define SPLASH_HOLD_AT 1700u                  /* where it lands: held still from here (Evan: half a second) */
-#define SPLASH_HOLD 500u
-#define SP_RED RGB(254, 0, 0)
-#define SP_VIOLET RGB(118, 5, 149)
-#define SP_DARK_RED RGB(58, 0, 0)             /* the dark band over the red (multiplied, as on the page) */
-#define SP_DARK_VIOLET RGB(27, 0, 49)         /* ... over the violet */
-#define SP_INK RGB(20, 0, 15)
-#define SP_PALE RGB(255, 214, 240)
-static int16_t sp_l[2][240], sp_r[2][240];    /* each band's edges, row by row */
-
-static int sp_in(int32_t x, int32_t y)
+static uint32_t sp_hash(uint32_t x)
 {
-    return (x >= sp_l[0][y] && x < sp_r[0][y]) || (x >= sp_l[1][y] && x < sp_r[1][y]);
+    x ^= x >> 16; x *= 0x7feb352du;
+    x ^= x >> 15; x *= 0x846ca68bu;
+    return x ^ (x >> 16);
 }
-static float sp_ease(float x) { x = fm_clampf(x, 0.0f, 1.0f); return 1.0f - (1.0f - x) * (1.0f - x); }
-
-/* text whose colour depends on where it is: near-black on the red, pale over a band; q of 16 faded in */
-static void sp_text(int32_t x, int32_t y, int32_t y0, const felucca_font_t *f, const char *s, int q, uint16_t out_c,
-                    uint16_t in_c)
+static int sp_rock_height(int x)
 {
-    for (; *s; s++) {
-        uint32_t gi = glyph(f, (uint8_t)*s), gx, gy, w = f->bw[gi], bpr = (w + 1u) / 2u;
-        const uint8_t *gd = f->data + f->off[gi];
-        for (gy = 0; gy < f->h; gy++)
-            for (gx = 0; gx < w; gx++) {
-                uint32_t a = gd[gy * bpr + gx / 2u];
-                int32_t px = x - f->pad + (int32_t)gx, sy = y + (int32_t)gy, py = sy - y0;
-                a = (gx & 1u) ? (a & 15u) : (a >> 4);
-                a = a * (uint32_t)q / 16u;
-                if (!a || (uint32_t)px >= cv_w || py < 0 || py >= (int32_t)cv_h || sy < 0 || sy >= 240)
-                    continue;
-                {
-                    uint16_t c = sp_in(px, sy) ? in_c : out_c, bg = swap16(cv_px[(uint32_t)py * cv_w + (uint32_t)px]);
-                    cv_px[(uint32_t)py * cv_w + (uint32_t)px] = swap16(blend(bg, c, (int)a, 15));
+    static const int16_t PX[12] = {0, 19, 39, 58, 78, 96, 113, 128, 147, 174, 209, 239};
+    static const int16_t PY[12] = {168, 165, 156, 154, 130, 119, 104, 106, 130, 153, 157, 166};
+    int j;
+    for (j = 1; j < 12; j++)
+        if (x <= PX[j])
+            return PY[j-1] + (PY[j] - PY[j-1]) * (x - PX[j-1]) / (PX[j] - PX[j-1]);
+    return PY[11];
+}
+/* A cubic ease ensures the independent captions fade smoothly at their
+ * scheduled times without abrupt opacity jumps. */
+static float sp_ease(uint32_t ms, uint32_t begin, uint32_t end)
+{
+    const float t = fm_clampf(((float)ms - (float)begin) /
+                             (float)(end - begin), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+/* Fade the magma's brightness without altering the underlying rock. */
+static uint16_t sp_dim(uint16_t c, float amount)
+{
+    const float f = fm_clampf(amount, 0.0f, 1.0f);
+    const int r = (int)((float)((c >> 11) & 31u) * f);
+    const int g = (int)((float)((c >> 5) & 63u) * f);
+    const int b = (int)((float)(c & 31u) * f);
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
+/* No background framebuffer exists on the FM-1, so fade the completed
+ * 120px drawing strip toward the existing black-sky color before its blit.
+ * The result is visually transparent against the startup background.
+ * The screen becomes empty before the normal instrument UI is shown. */
+static void sp_fade_canvas(uint16_t sky, float remaining)
+{
+    const uint32_t a = (uint32_t)(fm_clampf(remaining, 0.0f, 1.0f) * 256.0f + 0.5f);
+    const uint32_t br = sky >> 11, bg = (sky >> 5) & 63u, bb = sky & 31u;
+    uint32_t i;
+    if (a >= 256u) return;
+    for (i = 0; i < cv_w * cv_h; i++) {
+        const uint32_t c = swap16(cv_px[i]), inv = 256u - a;
+        const uint32_t r = (((c >> 11) * a + br * inv + 128u) >> 8);
+        const uint32_t g = ((((c >> 5) & 63u) * a + bg * inv + 128u) >> 8);
+        const uint32_t b = (((c & 31u) * a + bb * inv + 128u) >> 8);
+        cv_px[i] = swap16((uint16_t)((r << 11) | (g << 5) | b));
+    }
+}
+static void draw_splash(uint32_t ms)
+{
+    static const uint16_t BED[11] = {
+        RGB(54, 13, 20), RGB(255, 195, 50), RGB(245, 124, 29),
+        RGB(178, 44, 29), RGB(103, 21, 25), RGB(253, 88, 31),
+        RGB(244, 151, 36), RGB(138, 32, 25), RGB(89, 19, 25),
+        RGB(243, 99, 31), RGB(80, 17, 26)
+    };
+    const uint16_t SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
+                   LAVA = RGB(255, 175, 45), SULFUR = RGB(255, 222, 80),
+                   PAPER = RGB(255, 243, 227);
+    /* Opening holds on the undisturbed volcano for 1 s. Magma begins its
+     * ascent; the version follows. Only after the summit is reached does
+     * the eruption begin, followed by the large VOLCANO title. Version
+     * fades first, title fades halfway through; scenery fades last. */
+    const float travel = sp_ease(ms, SPLASH_LAVA_BEGIN_MS, SPLASH_LAVA_FULL_MS);
+    const float lava_bright = sp_ease(ms, SPLASH_LAVA_BEGIN_MS,
+                                    SPLASH_LAVA_BEGIN_MS + 1150u);
+    const float version_alpha = sp_ease(ms, SPLASH_VERSION_IN_MS,
+                                      SPLASH_VERSION_VISIBLE_MS) *
+                         (1.0f - sp_ease(ms, SPLASH_VERSION_OUT_MS,
+                                        SPLASH_VERSION_GONE_MS));
+    const float name_alpha = sp_ease(ms, SPLASH_NAME_IN_MS,
+                                   SPLASH_NAME_VISIBLE_MS) *
+                      (1.0f - sp_ease(ms, SPLASH_NAME_OUT_MS,
+                                     SPLASH_NAME_GONE_MS));
+    const float scene_remaining = 1.0f -
+          sp_ease(ms, SPLASH_TERRAIN_OUT_MS, SPLASH_FINISH_MS);
+    const int lava_front = 236 - (int)(134.0f * travel);
+    const uint32_t erupt_ms = ms > SPLASH_ERUPT_MS ? ms - SPLASH_ERUPT_MS : 0u;
+    const int ascent = (int)fm_minf(30.0f, (float)erupt_ms / 72.0f);
+    const int sparks = (int)fm_minf(38.0f, (float)erupt_ms / 58.0f);
+    const float drift = (float)(ms % 800u) / 800.0f;
+    int half, band, i, j;
+    for (half = 0; half < 2; half++) {
+        const int y0 = 120 * half;
+        cv_begin(240, 120, SKY);
+        /* The black sky separates the mountain silhouette from the
+         * colored cutaway beneath the surface. */
+        for (i = 0; i < 240; i++) {
+            const int ridge = sp_rock_height(i);
+            cv_rect(i, ridge - y0, 1, 240 - ridge, RGB(87, 19, 25));
+        }
+        /* Fixed, film-grain-like fire and ash, with localized darkening
+         * around the upper-right plume. No random state is mutated. */
+        for (i = 0; i < 1300; i++) {
+            const uint32_t h = sp_hash((uint32_t)(i * 157u + 31u));
+            const int x = (int)(h % 240u);
+            const int y = (int)((h >> 11) % 240u);
+            const int rock = y >= sp_rock_height(x);
+            const int plume = erupt_ms > 0u &&
+                              x > 112 && x < 184 && y < 104 && i % 7 == 0;
+            if (rock || plume) {
+                const uint16_t c = plume ? (i % 9 == 0 ? SULFUR : DARK) :
+                                   i % 11 == 0 ? SULFUR :
+                                   i & 1 ? RGB(255, 83, 31) : RGB(196, 27, 24);
+                cv_rect(x, y - y0, (h & 63u) == 0u ? 2 : 1, 1, c);
+            }
+        }
+        /* Broad geological bands are cut by one central magma conduit. */
+        for (band = 10; band >= 0; band--) {
+            int px = 0, py = sp_rock_height(0) + band * (4 + band / 3);
+            for (i = 2; i <= 238; i += 2) {
+                const int y = sp_rock_height(i) + band * (4 + band / 3) +
+                              (int)(sp_hash((uint32_t)(i / 9 + band * 31)) % 3u) - 1;
+                cv_line(px, py - y0, i, y - y0, BED[band]);
+                if (band <= 2) cv_line(px, py + 1 - y0, i, y + 1 - y0, DARK);
+                px = i; py = y;
+            }
+            for (j = 0; j < 80; j++) {
+                const uint32_t h = sp_hash((uint32_t)(band * 509 + j * 79));
+                const int x = (int)(h % 239u);
+                const int y = sp_rock_height(x) + band * (4 + band / 3) + 2 +
+                              (int)((h >> 12) % 8u);
+                cv_rect(x, y - y0, 1 + (j % 37 == 0), 1,
+                        (j % 5 == 0 ? BED[band < 10 ? band + 1 : 10] : DARK));
+            }
+        }
+        /* The magma starts at the bottom of the visible cross-section.
+         * Its advancing head travels upward; no static full-height lava
+         * stroke is visible before it reaches the summit. */
+        if (ms > SPLASH_LAVA_BEGIN_MS) {
+            for (i = 236; i > lava_front; i -= 2) {
+                const int y1 = i - 2 < lava_front ? lava_front : i - 2;
+                const int x0 = 118 + (int)(2.5f * fm_sinf((float)i * 0.078f));
+                const int x1 = 118 + (int)(2.5f * fm_sinf((float)y1 * 0.078f));
+                cv_line(x0 - 2, i - y0, x1 - 2, y1 - y0,
+                        sp_dim(BED[5], lava_bright * 0.85f));
+                cv_line(x0, i - y0, x1, y1 - y0,
+                        sp_dim(SULFUR, lava_bright));
+                cv_line(x0 + 2, i - y0, x1 + 2, y1 - y0,
+                        sp_dim(LAVA, lava_bright * 0.90f));
+            }
+            if (travel > 0.0f)
+                cv_rect(116, lava_front - y0, 5, 2, sp_dim(PAPER, lava_bright));
+        }
+        /* Eruption happens only after the conduit approaches the crater.
+         * The trailing strands undulate independently while growing. */
+        if (erupt_ms) {
+            for (band = 0; band < 13; band++) {
+                int px = 115 + band / 3, py = 103;
+                for (i = 1; i <= ascent; i++) {
+                    const float t = (float)i / 30.0f;
+                    const int x = 115 + band / 3 +
+                                  (int)(34.0f * t * t +
+                                  (5.0f + 3.0f * t) *
+                                  fm_sinf((float)i * 0.41f +
+                                          (float)band * 0.47f + drift * 4.0f));
+                    const int y = 103 - (int)(108.0f * t);
+                    const uint16_t ink = band % 6 == 0 ? SULFUR :
+                                         band % 3 == 0 ? LAVA : DARK;
+                    cv_line(px, py - y0, x, y - y0, ink);
+                    px = x; py = y;
                 }
             }
-        x += f->adv[gi];
-    }
-}
-
-static void draw_splash(uint32_t t0)
-{
-    /* its own time stops for the hold: everything after it is as before, half a second later */
-    const uint32_t t = t0 < SPLASH_HOLD_AT ? t0 : t0 < SPLASH_HOLD_AT + SPLASH_HOLD ? SPLASH_HOLD_AT : t0 - SPLASH_HOLD;
-    const float tt = (float)t * 0.001f;
-    const float in = sp_ease(tt / 1.4f), fade = fm_clampf(tt / 0.4f, 0.0f, 1.0f),
-                out = fm_clampf(((float)t - (float)(SPLASH_MS - SPLASH_HOLD) + 1300.0f) / 1300.0f, 0.0f, 1.0f);
-    const int lit = (int)(16.0f * fade * (1.0f - out) + 0.5f);        /* the whole picture, from black and back */
-    const int tq = (int)(16.0f * fm_clampf((tt - 0.4f) / 0.8f, 0.0f, 1.0f) + 0.5f);   /* the name */
-    const int32_t rise = (int32_t)(8.0f * (1.0f - sp_ease((tt - 0.4f) / 0.8f)));
-    static const float LEN[2] = {0.9f, 0.8f}, PH[2] = {0.0f, 0.5f};
-    static char ver[40];                                             /* "niagara-drift 0.1" (the build's version) */
-    int32_t y, half, b;
-    if (!ver[0]) {
-        char *q = scopy(ver, "niagara-drift ");
-        const char *v = OM_VERSION;
-        for (; *v && q < ver + sizeof ver - 1; v++)
-            *q++ = (char)(*v >= 'A' && *v <= 'Z' ? *v + 32 : *v);
-        *q = 0;
-    }
-    for (b = 0; b < 2; b++)                                          /* the bands: from off the right, settling */
-        for (y = 0; y < 240; y++) {
-            float a = 6.2831853f * (float)y / (240.0f * LEN[b]) + PH[b] + tt * 0.6f;
-            float cx = 240.0f * (1.15f - 0.6f * in + 0.12f * fm_sinf(a));
-            float hw = 240.0f * 0.065f * (1.0f + 0.2f * fm_sinf(a * 1.4f + PH[b]));
-            sp_l[b][y] = (int16_t)fm_clampf(cx - hw, -1.0f, 241.0f);
-            sp_r[b][y] = (int16_t)fm_clampf(cx + hw, -1.0f, 241.0f);
+            /* Repeated births create a propagating spray rather than
+             * a static dust cloud. Particle sources are deterministic. */
+            for (i = 0; i < 340; i++) {
+                const uint32_t h = sp_hash((uint32_t)(i * 199u + 71u));
+                const uint32_t birth = (uint32_t)((i * 31) % 2250);
+                if (erupt_ms >= birth && erupt_ms - birth < 1450u) {
+                    const float age = (float)(erupt_ms - birth) / 1450.0f;
+                    const float vx = (float)((int)(h % 137u) - 68);
+                    const int x = 118 + (int)(vx * age +
+                             14.0f * fm_sinf(3.0f * age + (float)(h & 7u)));
+                    const int y = 99 - (int)(113.0f * age) +
+                                  (int)(16.0f * age * age);
+                    if (x > 0 && x < 239 && y >= 0 && y < 103) {
+                        const uint16_t ink = i % 13 == 0 ? PAPER :
+                                             i % 3 == 0 ? SULFUR : LAVA;
+                        cv_rect(x, y - y0, (h & 31u) == 0u ? 2 : 1, 1, ink);
+                    }
+                }
+            }
+            /* A few larger ejecta, distinct from the fine ash spray. */
+            for (i = 0; i < sparks; i++) {
+                const uint32_t h = sp_hash((uint32_t)(i * 137u + 31u));
+                const float u = (float)((erupt_ms + (uint32_t)(i * 91)) % 1200u) / 1200.0f;
+                const int x = 118 + (int)(((float)((int)(h % 115u) - 54)) * u);
+                const int y = 99 - (int)(96.0f * u) + (int)(20.0f * u * u);
+                if (x > 0 && x < 238 && y >= 0)
+                    cv_rect(x, y - y0, (h & 7u) == 0u ? 3 : 2, 2,
+                            i % 4 == 0 ? PAPER : SULFUR);
+            }
         }
-    for (half = 0; half < 2; half++) {                               /* the screen in two halves (the canvas) */
-        const int32_t y0 = half * 120;
-        cv_begin(240, 120, K_BG);
-        for (y = 0; y < 120; y++) {
-            int32_t sy = y0 + y, ol = sp_l[0][sy] > sp_l[1][sy] ? sp_l[0][sy] : sp_l[1][sy],
-                    orr = sp_r[0][sy] < sp_r[1][sy] ? sp_r[0][sy] : sp_r[1][sy];
-            cv_rect(0, y, 240, 1, SP_RED);
-            cv_rect(sp_l[0][sy], y, sp_r[0][sy] - sp_l[0][sy], 1, SP_VIOLET);
-            cv_rect(sp_l[1][sy], y, sp_r[1][sy] - sp_l[1][sy], 1, SP_DARK_RED);
-            if (orr > ol)
-                cv_rect(ol, y, orr - ol, 1, SP_DARK_VIOLET);
-        }
-        sp_text(14, 64 + rise, y0, &FONT_L, "NIAGARA", tq, SP_INK, SP_PALE);
-        sp_text(14, 98 + rise, y0, &FONT_L, "DRIFT", tq, SP_INK, SP_PALE);
-        sp_text(14, 214, y0, &FONT_S, ver, tq, SP_INK, SP_PALE);
-        if (lit < 16) {                                              /* from black, and back to it */
-            uint32_t i, n = cv_w * cv_h;
-            for (i = 0; i < n; i++)
-                cv_px[i] = swap16(blend(K_BG, swap16(cv_px[i]), lit, 16));
-        }
+        /* Version arrives as magma climbs; VOLCANO arrives after eruption.
+         * Independent background-composited fades remove both captions
+         * before the entire geological illustration disappears. */
+        const uint8_t ver = (uint8_t)(255.0f * version_alpha + 0.5f);
+        const uint8_t name = (uint8_t)(255.0f * name_alpha + 0.5f);
+        cv_text_alpha(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER, ver);
+        cv_text_alpha(18, 53 - y0, &FONT_L, "VOLCANO", PAPER, name);
+        sp_fade_canvas(SKY, scene_remaining);
         cv_blit(0, (uint32_t)y0);
     }
 }

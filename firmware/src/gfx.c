@@ -190,6 +190,50 @@ static int32_t cv_text(int32_t x, int32_t y, const felucca_font_t *f, const char
     return x;
 }
 
+/* Draw anti-aliased glyphs at fractional opacity over the existing canvas.
+ * Unlike dimming foreground RGB toward zero, this preserves the already
+ * rendered rocks/particles beneath letters as they fade away. Intended for
+ * the startup screen; ordinary UI text keeps the faster cv_text path. */
+static void cv_text_alpha(int32_t x, int32_t y, const felucca_font_t *f,
+                          const char *s, uint16_t c, uint8_t opacity)
+{
+    const uint32_t r = c >> 11, g = (c >> 5) & 63u, b = c & 31u;
+    const uint32_t full = 15u * 255u;
+    if (opacity == 255u) {
+        cv_text(x, y, f, s, c);
+        return;
+    }
+    if (!opacity) return;
+    for (; *s; s++) {
+        uint32_t gi, gx, gy, w, bpr;
+        const uint8_t *gd;
+        if ((uint8_t)*s == 0xC2u || (uint8_t)*s == 0xC3u)
+            continue;
+        gi = glyph(f, (uint8_t)*s);
+        w = f->bw[gi];
+        bpr = (w + 1u) / 2u;
+        gd = f->data + f->off[gi];
+        for (gy = 0; gy < f->h; gy++)
+            for (gx = 0; gx < w; gx++) {
+                const uint32_t nibble = gd[gy * bpr + gx / 2u];
+                const uint32_t coverage = (gx & 1u) ? (nibble & 15u) : (nibble >> 4);
+                const uint32_t a = coverage * (uint32_t)opacity;
+                const int32_t px = x - f->pad + (int32_t)gx;
+                const int32_t py = y + (int32_t)gy + cv_oy;
+                uint32_t bg, nr, ng, nb;
+                if (!a || (uint32_t)px >= cv_w || py < cv_y0 || py >= cv_y1)
+                    continue;
+                bg = swap16(cv_px[(uint32_t)py * cv_w + (uint32_t)px]);
+                nr = (r * a + (bg >> 11) * (full - a) + full / 2u) / full;
+                ng = (g * a + ((bg >> 5) & 63u) * (full - a) + full / 2u) / full;
+                nb = (b * a + (bg & 31u) * (full - a) + full / 2u) / full;
+                cv_px[(uint32_t)py * cv_w + (uint32_t)px] =
+                    swap16((nr << 11) | (ng << 5) | nb);
+            }
+        x += f->adv[gi] + (*s == ' ' ? 0 : cv_track);
+    }
+}
+
 static int32_t text_w(const felucca_font_t *f, const char *s)
 {
     int32_t w = 0;

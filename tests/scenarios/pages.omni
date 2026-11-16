@@ -110,22 +110,25 @@ spin K2 20
 spin K3 20
 wait 300
 shot setup.png
-# Setup 2: tuned a little sharp, wider, the keys a little more sensitive (then back)
+# Setup 2: fine tuning, stereo width and the speaker switch on KNOB 4.
 tap GLO
 expect view 12
 spin K2 6
 spin K3 30
-spin K4 20
+spin K4 1
 wait 300
+expect speaker_mute 1
 shot setup2.png
 spin K2 -6
 spin K3 -30
-spin K4 -20
-# Speaker (GLO 3/3): the internal speaker can be muted independently of USB audio.
+spin K4 -1
+wait 100
+expect speaker_mute 0
+# GLO now cycles back to Setup 1; there is no third speaker page.
 tap GLO
-expect view 17
+expect view 11
 wait 300
-shot speaker.png
+shot setup-return.png
 # Swell: tap ARP to open its page. Holding ARP toggles Swell instead of peeking.
 expect par55 1
 tap ARP

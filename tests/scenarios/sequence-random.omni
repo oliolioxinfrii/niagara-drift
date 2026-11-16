@@ -33,9 +33,13 @@ expect seqcount <5
 expect seqtotal >19
 expect seqtotal <241
 expect seqgapmin >0
+expect seqcurvesrandom 1
 expect seqmaxjump <1201
 expect seqnonhome 1
 shot seq-random-unlinked.png
+page 20
+shot seq-random-transitions.png
+page 18
 
 seqsnap
 press SEL
@@ -46,6 +50,7 @@ expect seqtimechanged 1
 expect seqnoteschanged 1
 expect seqgapschanged 1
 expect seqgapmin >0
+expect seqcurvesrandom 1
 expect seqmaxjump <1201
 
 # Pitch Lock couples Drone II's progression to Drone I.
@@ -59,6 +64,7 @@ expect seqcountchanged 1
 expect seqtimechanged 1
 expect seqnoteschanged 1
 expect seqgapmin >0
+expect seqcurvesrandom 1
 expect seqmaxjump <1201
 shot seq-random-locked.png
 
@@ -74,6 +80,7 @@ expect seqcountchanged 1
 expect seqtimechanged 1
 expect seqnoteschanged 1
 expect seqgapmin >0
+expect seqcurvesrandom 1
 expect seqmaxjump <1201
 
 # Both interval pictures share the same values; only Drone II moves in phase.

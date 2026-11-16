@@ -13,26 +13,25 @@
 #define LK_PIC_H (LK_VAL_Y - LK_BAR_H)
 
 /* the palette (the spec's tokens; RGB565 on the FM-1, rechecked for contrast after rounding) */
-#define LK_BG RGB(7, 6, 11)                  /* the ground */
-#define LK_LABEL RGB(143, 138, 156)          /* names, sources: 6.0:1 */
-#define LK_WHITE RGB(255, 255, 255)          /* values */
-#define LK_INK RGB(242, 238, 248)
-#define LK_RULE RGB(30, 28, 38)
-#define LK_UNLIT RGB(90, 86, 107)            /* an unlit meter step, as a ring: 3.0:1 */
-#define LK_BAND RGB(22, 20, 29)              /* the banner's band, a step above the ground */
-#define LK_CORAL RGB(255, 143, 115)          /* the SWELL badge */
-#define LK_FX RGB(120, 173, 255)              /* the FX blue (the Delay board's left echoes): freeze */
-#define LK_SWELL RGB(255, 169, 146)          /* the Swell page's selected knob: its outline and name */
-#define LK_GOLD RGB(255, 208, 74)            /* scenes, Presets, blends, tips */
-#define LK_VIOLET RGB(201, 166, 255)         /* the LFO */
-#define LK_NEUTRAL RGB(232, 228, 240)        /* the global keys, the system */
+#define LK_BG RGB(8, 8, 10)                  /* the ground */
+#define LK_LABEL RGB(170, 161, 156)          /* names, sources: 6.0:1 */
+#define LK_WHITE RGB(249, 243, 233)          /* values */
+#define LK_INK RGB(249, 243, 233)
+#define LK_RULE RGB(58, 44, 41)
+#define LK_UNLIT RGB(81, 62, 59)            /* an unlit meter step, as a ring: 3.0:1 */
+#define LK_BAND RGB(28, 20, 18)              /* the banner's band, a step above the ground */
+#define LK_CORAL RGB(246, 149, 42)          /* the SWELL badge */
+#define LK_FX RGB(126, 216, 219)              /* the FX blue (the Delay board's left echoes): freeze */
+#define LK_SWELL RGB(246, 149, 42)          /* the Swell page's selected knob: its outline and name */
+#define LK_GOLD RGB(247, 210, 70)            /* scenes, Presets, blends, tips */
+#define LK_VIOLET RGB(207, 75, 63)         /* the LFO */
+#define LK_NEUTRAL RGB(244, 237, 227)        /* the global keys, the system */
 #define LK_RED RGB(255, 42, 31)              /* the one caution red */
 #define LK_G DR_NGROUPS                       /* a global knob's "drone": the neutral */
-static const uint16_t LK_DRONE[DR_NGROUPS + 1] = {RGB(255, 154, 31), RGB(31, 200, 255), RGB(232, 228, 240)};   /* one
-                                                                                  * amber, one cyan, the neutral */
-static const uint32_t LK_RAMP[DR_NGROUPS + 1][2] = {{0xFF8A1Fu, 0xFFF4D6u}, {0x6F8CFFu, 0xE8FFFBu},
-                                                    {0x9A95ABu, 0xE8E4F0u}};
-#define LK_PINK 0xFF93D7u                    /* Tone's pink noise (pink, not red: red is caution) */
+static const uint16_t LK_DRONE[DR_NGROUPS + 1] = {RGB(247, 210, 70), RGB(246, 76, 60), RGB(244, 237, 227)}; /* sulfur and lava drone identities */
+static const uint32_t LK_RAMP[DR_NGROUPS + 1][2] = {{0x852720u, 0xF7D246u}, {0x852720u, 0xF7D246u},
+                                                    {0x852720u, 0xF7D246u}}; /* dark red -> sulfur yellow magnitude */
+#define LK_PINK 0xEA7944u                    /* Tone's pink noise (pink, not red: red is caution) */
 
 /* the fonts' roles */
 #define LK_F_PAGE FONT_H22                   /* the page's name */
@@ -54,7 +53,33 @@ static uint16_t lk_mix(uint32_t a, uint32_t b, float t)   /* 0xRRGGBB a -> b */
     int bl = (int)((float)(a & 255u) + ((float)(b & 255u) - (float)(a & 255u)) * t);
     return RGB(r, g, bl);
 }
-static uint16_t lk_ramp(int g, float t) { return lk_mix(LK_RAMP[g][0], LK_RAMP[g][1], t); }
+static const uint32_t LK_FX_RAMP[2] = {0x174C76u, 0xEFFCFFu};
+static uint16_t lk_ramp(int g, float t)
+{
+    const int fx = ui.view == V_FX || ui.view == V_FX2;
+    const uint32_t *ramp = fx ? LK_FX_RAMP : LK_RAMP[g];
+    return lk_mix(ramp[0], ramp[1], fm_clampf(t, 0.0f, 1.0f));
+}
+static uint32_t lk_meter_start(int g) { return ui.view == V_FX || ui.view == V_FX2 ? LK_FX_RAMP[0] : LK_RAMP[g][0]; }
+static uint32_t lk_meter_end(int g) { return ui.view == V_FX || ui.view == V_FX2 ? LK_FX_RAMP[1] : LK_RAMP[g][1]; }
+static const uint32_t LK_SOURCE_RAMP[2][2] = {
+    {0x962D22u, 0xFFE04Bu}, {0x591820u, 0xFF7652u}
+};
+/* Voice colors are independent of the temperature-coded parameter meters. */
+static uint16_t lk_source_ramp(int g, float t)
+{
+    return lk_mix(LK_SOURCE_RAMP[g][0], LK_SOURCE_RAMP[g][1], t);
+}
+static uint32_t lk_source888(int g, float t)
+{
+    const uint32_t a = LK_SOURCE_RAMP[g][0], b = LK_SOURCE_RAMP[g][1];
+    uint32_t c = 0;
+    int sh;
+    for (sh = 16; sh >= 0; sh -= 8)
+        c |= (uint32_t)((float)(a >> sh & 255u) +
+              ((float)(b >> sh & 255u) - (float)(a >> sh & 255u)) * t) << sh;
+    return c;
+}
 static uint32_t lk_ramp888(int g, float t)   /* the same, 0xRRGGBB (to dim it) */
 {
     const uint32_t a = LK_RAMP[g][0], b = LK_RAMP[g][1];
@@ -80,6 +105,9 @@ static uint16_t lk_msg_col(uint16_t c)
     return LK_NEUTRAL;
 }
 
+static uint16_t vl_layer_color(int v);
+static uint16_t vl_bright(uint16_t c, float f); /* defined by volcano_look.c below */
+static void vl_depth_marker(int v);
 static int32_t lk_ktext(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c);
 static int32_t lk_ktext_w(const felucca_font_t *f, const char *s);
 
@@ -213,7 +241,7 @@ static void lk_bar(void)
     uint32_t h;
     char name[20], half[6] = "", rec[12] = "REC ", gname[20], key[8] = "", back[28] = "let go: ";
     const char *badge[6], *sound = 0, *state, *st_short, *chg = 0;
-    uint16_t bcol[6], st_col = LK_LABEL, name_col = LK_WHITE, key_col = LK_LABEL;
+    uint16_t bcol[6], st_col = LK_LABEL, name_col = vl_layer_color(ui.view), key_col = LK_LABEL;
     int nb = 0, swell = -1, gb = -1, glen = 0, show_half, show_chg, show_name;
     lk_sound_at();
     gest = lk_gesture();
@@ -285,7 +313,7 @@ static void lk_bar(void)
     }
     if ((ui.view == V_FX || ui.view == V_FX2) && proj.par[P_DLY_REPEATS] > 85) {   /* the echoes stop shrinking */
         badge[nb] = "runaway";
-        bcol[nb++] = LK_RED;
+        bcol[nb++] = LK_INK;
     }
     if (proj.par[P_I_OUT] && nb < 6) {
         badge[nb] = "I OUT";
@@ -348,7 +376,7 @@ static void lk_bar(void)
                                                 * alone ("CHORD"); 8 no PLAY's state (a peek keeps where
                                                 * it goes) */
         const char *st = !state || (drop >= 8 && !peek) ? 0 : drop >= 1 ? st_short : state;
-        int32_t x = 8 + text_w(&LK_F_PAGE, name), rx = 232, gap = 0;
+        int32_t x = 8 + text_w(&LK_F_PAGE, name), rx = 217, gap = 0;
         if (drop == 7 && gb >= 0 && gest_pct < 0)
             gname[glen] = 0;
         if (peek)
@@ -382,7 +410,7 @@ static void lk_bar(void)
         state = drop >= 8 && !peek ? 0 : drop >= 1 ? st_short : state;
     {                                          /* what gave way comes back where it fits again (SWELL gone, the
                                                 * "1/2" has room): "changed", then the "1/2", then the sound's name */
-        int32_t x = 8 + text_w(&LK_F_PAGE, name) + (peek ? 12 + text_w(&LK_F_SEL, "PEEK") : 0), rx = 232, gap = 0;
+        int32_t x = 8 + text_w(&LK_F_PAGE, name) + (peek ? 12 + text_w(&LK_F_SEL, "PEEK") : 0), rx = 217, gap = 0;
         for (i = 0; i < nb; i++)
             if (!(i == swell && drop >= 4))
                 x += 12 + lk_badge_w(i == gb && gest_pct >= 0, badge[i]);
@@ -418,7 +446,7 @@ static void lk_bar(void)
     cv_begin(240, LK_BAR_H, LK_BG);
     {
         const int32_t bl = (LK_BAR_H - (int32_t)LK_F_PAGE.h) / 2 + LK_B(LK_F_PAGE);   /* the header's baseline */
-        int32_t x, rx = 232, gap = 0;
+        int32_t x, rx = 217, gap = 0;
         if (state) {                           /* the right first: the badges stop short of it */
             rx -= lk_ktext_w(&LK_F_TAG, state);
             lk_ktext(rx, bl - LK_B(LK_F_TAG), &LK_F_TAG, state, st_col);
@@ -464,6 +492,8 @@ static void lk_bar(void)
                 cv_rect(8, LK_BAR_H - 4, w, 1, LK_GOLD);
         }
     }
+    vl_depth_marker(ui.view);
+    cv_rect(0, LK_BAR_H - 2, 240, 2, vl_layer_color(ui.view));
     cv_blit(0, 0);
 }
 
@@ -639,7 +669,7 @@ static void lk_bundle_n(int32_t x0, const int16_t *y, int n, int g, int dx, int 
     for (j = 0; j < ns; j++) {                 /* the deepest, furthest back, first */
         const int32_t ox = x0 + dx * (ns - 1 - j), oy = dy * (ns - 1 - j);
         const float t = (float)j / (float)(ns - 1);
-        const uint16_t c = bright < 1.0f ? lk_mix(0x07060Bu, lk_ramp888(g, t), bright) : lk_ramp(g, t);
+        const uint16_t c = bright < 1.0f ? lk_mix(0x08080Au, lk_source888(g, t), bright) : lk_source_ramp(g, t);
         for (i = 1; i < n; i++) {
             if (j < ns - 1 && !dx && (y[i] - y[i - 1] > 3 * dy || y[i - 1] - y[i] > 3 * dy))
                 continue;                      /* a jump (a saw's, a square's): the front strand's alone, or stacked
@@ -749,7 +779,7 @@ static void lk_pic_drones1(void)
                 continue;
             }
             for (j = 0; j < LK_STRANDS; j++) { /* the oldest first, deep; the newest last, light */
-                const uint16_t c = lk_mix(0x07060Bu, lk_ramp888(g, (float)j / (float)(LK_STRANDS - 1)), br);
+                const uint16_t c = lk_mix(0x08080Au, lk_source888(g, (float)j / (float)(LK_STRANDS - 1)), br);
                 for (i = 1; i < DR_SCOPE_N; i++) {
                     const int32_t a = (int32_t)((float)lk_hist[g][j][i - 1] * cl), b = (int32_t)((float)lk_hist[g][j][i] * cl);
                     cv_line(x0 + i - 1, mid - a, x0 + i, mid - b, c);
@@ -827,7 +857,7 @@ static void lk_curve(int g, int32_t x0, int32_t top, int32_t bot)
                                                   (float)(h - 5 * LK_BDY)));   /* in place at any level (Evan,
                                                                                  * 2026-11-02: it sank as it got quiet) */
         }
-        lk_plot(x0, y, 51, lk_mix(0x07060Bu, lk_ramp888(g, (float)(j - 1) / (float)(LK_STRANDS - 2)), br));
+        lk_plot(x0, y, 51, lk_mix(0x08080Au, lk_source888(g, (float)(j - 1) / (float)(LK_STRANDS - 2)), br));
     }
 }
 
@@ -944,7 +974,7 @@ static void lk_drive_bundle(int32_t x0, const int16_t *y, int n, int g, float dr
     for (j = nn - 1; j >= 0; j--) {            /* the deepest, furthest down, first; the light one in front */
         const float t = 1.0f - (float)j / (nf - 1.0f), a = j + 1 <= (int)nf ? 1.0f : nf - (float)(int)nf;
         const int32_t oy = (int32_t)((float)j * sp - (nf - 1.0f) * sp * 0.5f + 0.5f);
-        const uint16_t c = lk_mix(0x07060Bu, lk_ramp888(g, fm_clampf(t, 0.0f, 1.0f)), bright * a);
+        const uint16_t c = lk_mix(0x08080Au, lk_source888(g, fm_clampf(t, 0.0f, 1.0f)), bright * a);
         for (i = 1; i < n; i++) {
             cv_line(x0 + 2 * (i - 1), y[i - 1] + oy, x0 + 2 * i, y[i] + oy, c);
             cv_line(x0 + 2 * (i - 1), y[i - 1] + oy + 1, x0 + 2 * i, y[i] + oy + 1, c);
@@ -1048,7 +1078,7 @@ static void lk_life_fb(int32_t cx, int32_t cy)
     for (k = 1; k <= n; k++) {
         const int red = sing && k == n;
         const float r0 = rmax * br * (float)k / (float)n;
-        const uint16_t c = red ? LK_RED : lk_ramp(LK_G, sing ? 1.0f : 1.0f - 0.7f * (float)(k - 1) / (float)n);
+        const uint16_t c = red ? LK_INK : lk_ramp(LK_G, sing ? 1.0f : 1.0f - 0.7f * (float)(k - 1) / (float)n);
         int32_t px = 0, py = 0;
         for (j = 0; j <= 32; j++) {
             const float a = 0.19634954f * (float)j;
@@ -1326,7 +1356,7 @@ static void lk_pic_partner(void)
             n = 144;
         for (j = on ? 0 : LK_STRANDS - 1; j < LK_STRANDS; j++) {   /* the oldest first, deep; now last, light */
             const float th = lk_knot_th[g] - fan * (float)(LK_STRANDS - 1 - j);
-            const uint16_t c = on ? lk_ramp(g, (float)j / (float)(LK_STRANDS - 1)) : LK_UNLIT;
+            const uint16_t c = on ? lk_source_ramp(g, (float)j / (float)(LK_STRANDS - 1)) : LK_UNLIT;
             int32_t px = 0, py = 0;
             for (i = 0; i <= n; i++) {
                 const float sv = (float)q * (float)i / (float)n;
@@ -1486,7 +1516,7 @@ static void lk_pic_moves(void)
     {   /* drone II's trail, six 1 px strands 2 px apart (Evan, 2026-11-02: a pixel apart they blended), the light
          * one on top */
         for (k = LK_STRANDS - 1; k >= 0; k--) {
-            const uint16_t c = lk_ramp(1, 1.0f - (float)k / (float)(LK_STRANDS - 1));
+            const uint16_t c = lk_source_ramp(1, 1.0f - (float)k / (float)(LK_STRANDS - 1));
             for (i = 1; i < LK_WN; i++)
                 cv_line(80 + 2 * (i - 1), LK_SY(lk_wtrail[i - 1]) + 2 * k, 80 + 2 * i, LK_SY(lk_wtrail[i]) + 2 * k, c);
         }
@@ -1496,7 +1526,7 @@ static void lk_pic_moves(void)
 
 /* ------------------------------------------------- the LFO pages' parts --- */
 static void lk_swing(char *q, float x, const char *unit);
-static const uint32_t LK_LFO_TINT[2] = {0xA98BFFu, 0xFF5FD2u};   /* LFO I lilac (OCT-), LFO II pink (OCT+) */
+static const uint32_t LK_LFO_TINT[2] = {0xCF4B3Fu, 0xF2933Cu};   /* LFO I lilac (OCT-), LFO II pink (OCT+) */
 
 /* a horizontal arrow, 2 px (the fonts have none) */
 static void lk_harrow(int32_t x, int32_t y, int32_t w, int right, uint16_t c)
@@ -1599,9 +1629,9 @@ static int lk_wave_on(int route, int w)
 static void lk_pic_lfo(void)
 {
     static const int32_t WY[2] = {37, 86};     /* two 0.2-style traces, compressed for the 0.3 header */
-    const uint16_t panel = RGB(38, 10, 34);
-    const uint16_t faint = RGB(104, 66, 96), dim = RGB(160, 128, 148);
-    const uint16_t paper = RGB(251, 233, 242), lilac = RGB(220, 188, 255);
+    const uint16_t panel = RGB(22, 13, 13);
+    const uint16_t faint = RGB(93, 55, 49), dim = RGB(170, 153, 145);
+    const uint16_t paper = LK_WHITE, lilac = RGB(207, 75, 63);
     const int32_t x0 = 12, wave_w = 88, half = 12;
     int w, d;
     char t[24];
@@ -1647,7 +1677,7 @@ static void lk_pic_lfo(void)
         const int route = delay ? proj.par[P_DLY_LFO] : gpar(g, osc ? GP_OLFO : GP_FLFO);
         const int depth = delay ? proj.par[P_DLY_LFO_DEPTH]
                                 : gpar(g, osc ? GP_OLFO_DEPTH : GP_FLFO_DEPTH);
-        const uint16_t col = delay ? RGB(251, 233, 242) : K_DRONE[g];
+        const uint16_t col = delay ? LK_WHITE : LK_DRONE[g];
         const int32_t ny = 6 + 23 * d, ay = ny + 9;
         int32_t ax;
         int heard = 0;
@@ -1664,17 +1694,17 @@ static void lk_pic_lfo(void)
             const int amp = proj.par[w ? P_LFO_AMP2 : P_LFO_AMP1];
             const int routed = route == w + 1 || route == DR_LFO_BOTH;
             const int on = routed && sh != DR_LFO_OFF && amp > 0 && depth != 0 && proj.par[P_MOVE] != 0;
-            const uint16_t lc = on ? col : lk_mix(0x260A22u, col, 0.32f);
+            const uint16_t lc = on ? col : LK_UNLIT; /* zero-depth routes are neutral */
             const int32_t sx = x0 + wave_w + 4, sy = WY[w], ex = ax - 5;
             if (!routed)
                 continue;
             heard |= on;
             if (on)                             /* offset underlay: the original glow */
-                cv_line(sx, sy + 1, ex, ay + 1, lk_mix(0x260A22u, col, 0.35f));
+                cv_line(sx, sy + 1, ex, ay + 1, vl_bright(col, 0.30f));
             cv_line(sx, sy, ex, ay, lc);
             cv_round(ex - 2, ay - 2, 5, 5, 2, lc);
         }
-        cv_text(ax, ny, &FONT_S, t, heard ? col : route == DR_LFO_OFF ? dim : lk_mix(0x260A22u, col, 0.7f));
+        cv_text(ax, ny, &FONT_S, t, heard ? col : dim); /* inactive targets, including zero depth, stay neutral */
     }
 
     /* Rate at the bottom left, as on 0.2. External sync still shows its division. */
@@ -1784,51 +1814,84 @@ static void lk_pic_mods(void)
 }
 
 /* ---------------------------------------------------- Setup 1's picture --- */
-/* a row per time (the board, GLO 130:1852; the spec, 2026-11-01): its title, the knob's word bold ("Time to fade in /
- * out on PLAY"), and a symbol across the row ending where its knob is: the knob's whole range is the row (Evan,
- * 2026-11-07: turned all the way, it reaches the end), so the change takes the row's first part and the rest is its
- * new setting. Fade one thick line up from silence (the board's); Morph and Scene a crossfade, a out as b comes in (he
- * liked Morph's better than Scene's straight lines). The knob being turned marks its time with a dot where the change
- * ends; on a MIDI clock Scene's knob is its bars */
+/* All three transitions share the maximum Scene time on the horizontal
+ * axis. Their separate final heights distinguish Fade (top), Morph (middle),
+ * and Scene (lower third), even when their durations coincide. */
 static float lk_ease(float u) { u = fm_clampf(u, 0.0f, 1.0f); return u * u * (3.0f - 2.0f * u); }
 static void lk_pic_setup1(void)
 {
-    static const char *const PRE[3] = {"Time to ", "Time to ", "Time to switch "},
-                             *const BOLD[3] = {"fade", "morph", "scenes"},
-                             *const POST[3] = {" in / out on [PLAY]", " keys and LFOs", ""};   /* PLAY in its box (rule 19) */
-    const float frac[3] = {(float)proj.par[P_FADE] * 0.01f, (float)proj.par[P_MORPH] * 0.01f,
-                           dr_ext_spb > 0.0f ? (float)proj.par[P_SCENE_BARS] / (float)(DR_NBARS - 1)
-                                             : (float)proj.par[P_SCENE_T] * 0.01f};
-    int r, i, s;
-    for (r = 0; r < 3; r++) {
-        const int32_t base = 16 + 40 * r, top = base + 7, bot = base + 21;
-        const int32_t xe = 20 + (int32_t)(fm_clampf(frac[r], 0.0f, 1.0f) * 200.0f + 0.5f);
-        int16_t y[101];
-        int32_t x = 12;                        /* words at 18, the knob's in bold (19: the one bold near it); the
-                                                * longest, morph's, 215 px */
-        x = cv_text(x, base - LK_B(LK_F_SMALL), &LK_F_SMALL, PRE[r], LK_LABEL);
-        x = cv_text(x, base - LK_B(FONT_B), &FONT_B, BOLD[r], LK_INK);
-        lk_ktext(x, base - LK_B(LK_F_SMALL), &LK_F_SMALL, POST[r], LK_LABEL);
-        for (s = r ? 0 : 1; s < 2; s++) {     /* s 0: a going out; 1: b coming in (Fade's rise) */
-            for (i = 0; i <= 100; i++) {
-                const int32_t xi = 20 + 2 * i;
-                const float u = xi >= xe ? 1.0f : lk_ease((float)(xi - 20) / (float)(xe > 20 ? xe - 20 : 1));
-                y[i] = (int16_t)(s ? bot - (int32_t)((float)(bot - top) * u + 0.5f) : top + (int32_t)((float)(bot - top) * u + 0.5f));
-            }
-            lk_plot(20, y, 101, s ? LK_WHITE : LK_UNLIT);
-            if (!r) {                          /* Fade: one thick line, 3 px */
-                for (i = 0; i <= 100; i++)
-                    y[i]++;
-                lk_plot(20, y, 101, LK_WHITE);
-            }
-        }
-        if (r) {
-            cv_text(10, top - LK_B(LK_F_SMALL) + 5, &LK_F_SMALL, "a", LK_LABEL);   /* beside where each starts */
-            cv_text(10, bot - LK_B(LK_F_SMALL) + 5, &LK_F_SMALL, "b", LK_WHITE);
-        }
-        if (lit(r))                            /* the knob's time: where the change ends */
-            cv_round(xe - 3, top - 3 + (r ? 0 : 1), 7, 7, 3, LK_WHITE);
+    static const uint16_t color[3] = {
+        RGB(248, 216, 71), RGB(248, 147, 37), RGB(213, 62, 52)
+    };
+    static const int32_t plateau[3] = {25, 50, 77};
+    static const char *const label[3] = {"FADE", "MORPH", "SCENE"};
+    const int32_t x0 = 15, x1 = 230, high = 23, low = 103;
+    float frac[3];
+    /* The time ruler is shared: five minutes at free tempo, or the
+     * maximum possible clock-synced scene span if that is longer.
+     * Fade and Morph must NOT use their own 60s/30s maxima. */
+    const float scene_max = dr_time_s(P_SCENE_T, 100);
+    /* dr_ext_spb stores samples per beat, not seconds. Four beats/bar. */
+    const float clock_max = dr_ext_spb > 0.0f ?
+                            dr_ext_spb * (4.0f / DR_SR) *
+                            (float)DR_BARS_N[DR_NBARS - 1] : 0.0f;
+    const float domain = fm_maxf(scene_max, clock_max);
+    int r, i;
+    frac[0] = dr_time_s(P_FADE, proj.par[P_FADE]) / domain;
+    frac[1] = dr_time_s(P_MORPH, proj.par[P_MORPH]) / domain;
+    frac[2] = dr_ext_spb > 0.0f ?
+              dr_ext_spb * (4.0f / DR_SR) *
+              (float)DR_BARS_N[(unsigned)proj.par[P_SCENE_BARS] < DR_NBARS ?
+                                                    proj.par[P_SCENE_BARS] : DR_NBARS - 1] / domain :
+              dr_time_s(P_SCENE_T, proj.par[P_SCENE_T]) / domain;
+    for (r = 0; r < 3; r++)
+        frac[r] = fm_clampf(frac[r], 0.0f, 1.0f);
+
+    /* Yellow Fade ends at the top, orange Morph halfway up, red Scene
+     * in the lower third; each shares the same time ruler. */
+    for (r = 0; r < 3; r++)
+        cv_text(15 + r * 73, 2, &FONT_XS, label[r], color[r]);
+    cv_rect(x0, low, x1 - x0 + 1, 1, LK_RULE);
+    cv_rect(x0, high, x1 - x0 + 1, 1, LK_RULE);
+    for (i = 0; i <= 4; i++) {
+        const int32_t x = x0 + (x1 - x0) * i / 4;
+        cv_rect(x, high, 1, low - high + 1, LK_RULE);
+        cv_rect(x, low + 2, 1, 3, LK_LABEL);
     }
+    for (r = 0; r < 3; r++) {
+        int32_t prev = low;
+        for (i = 0; i <= x1 - x0; i++) {
+            const float t = (float)i / (float)(x1 - x0);
+            const float u = frac[r] > 0.001f ? fm_clampf(t / frac[r], 0.0f, 1.0f) : 1.0f;
+            /* Draw smooth transition trajectories rather than a scope wave.
+             * Their differing interpolants keep coincident durations legible. */
+            const float v = r == 0 ? u * u :
+                            r == 1 ? lk_ease(u) :
+                            0.5f - 0.5f * fm_cosf(3.14159265f * u);
+            const int32_t yy = low - (int32_t)(v * (float)(low - plateau[r]) + 0.5f);
+            const int32_t x = x0 + i;
+            /* As on the Sequence Transitions page, paint each column
+             * instead of relying on near-horizontal single-pixel lines.
+             * Adjacent 2-pixel strokes also keep the Morph plateau
+             * continuous all the way to the right-hand boundary. */
+            if (i && yy != prev) {
+                const int32_t top = yy < prev ? yy : prev;
+                const int32_t bottom = yy > prev ? yy : prev;
+                cv_rect(x, top, 1, bottom - top + 2, color[r]);
+            } else {
+                cv_rect(x, yy, 1, 2, color[r]);
+            }
+            prev = yy;
+        }
+        {
+            const int32_t marker = x0 + (int32_t)(frac[r] * (float)(x1 - x0) + 0.5f);
+            const uint16_t ink = lit(r) ? LK_WHITE : color[r];
+            cv_round(marker - 2, plateau[r] - 2, 5, 5, 2, ink);
+        }
+    }
+    cv_text(x0, 109, &FONT_XS, "0", LK_LABEL);
+    cv_text(155, 109, &FONT_XS, "MAX TIME", LK_LABEL);
+    cv_text(x1 - 21, 109, &FONT_XS, "100%", LK_LABEL);
 }
 
 /* ---------------------------------------------------- Setup 2's picture --- */
@@ -2120,7 +2183,7 @@ static void lk_ring_tilt(int32_t cx, int32_t cy, float rx, float ry, int tilt, u
 /* FX's two pages share one picture in two halves, DELAY in the FX blue and REVERB in the rings' pale cyan (Evan,
  * 2026-11-08), each the old full page's drawing in its half: the Delay's and the Reverb's as before (the spec,
  * 2026-10-31; the boards FX 266:4, 268:2), their axes and widths halved */
-#define LK_REV_C RGB(201, 246, 255)          /* REVERB's name: the rings' newest */
+#define LK_REV_C RGB(126, 216, 219)          /* REVERB's name: the rings' newest */
 
 /* the echoes as ripples out from the sound (a full ring, white) on a time axis that opens out near it (x 24 +
  * 29 ln(1 + t / 0.1 s): 2 s at x 112, so short and long times both read); each repeat a half-ring as big as it's still
@@ -2217,6 +2280,8 @@ static void lk_pic_speaker(void)
 
 static void lk_pic_sequence(int timing);
 static void lk_pic_seq_shape(void);
+#include "volcano_look.c"        /* v1.5: geological drawings, saved-state orbit, live atlas */
+
 static void lk_pic(void)
 {
     const int msg = plat_ms() < ui.msg_until;
@@ -2246,8 +2311,8 @@ static void lk_pic(void)
     cv_begin(240, LK_PIC_H, LK_BG);
     switch (ui.view) {
     case V_PLAY2: lk_pic_drones1(); break;
-    case V_LIFE: lk_pic_life(); break;
-    case V_TONE: lk_pic_tone(); break;
+    case V_LIFE: vl_life(); break;
+    case V_TONE: vl_tone(); break;
     case V_OSC: lk_pic_osc(); break;
     case V_SOURCE: lk_pic_source(); break;
     case V_PARTNER: lk_pic_partner(); break;
@@ -2261,11 +2326,12 @@ static void lk_pic(void)
     case V_PULSE: lk_pic_swell(); break;
     case V_SWELL_SHAPE: lk_pic_swell_shape(); break;
     case V_SETUP: lk_pic_setup1(); break;
-    case V_SETUP2: lk_pic_setup2(); break;
-    case V_SPEAKER: lk_pic_speaker(); break;
+    case V_SETUP2: vl_planet(); break;
+    case V_SPEAKER: vl_planet(); break;
     case V_FX:
-    case V_FX2: lk_pic_space(); break;
-    default: lk_pic_drones2(); break;
+    case V_FX2: vl_air(); break;
+    case V_PLAY:
+    default: vl_surface(0); break;
     }
     if (ui.view == V_FX2 && !msg) {            /* Details' second jobs, on the rule above Time and Type: the delay's
                                                 * type, what goes into the reverb; SEL held, the value they return to */
@@ -2303,9 +2369,9 @@ static void lk_dotrow(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c
         const int32_t x = cx - 25 + (int32_t)((float)i * 6.5f + 0.5f);
         const int r = red && i >= 8 - red;
         if (i < n) {
-            cv_round(x, y, 5, 5, 2, r ? LK_RED : gray ? LK_UNLIT : lk_mix(c0, c1, (float)i / 7.0f));
+            cv_round(x, y, 5, 5, 2, r ? LK_INK : gray ? LK_UNLIT : lk_mix(c0, c1, (float)i / 7.0f));
         } else {
-            cv_round(x, y, 5, 5, 2, r ? LK_RED : LK_UNLIT);
+            cv_round(x, y, 5, 5, 2, LK_UNLIT);
             cv_round(x + 1, y + 1, 3, 3, 1, LK_BG);
         }
     }
@@ -2333,17 +2399,17 @@ static void lk_dots(int32_t cx, int32_t y, float frac, int g, int caution)   /* 
     int i, n = (int)(fm_clampf(frac, 0.0f, 1.0f) * 8.0f + 0.5f);
     for (i = 0; i < 8; i++) {
         const int32_t x = cx - 25 + (int32_t)((float)i * 6.5f + 0.5f);
-        const uint16_t c = caution && i == 7 ? LK_RED : lk_ramp(g, (float)i / 7.0f);
+        const uint16_t c = caution && i == 7 ? LK_INK : lk_ramp(g, (float)i / 7.0f);
         if (i < n) {
             cv_round(x, y, 5, 5, 2, c);
         } else {
-            cv_round(x, y, 5, 5, 2, caution && i == 7 ? LK_RED : LK_UNLIT);
+            cv_round(x, y, 5, 5, 2, LK_UNLIT);
             cv_round(x + 1, y + 1, 3, 3, 1, LK_BG);
         }
     }
 }
 
-/* the Swell's meter: 9 pills of 5 in its coral ramp, unlit ones outlined; centred (Shape): from the middle one toward
+/* the Swell's meter: 9 pills of 5 in the thermal ramp, unlit ones outlined; centred (Shape): from the middle one toward
  * gate (left) or ramp (right), even lighting the middle alone (the spec; the board, ARP 262:4) */
 static void lk_dotrow(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c1, int red, int gray);
 static void lk_cdots_c(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c1);
@@ -2353,9 +2419,9 @@ static void lk_pills(int32_t cx, int32_t y, float frac, int centred)   /* ARP's:
                                                                        * same") */
 {
     if (centred)
-        lk_cdots_c(cx, y, frac, 0xFF8F73u, 0xFFF0E6u);
+        lk_cdots_c(cx, y, frac, lk_meter_start(LK_G), lk_meter_end(LK_G));
     else
-        lk_dotrow(cx, y, frac, 0xFF8F73u, 0xFFF0E6u, 0, 0);
+        lk_dotrow(cx, y, frac, lk_meter_start(LK_G), lk_meter_end(LK_G), 0, 0);
 }
 
 static void lk_cells(int32_t cx, int32_t y, float frac, uint32_t c0, uint32_t c1, int caution)   /* ENV's: a dot row
@@ -2371,7 +2437,7 @@ static void lk_stripes(int32_t cx, int32_t y, float frac, int g, int gray)   /* 
                                                                                 * unheard */
 {
     (void)y;
-    lk_dotrow(cx, 70, frac, LK_RAMP[g][0], LK_RAMP[g][1], 0, gray);
+    lk_dotrow(cx, 70, frac, lk_meter_start(g), lk_meter_end(g), 0, gray);
 }
 
 static void lk_ticks4(int32_t cx, int32_t y)    /* under X-Wave's gauge: sine, triangle, saw, square */
@@ -2383,26 +2449,31 @@ static void lk_ticks4(int32_t cx, int32_t y)    /* under X-Wave's gauge: sine, t
 
 static void lk_cdots(int32_t cx, int32_t y, float frac)   /* Tune's: from the middle, in the neutral ramp */
 {
-    lk_cdots_c(cx, y, frac, LK_RAMP[LK_G][0], LK_RAMP[LK_G][1]);
+    lk_cdots_c(cx, y, frac, lk_meter_start(LK_G), lk_meter_end(LK_G));
 }
-static void lk_xfader(int32_t cx, int32_t y, float frac, int g)   /* Osc/Sub: the oscillators' color to a white mark,
-                                                                    * the sub's lighter tint after it */
+/* Every continuous slider displays its full positional color scale at rest.
+ * Only the white position marker and the extra outline indicate manipulation. */
+static void lk_color_track(int32_t cx, int32_t y, float frac, int fx)
 {
-    const int32_t x0 = cx - 25, w = 50, m = x0 + (int32_t)(fm_clampf(frac, 0.0f, 1.0f) * (float)w);
-    cv_rect(x0, y + 1, w, 3, lk_ramp(g, 0.75f));
-    if (m > x0)
-        cv_rect(x0, y + 1, m - x0, 3, LK_DRONE[g]);
-    cv_rect(m - 1, y - 2, 2, 9, LK_WHITE);
+    const float pos = fm_clampf(frac, 0.0f, 1.0f);
+    const uint32_t a = fx ? LK_FX_RAMP[0] : LK_RAMP[LK_G][0];
+    const uint32_t b = fx ? LK_FX_RAMP[1] : LK_RAMP[LK_G][1];
+    int i;
+    for (i = 0; i < 50; i++) {
+        const uint16_t col = lk_mix(a, b, (float)i / 49.0f);
+        cv_rect(cx - 25 + i, y + 1, 1, 3,
+                col); /* position hue never depends on selection */
+    }
+    cv_rect(cx - 25 + (int32_t)(pos * 49.0f + 0.5f) - 1, y - 2, 2, 9, LK_WHITE);
 }
-
-static void lk_xfade_col(int32_t cx, int32_t y, float frac)   /* Tone's Color, as lk_xfader: pink as far as it
-                                                                 * goes, white after it, a white mark */
+static void lk_xfader(int32_t cx, int32_t y, float frac, int g)
 {
-    const int32_t x0 = cx - 25, w = 50, m = x0 + (int32_t)(fm_clampf(frac, 0.0f, 1.0f) * (float)w);
-    cv_rect(x0, y + 1, w, 3, lk_mix(0x07060Bu, 0xFFFFFFu, 0.6f));
-    if (m > x0)
-        cv_rect(x0, y + 1, m - x0, 3, lk_mix(0x07060Bu, LK_PINK, 1.0f));
-    cv_rect(m - 1, y - 2, 2, 9, LK_WHITE);
+    (void)g;
+    lk_color_track(cx, y, frac, ui.view == V_FX || ui.view == V_FX2);
+}
+static void lk_xfade_col(int32_t cx, int32_t y, float frac)
+{
+    lk_color_track(cx, y, frac, 0);
 }
 
 static void lk_one_of(int32_t cx, int32_t y, int n, int at, int g)   /* one of n segments, the chosen one lit */
@@ -2654,7 +2725,7 @@ cents:
 static void lk_ruler(int32_t cx, int32_t y, float frac, int g, int centred)   /* SEQ's: a dot row (was a ruler),
                                                                                  * Shift's from the middle */
 {
-    const uint32_t c0 = g == LK_G ? 0xF2EEF8u : LK_RAMP[g][0], c1 = g == LK_G ? 0xF2EEF8u : LK_RAMP[g][1];
+    const uint32_t c0 = lk_meter_start(g), c1 = lk_meter_end(g);
     if (centred)
         lk_cdots_c(cx, y, frac, c1, c0);
     else
@@ -2668,22 +2739,42 @@ static int lk_readout(void)
     const char *q;
     uint32_t h = hash(2166136261u, 0x4C47u);
     const felucca_font_t *fb;
+    float magnitude = 0.5f;
+    uint32_t col;
+    int i;
     if (plat_ms() >= ui.glab_until)
         return 0;
-    for (q = ui.glab[0]; *q; q++)
-        h = hash(h, (uint32_t)*q);
-    for (q = ui.glab[1]; *q; q++)
-        h = hash(h, (uint32_t)*q << 8);
-    if (h == ui.sig[2])
-        return 1;
+    for (q = ui.glab[0]; *q; q++) h = hash(h, (uint32_t)*q);
+    for (q = ui.glab[1]; *q; q++) h = hash(h, (uint32_t)*q << 8);
+    if (ui.glab[0][0] == 'M') magnitude = vl_norm(P_MOVE);
+    else if (ui.glab[0][0] == 'G') magnitude = 1.0f - (float)proj.mtime * 0.01f;
+    else if (ui.glab[0][0] == 'L')
+        magnitude = vl_norm(dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE);
+    magnitude = fm_clampf(magnitude, 0.0f, 1.0f);
+    h = hash(h, (uint32_t)(magnitude * 1024.0f + 0.5f));
+    if (h == ui.sig[2]) return 1;
     ui.sig[2] = h;
+    /* Keep the interpolated hue in RGB888. Passing an RGB565 color back to
+     * lk_mix caused the middle values to appear green. */
+    col = lk_mix888(LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], magnitude);
     cv_begin(240, LK_VAL_H, LK_BG);
     cv_rect(8, 0, 224, 1, LK_RULE);
-    cv_round(9, 4, 222, 81, 5, LK_VIOLET);
-    cv_round(10, 5, 220, 79, 4, LK_BG);
-    text_c(120, 9, &FONT_T20, ui.glab[0], LK_VIOLET);
+    /* Nested, translucent RGB565 outlines form a value-dependent color halo. */
+    for (i = 0; i < 7; i++) {
+        const uint16_t edge = lk_mix(0x08080Au, col, 0.10f + (float)i * 0.12f);
+        cv_round(9 + i, 4 + i, 222 - 2 * i, 81 - 2 * i, 5, edge);
+    }
+    cv_round(16, 11, 208, 67, 4, LK_BG);
+    /* The thermal ruler makes the popup's actual value legible separately
+     * from its radial hue. All typography remains warm white. */
+    for (i = 0; i < 190; i++)
+        cv_rect(25 + i, 76, 1, 2,
+                lk_mix(LK_RAMP[LK_G][0], LK_RAMP[LK_G][1], (float)i / 189.0f));
+    cv_rect(25 + (int)(magnitude * 189.0f + 0.5f) - 1, 74, 3, 6, LK_WHITE);
+    text_c(120, 10, &FONT_T20, ui.glab[0], LK_WHITE);
     fb = text_w(&FONT_N1, ui.glab[1]) <= 210 ? &FONT_N1 : &FONT_N2;
-    text_c(120, 9 + (int32_t)FONT_T20.h + (62 - (int32_t)FONT_T20.h - (int32_t)fb->h) / 2, fb, ui.glab[1], LK_WHITE);
+    text_c(120, 9 + (int32_t)FONT_T20.h + (62 - (int32_t)FONT_T20.h - (int32_t)fb->h) / 2,
+           fb, ui.glab[1], LK_WHITE);
     cv_blit(0, LK_VAL_Y);
     return 1;
 }
@@ -2742,37 +2833,34 @@ static void lk_values(void)
         return;
     }
     if (ui.view == V_LFO) {                   /* release-0.2's LFO Depths value row only */
-        const uint16_t bg = RGB(20, 0, 15), grid = RGB(70, 30, 64);
-        const uint16_t dim = RGB(160, 128, 148), paper = RGB(251, 233, 242);
+        const uint16_t bg = LK_BG, grid = LK_RULE;
+        const uint16_t dim = LK_LABEL, paper = LK_WHITE;
         int j;
         cv_rect(0, 0, 240, LK_VAL_H, bg);
         cv_rect(0, 0, 240, 1, grid);
         cv_rect(120, 7, 1, 74, grid);        /* the two drones' pairs */
         for (j = 0; j < 4; j++) {
-            const int p = knob_param(j), g = j / 2, v = proj.par[p], on = lit(j);
+            const int p = knob_param(j), v = proj.par[p], on = lit(j);
             const int lo = dr_param_info(p)->lo, hi = dr_param_info(p)->hi;
             const int32_t cx = 36 + 56 * j;
-            const uint16_t c = K_DRONE[g];
+            const uint16_t c = lk_ramp(LK_G, hi > lo ? (float)(v - lo) / (float)(hi - lo) : 0.5f);
             const felucca_font_t *const font = on ? &FONT_N1 : &FONT_N2;
             char t[16];
             int32_t m, x;
             if (on) {
                 cv_round(cx - 26, 3, 52, 79, 5, c);
-                cv_round(cx - 25, 4, 50, 77, 4, RGB(58, 18, 53));
+                cv_round(cx - 25, 4, 50, 77, 4, LK_BG);
             }
             text_c(cx, 5, &FONT_T20, j & 1 ? "Filter" : "Osc", on ? c : dim);
             dr_param_text(p, v, t);
             text_c(cx, 34 - ((int32_t)font->h - (int32_t)FONT_N2.h) / 2,
-                   font, t, on ? paper : RGB(211, 179, 196));
-            cv_round(cx - 21, 68, 42, 4, 2, grid);
-            m = cx - 21 + 42 * (0 - lo) / (hi - lo);
-            x = cx - 21 + 42 * (v - lo) / (hi - lo);
-            cv_rect(m, 66, 1, 8, dim);       /* the 0 position */
-            if (x != m) {
-                const int32_t left = x < m ? x : m, right = x < m ? m : x;
-                cv_round(left, 68, right - left + 1, 4, 2,
-                         on ? c : lk_mix(0x461E40u, c, 0.70f));
-            }
+                   font, t, on ? paper : LK_WHITE);
+            lk_color_track(cx, 68, hi > lo ? (float)(v - lo) / (float)(hi - lo) : 0.5f, 0);
+            m = cx - 25 + 49 * (0 - lo) / (hi - lo);
+            x = cx - 25 + 49 * (v - lo) / (hi - lo);
+            cv_rect(m, 65, 1, 10, dim);  /* neutral zero position */
+            cv_rect(x - 1, 64, 3, 12, LK_WHITE);
+
         }
         cv_blit(0, LK_VAL_Y);
         return;
@@ -2948,7 +3036,7 @@ static void lk_values(void)
             else if (gp == GP_NCOLOR && ui.view == V_TONE)   /* a crossfade, white to pink (Evan, 2026-11-02) */
                 lk_xfade_col(cx, 70, frac);
             else if (ui.view == V_LIFE || ui.view == V_TONE)   /* ENV's square cells */
-                lk_cells(cx, 70, frac, LK_RAMP[g][0], LK_RAMP[g][1], p == P_FEEDBACK);
+                lk_cells(cx, 70, frac, lk_meter_start(g), lk_meter_end(g), p == P_FEEDBACK);
             else if (second)
                 lk_one_of(cx, 70, hi - lo + 1, v - lo, g);
             else if (gp == GP_MIX)
@@ -2977,8 +3065,8 @@ typedef struct {
     uint32_t col;
 } lk_kgroup_t;
 static const lk_kgroup_t LK_KG[2][4] = {
-    {{0, 3, "I", 0xFF9A1Fu}, {3, 2, "global", 0xE8E4F0u}, {5, 3, "II", 0x1FC8FFu}, {8, 3, "links", 0x7FE0A8u}},
-    {{0, 4, "I", 0xFF9A1Fu}, {4, 4, "II", 0x1FC8FFu}, {8, 2, "LFO", 0xE8E4F0u}, {10, 1, "X-mod", 0xC9A6FFu}}};
+    {{0, 3, "I", 0xF7D246u}, {3, 2, "global", 0xF4EDE3u}, {5, 3, "II", 0xE96330u}, {8, 3, "links", 0xF2952Au}},
+    {{0, 4, "I", 0xF7D246u}, {4, 4, "II", 0xE96330u}, {8, 2, "LFO", 0xCF4B3Fu}, {10, 1, "X-mod", 0xF2952Au}}};
 static const uint8_t LK_KX[11] = {11, 26, 41, 71, 86, 116, 131, 146, 176, 191, 221};   /* each black key's left */
 #define LK_KEY_Y 20                          /* the keys' top in the picture (the board's y 96) */
 #define LK_KEY_BH 62                         /* a black key's height (124) */
@@ -3094,97 +3182,24 @@ static void lk_keymap(void)
 
 /* SAVE browser and scene-slot naming popup. Three bands as on other Niagara
  * pages; the actual bank/slot/action/amount are the four bottom readouts. */
-static void lk_save_menu(void)
-{
-    const int bank = BANK_ORDER[ui.menu_bank], slot = ui.menu_slot;
-    const int filled = scene_has(bank, slot);
-    const char *name = project_slot_name(bank, slot);
-    uint32_t h = hash(hash(2166136261u, (uint32_t)bank | (uint32_t)slot << 8 |
-                                                     (uint32_t)ui.menu_load << 16 | (uint32_t)filled << 24),
-                      (uint32_t)ui.menu_pct | (uint32_t)ui.save_menu << 8 | (uint32_t)ui.name_pos << 16);
-    char key[12], pct[8];
-    int i;
-    if (ui.save_menu == 2)
-        for (i = 0; i < BANK_NAME_LEN; i++)
-            h = hash(h, (uint8_t)ui.name_draft[i]);
-    if (name)
-        for (i = 0; name[i]; i++)
-            h = hash(h, (uint8_t)name[i]);
-    if (plat_ms() < ui.msg_until) h = hash(h, ui.msg_until);
-    if (ui.sig[0] == h) return;
-    ui.sig[0] = h;
-    scene_name(key, bank, slot);
-    itoa_u(ui.menu_pct, pct);
-    { char *q = pct; while (*q) q++; scopy(q, "%"); }
-
-    cv_begin(240, LK_BAR_H, LK_BG);
-    cv_text(9, 4, &LK_F_PAGE, ui.save_menu == 3 ? "OVERWRITE?" : ui.save_menu == 2 ? "NAME SLOT" : "SCENES", LK_WHITE);
-    cv_blit(0, 0);
-
-    cv_begin(240, LK_PIC_H, LK_BG);
-    cv_rect(8, 4, 224, 1, LK_RULE);
-    if (ui.save_menu == 2) {
-        cv_text(12, 11, &LK_F_SMALL, "EDIT SLOT NAME", LK_LABEL);
-        cv_text(195, 11, &FONT_XS, key, LK_GOLD);
-        for (i = 0; i < BANK_NAME_LEN - 1; i++) {
-            const char ch[2] = {ui.name_draft[i], 0};
-            const int32_t cx = 20 + 20 * i;
-            if (i == ui.name_pos) cv_rect(cx - 8, 55, 16, 2, LK_GOLD);
-            text_c(cx, 33, &FONT_T20, ch, i == ui.name_pos ? LK_GOLD : LK_WHITE);
-        }
-        cv_text(12, 84, &LK_F_SMALL, "K1 CURSOR   K2 LETTER", LK_LABEL);
-        cv_text(12, 108, &FONT_XS, "[SAVE] YES      [HOME] BACK", LK_LABEL);
-    } else if (ui.save_menu == 3) {
-        cv_text(12, 12, &LK_F_SMALL, "REPLACE THE STORED SOUND?", LK_GOLD);
-        text_c(120, 38, &FONT_N2, key, LK_WHITE);
-        text_c(120, 79, &FONT_T20, name ? name : "EXISTING SCENE", LK_LABEL);
-    } else {
-        cv_text(12, 12, &LK_F_SMALL, "BANK", LK_LABEL);
-        cv_text(74, 9, &FONT_T20, BANK_N[bank], LK_GOLD);
-        cv_text(12, 46, &LK_F_SMALL, "SLOT", LK_LABEL);
-        cv_text(74, 39, &FONT_N2, key, LK_WHITE);
-        cv_text(12, 79, &FONT_T20,
-                name ? name : filled ? "STORED" : "EMPTY",
-                name ? LK_WHITE : filled ? LK_WHITE : LK_UNLIT);
-        cv_text(12, 108, &FONT_XS, "[SAVE] YES  [HOME] BACK  [REC] NAME", LK_LABEL);
-    }
-    if (plat_ms() < ui.msg_until)
-        cv_text(10, 119, &FONT_XS, ui.msg[0], LK_GOLD);
-    cv_blit(0, LK_PIC_Y);
-
-    cv_begin(240, LK_VAL_H, LK_BG);
-    cv_rect(8, 0, 224, 1, LK_RULE);
-    if (ui.save_menu == 1) {
-        const int32_t cx[4] = {31, 89, 148, 207};
-        const char *const label[4] = {"BANK", "SLOT", "ACTION", "MORPH"};
-        const char *const action[3] = {"SAVE", "LOAD", "TRANS"};
-        char short_bank[4] = {BANK_L[bank], bank == BANK_PRESETS ? '1' : bank == BANK_PRESETS2 ? '2' : 0, 0};
-        const char *const value[4] = {short_bank, key, action[ui.menu_load], pct};
-        for (i = 0; i < 4; i++) {
-            text_c(cx[i], 8, &FONT_XS, label[i], LK_LABEL);
-            text_c(cx[i], 31, &FONT_T20, value[i],
-                   i == 2 && ui.menu_load == 0 && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_WHITE);
-        }
-    } else if (ui.save_menu == 3) {
-        text_c(120, 10, &FONT_XS, "EXISTING SCENE WILL BE LOST", LK_LABEL);
-        text_c(60, 39, &FONT_T20, "SAVE: YES", LK_GOLD);
-        text_c(177, 39, &FONT_T20, "HOME: BACK", LK_WHITE);
-    } else {
-        text_c(120, 13, &FONT_T20, "A-Z   0-9   -   SPACE", LK_LABEL);
-        text_c(120, 45, &FONT_XS, "11 CHARACTERS MAX", LK_LABEL);
-    }
-    cv_blit(0, LK_VAL_Y);
-}
+static void lk_save_menu(void) { vl_save_menu(); }
 
 /* a frame of the new look (every page since 0.3's PR H), the key map while SEL is held */
 static void lk_frame(void)
 {
     static int was = -1;                       /* into or out of overlays: every band afresh */
-    const int km = ui.save_menu ? 2 : keymap_on();
-    if (km != was) {
+    const int atlas = ui.hold_btn == B_HOME && !(ui.btn >> B_SEL & 1u) &&
+                      !ui.hold_turned && plat_ms() - ui.hold_t >= HOLD_MS;
+    const int km = ui.save_menu ? 2 : atlas ? 3 : keymap_on();
+    const int changed = km != was;
+    if (changed) {
         was = km;
         ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         lcd_fill(0, 0, 240, 240, LK_BG);
+    }
+    if (km == 3) {
+        if (changed || !(ui.frame % 6)) vl_atlas(); /* show immediately, then refresh at 10 Hz */
+        return;
     }
     if (km == 2) {
         lk_save_menu();

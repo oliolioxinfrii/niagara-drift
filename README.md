@@ -2,6 +2,14 @@
 
 **A drone synth for the M-VAVE FM-1.**
 
+> **VOLCANO v1.5 graphical preview branch:** `feature/volcano-v1.5-ui` keeps
+> the v1.4 engine and page controls while introducing the geological layer UI,
+> new wake screen, HOME-held activity atlas, and Orbit/Planet overlays.
+> See [the v1.5 UI specification](docs/volcano-v1.5-ui.md). This branch has not
+> yet been verified in the user's web emulator or on an FM-1; the screenshots
+> and some earlier release descriptions below still document Niagara Drift.
+
+
 > **Custom Niagara Drift fork (v1.3).** The `main` branch includes the tested
 > two-drone pitch sequencer alongside the expanded Swell, three-page LFO, keyboard
 > gestures, and UI improvements. This is **not** an official Niagara Drift release;

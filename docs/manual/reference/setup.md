@@ -7,22 +7,21 @@ intro: GLO: the room's settings, the Tuning and internal speaker
 
 ## Setup
 
-Settings for the FM-1 itself, not for a sound: how long changes take, the clock, the Tuning and the keys' touch.
+Settings for the FM-1 itself, not for a sound: how long changes take, the clock, tuning and stereo output.
 
 ## Knobs
 
-[[GLO]] opens Setup 1, then Setup 2, then Speaker (3/3); the next tap returns to Setup 1.
+[[GLO]] alternates between Setup 1 and Setup 2. Speaker mute is KNOB 4 on Setup 2.
 These settings belong to the FM-1, not to a sound: scenes don't change them, except the Tuning.
 
 | Page | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|---|
 | Setup 1 | fade | morph | scene time | sync |
-| Setup 2 | tuning | tune | stereo | pressure |
-| Speaker (3/3) | speaker On/Off | — | — | — |
+| Setup 2 | tuning | tune | stereo | speaker On/Off |
 
 ## Setup 1
 
-<img class="shot" src="../../img/screen-setup.png" width="240" alt="The Setup 1 page: the fade, morph and scene times, and Sync">
+<img class="shot" src="../../img/screen-setup.png" width="240" alt="Setup 1: three overlapping red, orange and yellow time-transition curves, with Fade, Morph and Scene as fixed time domains">
 
 | Knob | What it does |
 |---|---|
@@ -31,20 +30,24 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 | **Scene time** | how long every scene move takes: 0.1 s to 5 minutes (about 8 s to start) |
 | **Sync** | **On** follows a MIDI clock; **Off** ignores it |
 
+The graph overlays three **single** transition curves: Fade (red), Morph (orange), and Scene (yellow).
+Each trace spans its own fixed maximum time, rather than rescaling when a knob turns. The curve reaches its
+plateau at the selected time; the value below the graph gives the exact duration.
+
 ## Setup 2
 
-<img class="shot" src="../../img/screen-setup2.png" width="240" alt="The Setup 2 page: the Tuning's ring, Tune in Hz, the stereo width and the keys' pressure">
+<img class="shot" src="../../img/screen-setup2.png" width="240" alt="The Setup 2 page: tuning ticks around the planetary cross-section and an animated stereo spacing diagram">
 
 | Knob | What it does |
 |---|---|
 | **Tuning** | the notes the pitch knobs move through ([Tunings](#tunings)) |
 | **Tune** | A's pitch: 427 to 453 Hz (440 to start) |
 | **Stereo** | mono to drone I left, drone II right |
-| **Pressure** | how hard you press the scene keys: up for a light touch, down for a firm one |
+| **Speaker** | **On** (default) or **Off**: mute the built-in FM-1 speaker |
 
-## Speaker (3/3)
+### Speaker output
 
-- **KNOB 1** sets **On** (default) or **Off** (mute the FM-1's built-in speaker).
+- **KNOB 4 on Setup 2** selects **On** or **Off** for the FM-1's built-in speaker.
 - USB audio recording continues to transmit the full stereo master mix, including MASTER volume changes.
   With Speaker Off, the speaker-specific bass cut is bypassed so the USB signal is full-range.
 - Headphones connected through the 3.5 mm jack remain audible even with Speaker Off.
@@ -84,5 +87,7 @@ hear is within 10 cents; otherwise the familiar name ("5th").
 - **Wander, Chord, a partner's interval and Shift** take the Tuning's notes.
 - **A sound carries its Tuning:** a scene saved on LMY brings LMY back, even with Pitch lock on. A Preset plays on
   12-tone unless it has its own. The Tuning changes half way through a scene's glide.
-- **The pictures:** on Setup 1, a row for each time, ending where its knob is; on Setup 2, the Tuning as a ring, a tick
-  a note, turned by Tune.
+- **The pictures:** on Setup 1, the Fade, Morph and Scene transition trajectories share one color-coded graph with
+  fixed maximum-time axes. On Setup 2, note ticks from the current tuning surround a planetary cross-section.
+  The A marker follows Tune; the two wave traces show stereo separation.
+- **Pressure:** the scene-key response uses the neutral setting; it is no longer an adjustable parameter.

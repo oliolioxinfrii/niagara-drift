@@ -1,0 +1,77 @@
+# VOLCANO v1.5: graphics/navigation smoke test. No changes to DSP or stored scenes.
+# Run by tests/run_tests.sh, screenshots under build/scenarios/volcano-ui/.
+notips
+expect view 0
+wait 150
+shot surface.png
+page 1
+# Pitch shows scope traces at rest; turning Reso temporarily shows filter curves.
+wait 500
+shot pitch-scope.png
+spin K2 5
+shot pitch-resonance.png
+wait 650
+shot pitch.png
+page 2
+wait 150
+shot life.png
+# Character should light lava from the base of the Life cone.
+spin K3 100
+wait 120
+shot life-lava-full.png
+page 3
+wait 150
+shot tone.png
+page 4
+wait 150
+shot mantle-osc.png
+page 5
+wait 150
+shot mantle-drive.png
+page 6
+wait 150
+shot deep-mantle-lfo.png
+# Holding HOME opens the temporary atlas, then returns to the prior page.
+press HOME
+expect view 0
+wait 600
+shot geological-atlas.png
+release HOME
+expect view 6
+page 7
+wait 150
+shot deep-mantle-routing.png
+page 8
+wait 150
+shot deep-mantle-modulation.png
+page 9
+wait 150
+shot crust-partner.png
+page 18
+wait 150
+shot crust-sequence.png
+page 13
+wait 150
+shot crust-swell.png
+page 15
+wait 150
+shot atmosphere.png
+page 11
+wait 150
+shot setup-time-overlay.png
+page 12
+wait 150
+shot planet-tuning-stereo.png
+spin K3 -100
+wait 120
+shot planet-stereo-narrow.png
+spin K3 100
+wait 120
+shot planet-stereo-wide.png
+# The orbit browser is a separate overlay; HOME exits without saving.
+tap SAVE
+expect savemenu 1
+wait 150
+shot orbit-memory.png
+tap HOME
+expect savemenu 0

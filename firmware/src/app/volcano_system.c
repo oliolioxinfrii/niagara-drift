@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Orbit/scene browser and the transient geological navigation atlas. */
 
-/* Eight bank identities, from P1's FX deep blue to P2's icy white.
- * The SAVE browser navigation order (A-F, P1, P2) is unchanged. */
+/* Bank colors run in browser order: P1, P2, then A through F.
+ * P1 is the deep FX blue; F is its near-white endpoint. */
 static uint16_t vs_bank_ink(int bank)
 {
-    static const uint8_t stop[NBANKS] = {1, 2, 3, 0, 4, 5, 6, 7};
+    static const uint8_t stop[NBANKS] = {2, 3, 4, 0, 5, 6, 7, 1};
     return lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], (float)stop[bank] / 7.0f);
 }
 /* The ellipse is a dotted instrument track, not a rendered planet orbit.
@@ -59,25 +59,26 @@ static void vs_orbit_figure(int bank, int slot, int filled, const char *name)
             cv_rect(x - 1, y + 6, 3, 1, bank_ink);
         }
     }
-    /* Two small solar-array grids connected to an angled central body. */
-    cv_line(42, 37, 72, 22, VL_SURFACE);
-    cv_line(48, 45, 78, 30, VL_SURFACE);
-    cv_line(42, 37, 48, 45, VL_SURFACE);
-    cv_line(72, 22, 78, 30, VL_SURFACE);
-    cv_line(47, 36, 74, 25, VG_STRATA[0][1]);
-    for (i = 0; i < 3; i++) {
-        cv_line(48 + i * 7, 34 - i * 3, 54 + i * 7, 42 - i * 3,
-                vg_dim(VL_SURFACE, 0.75f));
-    }
-    cv_line(18, 47, 40, 39, VL_SURFACE);
-    cv_line(21, 56, 43, 48, VL_SURFACE);
-    cv_line(18, 47, 21, 56, VL_SURFACE);
-    cv_line(40, 39, 43, 48, VL_SURFACE);
-    cv_line(25, 46, 28, 54, VL_SURFACE);
-    cv_line(32, 43, 35, 51, VL_SURFACE);
-    cv_round(42, 35, 11, 11, 2, LK_WHITE);
-    cv_round(44, 37, 7, 7, 2, VG_STRATA[0][2]);
-    cv_line(48, 35, 51, 29, LK_WHITE);
+    /* Compact satellite between the two lower-left orbit nodes (roughly
+     * 19,57 and 49,82). Keep its geological palette; neither solar panel
+     * crosses a node's 7-pixel marker. Coordinates are picture-local. */
+    cv_line(22, 77, 33, 71, VL_SURFACE);
+    cv_line(25, 83, 36, 77, VL_SURFACE);
+    cv_line(22, 77, 25, 83, VL_SURFACE);
+    cv_line(33, 71, 36, 77, VL_SURFACE);
+    cv_line(27, 75, 30, 81, VL_SURFACE);
+    cv_line(31, 73, 34, 79, VL_SURFACE);
+    cv_line(48, 63, 59, 57, VL_SURFACE);
+    cv_line(51, 69, 62, 63, VL_SURFACE);
+    cv_line(48, 63, 51, 69, VL_SURFACE);
+    cv_line(59, 57, 62, 63, VL_SURFACE);
+    cv_line(53, 61, 56, 67, VL_SURFACE);
+    cv_line(57, 59, 60, 65, VL_SURFACE);
+    cv_line(36, 74, 38, 72, VG_STRATA[0][1]);
+    cv_line(49, 68, 51, 66, VG_STRATA[0][1]);
+    cv_round(38, 66, 11, 11, 2, LK_WHITE);
+    cv_round(40, 68, 7, 7, 2, VG_STRATA[0][2]);
+    cv_line(43, 66, 46, 59, LK_WHITE);
     if (name || filled)
         cv_text(12, 105, &FONT_XS, name ? name : "STORED", LK_WHITE);
     else

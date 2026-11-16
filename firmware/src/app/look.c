@@ -1870,7 +1870,17 @@ static void lk_pic_setup1(void)
                             0.5f - 0.5f * fm_cosf(3.14159265f * u);
             const int32_t yy = low - (int32_t)(v * (float)(low - plateau[r]) + 0.5f);
             const int32_t x = x0 + i;
-            if (i) cv_line(x - 1, prev, x, yy, color[r]);
+            /* As on the Sequence Transitions page, paint each column
+             * instead of relying on near-horizontal single-pixel lines.
+             * Adjacent 2-pixel strokes also keep the Morph plateau
+             * continuous all the way to the right-hand boundary. */
+            if (i && yy != prev) {
+                const int32_t top = yy < prev ? yy : prev;
+                const int32_t bottom = yy > prev ? yy : prev;
+                cv_rect(x, top, 1, bottom - top + 2, color[r]);
+            } else {
+                cv_rect(x, yy, 1, 2, color[r]);
+            }
             prev = yy;
         }
         {

@@ -1,0 +1,50 @@
+# FX visual comparison at moderate mixes, without requiring 100% wet.
+# Six delay models are mapped to distinct response textures. The DRIVE knob
+# injects orange after the delay and before the reverb (only the Both route
+# sends that driven signal into the reverb).
+notips
+page 15
+expect view 15
+set 62 35                     # delay MIX: 35%
+set 63 35                     # reverb MIX: 35%
+set 95 75                     # reverb LENGTH
+set 96 0                      # bright reverb
+set 98 0                      # drive off
+set 94 0
+expect par94 0
+wait 210
+shot delay-clean-35.png
+set 94 1
+wait 210
+shot delay-wide-35.png
+set 94 2
+wait 210
+shot delay-pingpong-35.png
+set 94 3
+wait 210
+shot delay-tape-35.png
+set 94 4
+wait 210
+shot delay-grain-35.png
+set 94 5
+wait 210
+shot delay-self-35.png
+set 98 80
+expect par98 80
+wait 210
+shot delay-drive-orange-80.png
+set 99 1                      # Echoes route does not send driven signal into the reverb
+wait 210
+shot reverb-drive-bypassed-route.png
+set 99 0                      # Both route sends the post-drive signal
+set 64 1                      # Hall
+set 98 0
+set 96 0
+wait 210
+shot reverb-bright-35.png
+set 96 90
+wait 210
+shot reverb-damped-35.png
+set 64 3
+wait 210
+shot reverb-chorus-35.png

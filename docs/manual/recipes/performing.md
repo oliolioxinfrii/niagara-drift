@@ -1,72 +1,51 @@
 ---
 title: Performing
-intro: Play it live: change chords unheard, loop your hands, reach another page, play in time
-description: Recipes for playing Niagara Drift live: retune a drone in silence, loop your knob moves, peek at another page, follow a MIDI clock.
-image: p-retune-1.png
+intro: Retune while playing, loop movements and synchronize to MIDI
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-### Change chords without a slide {#retune}
+# Performing
 
-*Drone II out, a new note, back in*
+## Change a chord without a pitch slide {#retune}
 
-1. Hold [[SEL]] and tap [[OCT+]]: drone II fades out.
-2. Press [[HOME]] for **Pitch**, and turn KNOB 3 to a new note.
-3. [[SEL]] + [[OCT+]] again: it fades back in on the new chord.
+1. Hold **SEL** and tap **OCT+** to fade drone II out.
+2. Tap **HOME** until **Pitch** appears. Turn KNOB 3 to the new pitch for drone II.
+3. Use **SEL + OCT+** again to fade it back in at the new pitch.
 
-> **Good to know.** How fast it fades is **Fade** (Setup 1, KNOB 1).
+The fade duration is set by **GLO → Setup 1 → Fade** (KNOB 1).
 
-![Pitch, drone II out, retuned to Bb4](../media/p-retune-0.png "II OUT, retuned")
-![Pitch, drone II back in a minor sixth above](../media/p-retune-1.png "Back in: a minor sixth")
+> **Screenshot needed — Pitch with drone II out:** Capture the v1.5 Pitch page with a new drone-II interval.
 
-**Listen** (`p-retune`)
+## Loop your movements {#loop}
 
-- 0:00 P8 Sibyl, Fade 3 s
-- 0:01 SEL + OCT+: drone II fades out
-- 0:05 retuned in the silence
-- 0:07 SEL + OCT+: back in on a minor chord
+1. Press **REC** to begin recording.
+2. Move knobs, use gestures or load scenes.
+3. Press REC again: the recorded movement repeats while you can play on top.
+4. Press REC a third time to stop the loop.
 
-### Loop your moves {#loop}
+The loop captures performance changes, not a new MIDI note sequence. The separate pitch sequencer is controlled by **SEL + PLAY**.
 
-*REC, move, REC*
+> **Screenshot needed — REC and LOOP:** Capture the v1.5 header during recording and looping.
 
-1. Tap [[REC]] and play: knobs, gestures, scenes.
-2. Tap [[REC]] again: what you did plays back, round and round. Play on top.
-3. Tap [[REC]] once more to stop.
+## Edit another page without leaving your place {#peek}
 
-![Drones, recording](../media/p-loop-0.png "REC 0:02")
-![Drones, looping](../media/p-loop-1.png "LOOP")
+1. Hold a page button, such as **FX**, to peek at that page.
+2. Turn a parameter knob while the button is held.
+3. Release the button to return to your previous page.
 
-**Listen** (`p-loop`)
+**Hold HOME** shows the activity atlas instead of a normal parameter peek. **Hold ARP** switches Swell on/off.
 
-- 0:00 P14 Tape
-- 0:01 REC: drone I's cutoff down and back up
-- 0:06 REC again: the move loops
+> **Screenshot needed — HOME atlas:** `build/scenarios/volcano-ui/geological-atlas.png`.
 
-### Reach another page and come back {#peek}
+## Play in time with a MIDI clock {#clock}
 
-*Hold its button, turn, let go*
+1. Send MIDI clock from a DAW or drum machine using the FM-1's supported USB or TRS MIDI input.
+2. Set **Sync** on under **GLO → Setup 1** (KNOB 4).
+3. Open **ARP → Swell** and choose a Division with KNOB 1. The rhythmic movement follows the external clock.
 
-1. Hold a page's button, here [[FX]] for **Space**: the header says PEEK.
-2. Turn a knob there.
-3. Let go: you're back where you were, the change kept.
+The LFO can also follow MIDI clock; adjust its division with **SEL + SELECT**. See [MIDI](../reference/midi.md).
 
+> **Screenshot needed — MIDI-synced Swell:** Capture the Swell page while an external clock is running.
 
-### Play in time with a MIDI clock {#clock}
-
-*Send a clock: the Swell, the LFO, the delay and Wander follow it*
-
-1. Send a MIDI clock from a DAW or a drum machine, over USB or the TRS jack.
-2. Press [[ARP]] for the **Swell**, and turn KNOB 1, **Division**, to a note value: it breathes in time.
-
-> **Good to know.** **Sync** (Setup 1, KNOB 4) on follows a clock, off ignores it. More in
-> [MIDI](../reference/midi.md).
-
-![Swell, 1/4 at 80 BPM](../media/p-clock-0.png "1/4 at 80 BPM")
-![Swell, 1/4 at 140 BPM](../media/p-clock-1.png "1/4 at 140 BPM")
-
-**Listen** (`p-clock`)
-
-- 0:00 P10 Cistern, a clock at 80 BPM: a breath a beat
-- 0:05 the clock at 140 BPM: faster
+> **Audio examples pending:** The older recipe renders were made for a different navigation layout and should be regenerated with verified Volcano v1.5 scenarios.

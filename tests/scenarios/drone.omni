@@ -571,7 +571,8 @@ save
 wait 150
 expect store_writes 1
 expect dirty 0
-# no autosave while the drone plays (a knob moved and back: unsaved again)
+# A knob moved away and back marks the UI dirty, but leaves the project
+# identical to the stored state. No flash write should be needed.
 page 1
 spin K1 1
 page 0
@@ -582,9 +583,10 @@ expect dirty 1
 wait 5000
 expect dirty 1
 expect store_writes 1
-# PLAY again: out over the fade (Fade is 32 now: 2.0 s). After at least
-# 4 s quiet and when effects tails have faded, autosave once (no further writes).
-# A separate autosave scenario tests deferred saving during long scene transitions.
+# PLAY again: out over the fade (Fade is 32 now: 2.0 s). After the
+# quiet/tail delay, autosave clears dirty, but project_save skips identical
+# bytes to prevent needless flash wear. The autosave scenario separately
+# verifies actual flash writes when persistent values have changed.
 tap PLAY
 expect playing 0
 wait 2500
@@ -592,10 +594,10 @@ expect fade 0
 wait 4500
 wait 9000
 expect dirty 0
-# The only new write is the stopped working sound, not one per control change.
-expect store_writes 2
+# The saved project hash is unchanged: autosave makes no physical write.
+expect store_writes 1
 wait 1000
-expect store_writes 2
+expect store_writes 1
 wavstop
 # everything comes back after a reboot
 reboot
@@ -613,7 +615,7 @@ press SAVE
 tapkey w0
 release SAVE
 expect scenes 1
-expect store_writes 3
+expect store_writes 2
 expect view 0
 # the sound is scene 1 (its key blinks), until a knob is turned
 expect scene_at 0

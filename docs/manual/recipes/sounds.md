@@ -44,7 +44,7 @@ and the ring swells and fades on its own.
 
 1. Tap [[HOME]] until **Pitch** appears, and turn KNOB 2 and KNOB 4, the resonances, up: the filters ring. Their last dot is
    red: there they ring on their own.
-2. Press [[HOME]] again for **Drones**, and turn the cutoffs (KNOB 2 and KNOB 4) up: the ring brighter.
+2. Tap [[HOME]] until **Drones** appears, and turn the cutoffs (KNOB 2 and KNOB 4) up: the ring brighter.
 3. Tap [[LFO]] until **LFO Sends** appears, and tap [[C#4]] and [[D#4]]: on the LFO pages they switch each drone's cutoff
    send to **resonance**.
 4. Turn KNOB 2 and KNOB 4, the resonance sends, up: the ring swells and fades as the LFO goes round.
@@ -64,7 +64,7 @@ and the ring swells and fades on its own.
 With hard sync, drone II restarts its wave on every cycle of drone I: turning drone II's pitch then changes its tone,
 not its note, a tearing, vocal, laser-like sweep.
 
-1. Press [[HOME]] for **Drones**: turn KNOB 4, drone II's cutoff, well up, and bring drone II forward (KNOB 3 up,
+1. Tap [[HOME]] until **Drones** appears: turn KNOB 4, drone II's cutoff, well up, and bring drone II forward (KNOB 3 up,
    KNOB 1 down).
 2. Tap black key 10, [[D#5]]: **hard sync**, drone II locked to drone I.
 3. Tap [[HOME]] until **Pitch** appears, and turn KNOB 3, drone II's pitch, slowly up two octaves and back: the tone sweeps.
@@ -88,7 +88,7 @@ not its note, a tearing, vocal, laser-like sweep.
 Each drone's sound bends the other's pitch, FM synthesis between the two. On pure, high tones a tritone apart it rings
 into a metallic, bell-like sound; turned higher it clangs and runs wild.
 
-1. Press [[EDIT]] for **Osc**, and turn KNOB 1 and KNOB 3, the X-Waves, all the way down: **sine**.
+1. Tap [[EDIT]] until **Osc** appears, and turn KNOB 1 and KNOB 3, the X-Waves, all the way down: **sine**.
 2. Tap [[HOME]] until **Pitch** appears, and turn both drones high, a tritone apart (here C#6 and G6: the top of their
    range is about 1.6 kHz).
 3. Tap black key 11, [[F#5]], until it winks: **bend each other** (twice from off).
@@ -129,7 +129,7 @@ buzzes and takes on drone I's pitch as a grain.
 At key 11's last setting, the finished sound, the delay's echoes included, bends both drones' pitch: a growl that
 drags and tears the pitch, and the echoes with it. It's clearest on a steady sound with plenty of echoes.
 
-1. Press [[FX]] for **Space**, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: more echoes for Snarl to drag.
+1. Tap [[FX]] until **Space** appears, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: more echoes for Snarl to drag.
 2. Tap black key 11, [[F#5]], three times from off: **Snarl** (it winks).
 3. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: 40 a growl, 85 a snarl.
 
@@ -200,7 +200,7 @@ easiest to hear on a vibrato.
 
 1. Tap [[LFO]] until **LFO Sends** appears. Tap key 6, [[F#4]], until LFO I moves drone II's pitch, and turn KNOB 3, its pitch
    send, up: a slow vibrato.
-2. Press [[LFO]] again for **Mods**, and turn KNOB 1, Speed, all the way up: the LFO speeds up and slows down by up to
+2. Tap [[LFO]] until **Mods** appears, and turn KNOB 1, Speed, all the way up: the LFO speeds up and slows down by up to
    three octaves.
 3. Turn KNOB 2, Source, to **LFO I**: a regular rush and drag (LFO II's random glide makes it uneven).
 
@@ -221,7 +221,7 @@ easiest to hear on a vibrato.
 When the delay's time moves, its echoes bend in pitch, as tape does when it speeds up and slows down. Let an LFO move
 it, and every echo warbles; let the Swell dip the drones, and the bending echoes ring on their own in the gaps.
 
-1. Press [[FX]] for **Space**, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: clear echoes to bend.
+1. Tap [[FX]] until **Space** appears, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: clear echoes to bend.
 2. Tap [[ARP]] until **Swell** appears (hold ARP for 400 ms if Swell is off), and turn KNOB 1 up for about a breath a second: the
    echoes sound in the gaps.
 3. Tap [[LFO]] until **Mods** appears, and turn KNOB 3, Delay, all the way up: the LFO wobbles the delay's time by a
@@ -245,7 +245,7 @@ The **Self** delay stretches its time as its echoes get louder, so loud echoes s
 distorts the drones and their echoes together: ghost notes and crackle.
 
 1. Press [[FX]] for **Space**, and turn Repeat (KNOB 1) up: the echoes pile up.
-2. Press [[FX]] again for **Details**. Hold [[SEL]] and turn KNOB 2 to **Self** (or **Grain**, whose own echoes shake
+2. Tap [[FX]] until **Details** appears. Hold [[SEL]] and turn KNOB 2 to **Self** (or **Grain**, whose own echoes shake
    its time).
 3. Turn KNOB 1, Drive, up.
 
@@ -264,7 +264,7 @@ distorts the drones and their echoes together: ghost notes and crackle.
 At its top, the reverb's Length is **Inf**: it never dies away, a freeze of what's in it. Move the drones and they
 play over the frozen chord.
 
-1. Press [[FX]] for **Space**. Turn KNOB 4, the reverb's Mix, up, then KNOB 3, Length, all the way: **Inf**, "freeze"
+1. Tap [[FX]] until **Space** appears. Turn KNOB 4, the reverb's Mix, up, then KNOB 3, Length, all the way: **Inf**, "freeze"
    in blue.
 2. Tap [[HOME]] until **Pitch** appears, and turn KNOB 1 and KNOB 3 to new notes: the drones play over the frozen chord.
 3. Turn Length back down to let it go, or stop with [[PLAY]].
@@ -286,9 +286,9 @@ echo rises into a bright halo while the drones stay dry. It shines on voices in 
 octave stays low.
 
 1. Press [[FX]] for **Space**, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: more echoes.
-2. Press [[FX]] again for **Details**, and turn KNOB 4, the reverb's Type, to **Shimmer**.
+2. Tap [[FX]] until **Details** appears, and turn KNOB 4, the reverb's Type, to **Shimmer**.
 3. Hold [[SEL]] and turn KNOB 4: Into **Echoes**.
-4. Press [[FX]] for Space again, and turn the reverb's Mix (KNOB 4) up.
+4. Tap [[FX]] until **Space** appears, and turn the reverb's Mix (KNOB 4) up.
 
 > **Good to know.** The Shimmer washes in over about 8 seconds and out over 6. **Cistern** (P10) uses it on
 > everything. If your drones are low, raise them an octave or two (Pitch page) and the halo sparkles.

@@ -20,7 +20,7 @@ required at runtime. Comfortaa is by Johan Aakerlund under SIL OFL 1.1.
 
 C#5 now uses CD-like global LFO transport: tap to pause/resume at the current
 phase, hold 500ms for a continuous rewind toward phase zero of both LFO
-waveforms and both Swell progressions at the LFO's rate, ending paused.
+waveforms and both Swell progressions at the LFO's rate, immediately resuming forward at zero.
 The legacy LFO-to-Swell lock is retired; saved-sound parameter indices remain
 unchanged. See [Volcano transport details](volcano-subtractive-still.md).
 

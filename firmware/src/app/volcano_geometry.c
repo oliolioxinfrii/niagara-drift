@@ -415,6 +415,111 @@ static float vl_air_scroll(uint32_t now_ms)
                         (6.2831853f / (float)VL_AIR_LOOP_MS);
     return 11.0f * (1.0f - fm_cosf(phase)); /* 0 -> 22 -> 0 */
 }
+/* Smooth deterministic band-limited texture: an illustrated spectral layer,
+ * not FFT data. The three spacings read as body, diffusion and treble. */
+static float vg_air_band(float position, int spacing, uint32_t seed)
+{
+    const float u = position / (float)spacing;
+    const uint32_t cell = (uint32_t)u;
+    float t = u - (float)cell;
+    const uint32_t a = vg_hash(cell * 149u + seed);
+    const uint32_t b = vg_hash((cell + 1u) * 149u + seed);
+    t = t * t * (3.0f - 2.0f * t);
+    return ((float)(a & 2047u) * (1.0f - t) + (float)(b & 2047u) * t - 1023.5f)
+            * (1.0f / 1023.5f);
+}
+/* Follow Shimmer's 8-second wash in and 6-second wash out. This is strictly
+ * visual state; the DSP has its own audio ramp and no state is copied back. */
+static float vg_air_halo(uint32_t now, int type)
+{
+    static uint32_t last;
+    static float amount;
+    const float elapsed = last ? fm_minf((float)(now - last), 30000.0f) : 0.0f;
+    last = now;
+    amount = type == 4 ? fm_minf(1.0f, amount + elapsed / 8000.0f)
+                       : fm_maxf(0.0f, amount - elapsed / 6000.0f);
+    return amount;
+}
+/* Visual descriptors mirror RV_TYPE in drone_fx.c: pre-delay (ms), network
+ * size (percent), delay-line modulation (half-rate samples), input lowcut
+ * (Hz), and width. Time is deliberately not a linear seconds-per-pixel plot:
+ * the left 60px resolve predelay and diffusion, the rest resolve decay. */
+static void vg_air_reverb(float wet, float length, float damp, int hold,
+                          float scroll, uint32_t now)
+{
+    static const struct {
+        uint8_t predelay, size, mod, lowcut, width;
+    } type_map[5] = {
+        {4, 35, 2, 120, 80},       /* Room */
+        {18, 75, 5, 90, 90},       /* Hall */
+        {42, 100, 7, 60, 85},     /* Cathedral */
+        {24, 85, 18, 90, 145},    /* Chorus Hall */
+        {18, 75, 5, 90, 90}        /* Shimmer: Hall plus octave-up input */
+    };
+    static const char *const name[5] = {"ROOM", "HALL", "CATH", "CHORUS", "SHIM"};
+    const int v = proj.par[P_REV_TYPE];
+    const int type = (unsigned)v < 5u ? v : 2;
+    const float gain = 0.5f * (wet + fm_sqrtf(wet));
+    const float halo = vg_air_halo(now, type);
+    const float start = 13.0f + 0.85f * (float)type_map[type].predelay;
+    const float spread = 5.0f + 0.18f * (float)type_map[type].size;
+    const float tail_px = 24.0f + 177.0f * length;
+    const float body_gain = 0.80f + (120.0f - (float)type_map[type].lowcut) / 300.0f;
+    const float swing = 0.16f * (float)type_map[type].mod;
+    const float phase = (float)(now % VL_AIR_LOOP_MS) *
+                        (6.2831853f / (float)VL_AIR_LOOP_MS);
+    const uint16_t col[4] = {
+        lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], 0.10f),
+        lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], 0.53f),
+        lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], 0.90f),
+        lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], 1.00f)
+    };
+    const int nlayer = halo > 0.015f ? 4 : 3;
+    int prev[4] = {94, 94, 94, 94}, prev_echo = 94;
+    int x, layer;
+    text_c(205, 64, &FONT_XS, name[type], VL_AIR);
+    cv_rect(70, 78, 1, 34, vg_dim(VL_AIR, 0.19f));
+    cv_rect((int)start, 78, 1, 4, vg_dim(VL_AIR, 0.66f));
+    for (x = 10; x <= 230; x++) {
+        float attack = fm_clampf(((float)x - start) / spread, 0.0f, 1.0f);
+        const float tail_t = fm_clampf(((float)x - 70.0f) / tail_px, 0.0f, 1.0f);
+        const float tail = 1.0f - tail_t;
+        const float detail = hold ? 1.0f :
+            fm_clampf(1.0f - damp * (0.18f + 0.82f *
+                fm_clampf(((float)x - start) / 175.0f, 0.0f, 1.0f)), 0.04f, 1.0f);
+        const float wobble = swing * fm_sinf(0.075f * (float)x + phase);
+        const float pos = (float)x + scroll;
+        const float notes[4] = {
+            vg_air_band(pos, 14, 109u) * 7.0f * body_gain,
+            vg_air_band(pos + 3.0f, 5, 571u) * 10.5f,
+            vg_air_band(pos + 7.0f, 2, 1079u) * 6.0f * detail,
+            vg_air_band((float)x * 1.8f + scroll * 1.25f, 2, 2221u) *
+                6.0f * halo * detail
+        };
+        float env;
+        attack = attack * attack * (3.0f - 2.0f * attack);
+        env = gain * attack * (hold ? 1.0f : tail * (0.28f + 0.72f * tail));
+        for (layer = 0; layer < nlayer; layer++) {
+            const float bend = layer == 0 ? 0.35f : layer == 1 ? 1.0f :
+                               layer == 2 ? -0.70f : 0.45f;
+            const int y = vg_max(78, vg_min(110, 94 +
+                          (int)(env * (notes[layer] + bend * wobble))));
+            if (x > 10 && gain > 0.0f)
+                cv_line(x - 1, prev[layer], x, y, col[layer]);
+            prev[layer] = y;
+        }
+        /* Chorus Hall's 1.45-wide, heavily modulated delay lines form a
+         * separate, dimmer strand rather than merely higher amplitude. */
+        if (type == 3) {
+            const float width = (float)type_map[type].width / 100.0f;
+            const int y = vg_max(78, vg_min(110, 94 +
+                          (int)(env * (-0.62f * notes[1] - width * wobble))));
+            if (x > 10 && gain > 0.0f)
+                cv_line(x - 1, prev_echo, x, y, vg_dim(col[1], 0.51f));
+            prev_echo = y;
+        }
+    }
+}
 static void vl_air(void)
 {
     const float repeats = vl_norm(P_DLY_REPEATS), wet_delay = vl_norm(P_DLY_MIX);
@@ -423,61 +528,53 @@ static void vl_air(void)
     const float drive = vl_norm(P_DLY_DRIVE);
     const int period = 19 + (int)(vl_norm(P_DLY_TIME) * 34.0f);
     const int hold = proj.par[P_REV_LEN] >= 100;
-    const float scroll = vl_air_scroll(plat_ms());
+    const uint32_t now = plat_ms();
+    const float scroll = vl_air_scroll(now);
     const int scroll_step = (int)scroll;
     const float scroll_frac = scroll - (float)scroll_step;
-    int k, x, p;
+    int x, p;
     cv_text(9, 1, &FONT_XS, "DELAY / ARRIVALS", LK_LABEL);
     cv_text(9, 64, &FONT_XS, hold ? "REVERB / HELD FIELD" : "REVERB / CODA", LK_LABEL);
-    for (k = 0; k < 2; k++) {
-        const int center = k ? 94 : 37, top = k ? 77 : 17, bottom = k ? 112 : 57;
-        cv_rect(8, center, 224, 1, LK_RULE);
-        for (x = 10; x <= 230; x += 22)
-            cv_rect(x, top, 1, bottom - top, LK_RULE);
-        for (p = 0; p < 3; p++) {
-            int px = 10, py = center + p * 2 - 2;
-            const float wet = k ? wet_reverb : wet_delay;
-            const float display_gain = 0.50f * wet + 0.50f * fm_sqrtf(wet); /* continuous at zero; more tonal differentiation */
-            for (x = 10; x <= 230; x++) {
-                const uint32_t h0 = vg_hash((uint32_t)((x + p * 11 + scroll_step) * 89));
-                const uint32_t h1 = vg_hash((uint32_t)((x + p * 11 + scroll_step + 1) * 89));
-                const float noise = ((float)(h0 % 23u) - 11.0f) * (1.0f - scroll_frac) +
-                                    ((float)(h1 % 23u) - 11.0f) * scroll_frac;
-                float env = 0.0f;
-                if (!k) {
-                    const int pos = x - 18;
-                    if (pos >= 0) {
-                        const int arrival = pos % period, nth = pos / period;
-                        const float repeat_gain = 1.0f - (1.0f - repeats) * fm_clampf((float)nth * 0.18f, 0.0f, 1.0f);
-                        if (arrival < 18)
-                            env = display_gain * (1.0f - (float)arrival / 18.0f) * repeat_gain;
-                    }
-                } else {
-                    const int tail = 30 + (int)(decay * 200.0f);
-                    const int t = x - 21;
-                    if (t >= 0 && (hold || t < tail))
-                        env = display_gain * (hold ? 1.0f : (1.0f - (float)t / (float)tail)) *
-                              (0.84f + 0.16f * (1.0f - damping));
-                }
-                {
-                    const int amp = (int)((float)noise * env * (k ? 2.80f : 3.20f));
-                    const int yy = center + p * 2 - 2 + vg_max(-16, vg_min(16, amp));
-                    const uint16_t ink = (vg_abs(amp) >= 15 && (drive > 0.72f || hold)) ?
-                                         LK_WHITE : vg_dim(VL_AIR, p == 2 ? 1.0f : 0.42f + 0.20f * (float)p);
-                    cv_line(px, py, x, yy, ink);
-                    px = x; py = yy;
-                }
+    /* Preserve the original rubber-band delay rendering. */
+    cv_rect(8, 37, 224, 1, LK_RULE);
+    for (x = 10; x <= 230; x += 22)
+        cv_rect(x, 17, 1, 40, LK_RULE);
+    for (p = 0; p < 3; p++) {
+        int px = 10, py = 37 + p * 2 - 2;
+        const float gain = 0.5f * (wet_delay + fm_sqrtf(wet_delay));
+        for (x = 10; x <= 230; x++) {
+            const uint32_t h0 = vg_hash((uint32_t)((x + p * 11 + scroll_step) * 89));
+            const uint32_t h1 = vg_hash((uint32_t)((x + p * 11 + scroll_step + 1) * 89));
+            const float noise = ((float)(h0 % 23u) - 11.0f) * (1.0f - scroll_frac) +
+                                ((float)(h1 % 23u) - 11.0f) * scroll_frac;
+            const int pos = x - 18;
+            float env = 0.0f;
+            if (pos >= 0) {
+                const int arrival = pos % period, nth = pos / period;
+                const float repeat_gain = 1.0f - (1.0f - repeats) *
+                    fm_clampf((float)nth * 0.18f, 0.0f, 1.0f);
+                if (arrival < 18)
+                    env = gain * (1.0f - (float)arrival / 18.0f) * repeat_gain;
             }
-        }
-        if (!k) {
-            for (x = 18; x <= 229; x += period) {
-                cv_rect(x, 21, 1, 4, VL_AIR);
-                cv_rect(x, 58, 1, 2, LK_LABEL);
+            {
+                const int amp = (int)(noise * env * 3.20f);
+                const int yy = 37 + p * 2 - 2 + vg_max(-16, vg_min(16, amp));
+                const uint16_t ink = (vg_abs(amp) >= 15 && drive > 0.72f) ?
+                                     LK_WHITE : vg_dim(VL_AIR, p == 2 ? 1.0f : 0.42f + 0.20f * (float)p);
+                cv_line(px, py, x, yy, ink);
+                px = x; py = yy;
             }
-        } else {
-            cv_rect(8, 118, 224, 1, LK_RULE);
         }
     }
+    for (x = 18; x <= 229; x += period) {
+        cv_rect(x, 21, 1, 4, VL_AIR);
+        cv_rect(x, 58, 1, 2, LK_LABEL);
+    }
+    cv_rect(8, 94, 224, 1, LK_RULE);
+    for (x = 10; x <= 230; x += 22)
+        cv_rect(x, 77, 1, 35, LK_RULE);
+    vg_air_reverb(wet_reverb, decay, damping, hold, scroll, now);
+    cv_rect(8, 118, 224, 1, LK_RULE);
 }
 /* Setup 2: the original planet remains fixed at 76px in the center.
  * L and R are wavy orbital traces, separated symmetrically about a fixed

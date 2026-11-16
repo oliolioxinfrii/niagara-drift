@@ -1,7 +1,7 @@
 ---
 title: Sounds
 intro: Explore Volcano and find the sounds you want to make
-description: Recipes for sounds on Niagara Drift: ticks, a singing filter, hard sync, metallic cross-FM bells, stepped figures, warbling echoes, a frozen chord.
+description: Recipes for sounds on Volcano: ticks, a singing filter, hard sync, metallic cross-FM bells, stepped figures, warbling echoes, a frozen chord.
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
@@ -89,10 +89,10 @@ Each drone's sound bends the other's pitch, FM synthesis between the two. On pur
 into a metallic, bell-like sound; turned higher it clangs and runs wild.
 
 1. Press [[EDIT]] for **Osc**, and turn KNOB 1 and KNOB 3, the X-Waves, all the way down: **sine**.
-2. Press [[HOME]] twice for **Pitch**, and turn both drones high, a tritone apart (here C#6 and G6: the top of their
+2. Tap [[HOME]] until **Pitch** appears, and turn both drones high, a tritone apart (here C#6 and G6: the top of their
    range is about 1.6 kHz).
 3. Tap black key 11, [[F#5]], until it winks: **bend each other** (twice from off).
-4. Press [[LFO]] twice for **Mods**, and turn KNOB 4, X-mod, up: about 70 rings, 85 clangs.
+4. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: about 70 rings, 85 clangs.
 
 > **Good to know.** Simple intervals (an octave, a fifth) lock into harmonies instead of bells; awkward ones (a
 > tritone, a seventh) ring metallic. Lower down, on rich waves, cross-FM only thickens and roughens. If the Swell is
@@ -111,8 +111,8 @@ At key 11's first setting, drone I's sound moves drone II's filter, as fast as d
 buzzes and takes on drone I's pitch as a grain.
 
 1. Tap black key 11, [[F#5]], once: it lights, **I moves II's cutoff**.
-2. Press [[LFO]] twice for **Mods**, and turn KNOB 4, X-mod, up: the growl deepens.
-3. Press [[HOME]] twice for **Pitch**, and move drone I's pitch (KNOB 1): the growl changes its grain.
+2. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: the growl deepens.
+3. Tap [[HOME]] until **Pitch** appears, and move drone I's pitch (KNOB 1): the growl changes its grain.
 
 > **Good to know.** It's strongest with drone II's filter resonant and band-pass ([[A#4]]), as in **Vespers** (P3)
 > here. **Seance** (P6) uses it gently.
@@ -131,7 +131,7 @@ drags and tears the pitch, and the echoes with it. It's clearest on a steady sou
 
 1. Press [[FX]] for **Space**, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: more echoes for Snarl to drag.
 2. Tap black key 11, [[F#5]], three times from off: **Snarl** (it winks).
-3. Press [[LFO]] twice for **Mods**, and turn KNOB 4, X-mod, up: 40 a growl, 85 a snarl.
+3. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: 40 a growl, 85 a snarl.
 
 > **Good to know.** The **Snarl** gesture ([[B4]]) brings it in by pressure, with the drive and Feedback on top, and
 > leaves without a trace. **Clean** ([[F5]]) takes it out while you hold it.
@@ -156,7 +156,7 @@ four notes, a figure that repeats. Wander then moves the whole figure to a new n
 2. Tap [[LFO]] until **LFO Sends** appears, and tap [[OCT+]], LFO II's wave, until the screen says **OR 5**.
 3. Turn KNOB 3, drone II's pitch send, up: 40 is about ±4 semitones.
 4. Hold [[SEL]] and turn SELECT to adjust the LFO's rate, up for a quicker figure.
-5. Press [[SEQ]] twice for **Pitch moves**, and turn KNOB 3, Wander, up: every so often the figure starts on another
+5. Tap [[SEQ]] until **Pitch moves** appears, and turn KNOB 3, Wander, up: every so often the figure starts on another
    note.
 
 > **Good to know.** LFO I's OR ([[OCT−]]) is three times as fast: another figure. **AND** (AND 3 on LFO I, AND 5 on
@@ -174,13 +174,13 @@ four notes, a figure that repeats. Wander then moves the whole figure to a new n
 The Swell makes both drones breathe; lock the LFO to it and a square wave on the filters jumps on the same beat, the
 two filters in turn.
 
-1. Press [[ARP]] for the **Swell** page (tap it again if the Swell is off), and turn KNOB 1 for about a breath a
+1. Tap [[ARP]] until the **Swell** page appears (hold ARP for 400 ms if Swell is off), and turn KNOB 1 for about a breath a
    second.
 2. Tap [[LFO]] until **LFO Sends** appears. Tap [[OCT−]] until LFO I is **Square**, and tap key 8, [[A#4]], until LFO I moves
    drone II's cutoff too.
 3. Turn KNOB 2 and KNOB 4, the cutoff sends, one up and one down: the filters jump in turn. Hold [[SEL]] and turn SELECT to about the
    Swell's speed.
-4. Hold black key 5, [[D#4]], half a second: the LFO restarts on each of the Swell's breaths ("on Swell").
+4. Tap [[C#5]] to lock the LFO to Swell. Hold [[C#5]] for 500 ms if you want to reset the LFO phase without changing the lock state.
 
 > **Good to know.** Echoes blur the rhythm: if your sound has them, turn the delay's Mix down first ([[FX]],
 > KNOB 2). The Swell's speed sets the rhythm: the locked LFO restarts on each of its breaths. Hold [[D#4]]
@@ -222,11 +222,11 @@ When the delay's time moves, its echoes bend in pitch, as tape does when it spee
 it, and every echo warbles; let the Swell dip the drones, and the bending echoes ring on their own in the gaps.
 
 1. Press [[FX]] for **Space**, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: clear echoes to bend.
-2. Press [[ARP]] for the **Swell** (tap it again if it's off), and turn KNOB 1 up for about a breath a second: the
+2. Tap [[ARP]] until **Swell** appears (hold ARP for 400 ms if Swell is off), and turn KNOB 1 up for about a breath a second: the
    echoes sound in the gaps.
-3. Press [[LFO]] twice for **Mods**, and turn KNOB 3, Delay, all the way up: the LFO wobbles the delay's time by a
+3. Tap [[LFO]] until **Mods** appears, and turn KNOB 3, Delay, all the way up: the LFO wobbles the delay's time by a
    quarter, and every echo bends.
-4. Press [[FX]] twice for **Details**, and turn Time (KNOB 2) up: deeper, slower bends.
+4. Tap [[FX]] until **Details** appears, and turn Time (KNOB 2) up: deeper, slower bends.
 
 > **Good to know.** On the LFO pages, black key 10, [[D#5]], picks which LFO moves the delay's time: LFO I's
 > regular waves warble evenly, LFO II's random glide makes them wander, as here. Turning Time by hand bends the

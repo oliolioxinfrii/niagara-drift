@@ -1,73 +1,53 @@
 ---
 title: Time and transitions
-intro: Fast cuts or slow glides: time your transitions, and stop them part way
-description: Recipes for Niagara Drift's times: cut or glide between scenes, make a switch move slowly, fade in over seconds, stop a glide part way.
-image: t-cuts-1.png
+intro: Set the duration and shape of fades, scene transitions and sequences
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-Three times on **Setup 1** ([[GLO]]): Fade (KNOB 1), Morph (KNOB 2) and Scene time (KNOB 3).
+# Time and transitions
 
-### Cut or glide between scenes {#cuts}
+Three timing controls appear on **GLO → Setup 1**: Fade (KNOB 1), Morph (KNOB 2), and Scene time (KNOB 3). Sync (KNOB 4) selects external MIDI-clock following.
 
-*Scene time, from 0.1 s to 5 minutes*
+> **Screenshot needed — Timing curves:** `build/scenarios/volcano-ui/setup-time-overlay.png`.
 
-1. Turn **Scene time** all the way left: a scene key cuts to its sound.
-2. Turn it up: the same key glides there, as slowly as you set.
+## Cut or glide between scenes {#cuts}
 
-![Setup 1, Scene time 0.10 s](../media/t-cuts-0.png "Scene 0.10 s: a cut")
-![Setup 1, Scene time 7.8 s](../media/t-cuts-1.png "Scene 7.8 s: a glide")
+1. Open **GLO → Setup 1** and turn **Scene time** toward the shortest duration for an immediate change.
+2. Open **SAVE**, choose an occupied scene, select **LOAD** and press SAVE.
+3. Increase Scene time and load another scene to hear a slower change.
 
-**Listen** (`t-cuts`)
+The scene browser can also choose **TRANSITION** and a percentage, ending partway toward a selected target sound instead of loading it completely.
 
-- 0:00 P1 Niagara, Scene time 0.1 s
-- 0:01 P5 Abyss tapped: a cut
-- 0:04 P1 tapped: a cut back
-- 0:06 Scene time 8 s, P5 tapped: a slow glide
+> **Screenshot needed — Scene time and partial transition:** Capture Setup 1 and a scene-browser transition value from the v1.5 firmware.
 
-### Make a switch move slowly {#morph}
+## Make a switch move slowly {#morph}
 
-*Morph: a black key over seconds*
+1. On Setup 1, increase **Morph** with KNOB 2.
+2. Tap a black key or change an LFO waveform. The parameter changes over the selected time.
 
-1. Turn **Morph** up.
-2. Tap a black key, or an LFO's shape (OCT− or OCT+): its change comes in over that time.
+Morph applies to parameter changes such as oscillator/sub controls and LFO wave selection; **Scene time** controls scene loading and transitions.
 
-![Setup 1, Morph 8 s](../media/t-morph-0.png "Morph 8.0 s")
+## Fade in slowly, or fade out one drone {#fades}
 
-**Listen** (`t-morph`)
+1. Increase **Fade** using Setup 1, KNOB 1.
+2. Tap **PLAY** to fade the entire instrument in or out.
+3. To fade only drone II, use **SEL + OCT+**. Use it again to bring the drone back.
 
-- 0:00 P3 Vespers, Morph 0.02 s
-- 0:01 [[A#3]] tapped: thin and bright, at once
-- 0:04 Morph 8 s, tapped again: the body comes back slowly
-- 0:12 again: it thins as slowly
+**SEL + PLAY does not mute drone II** in Volcano v1.5; it starts, pauses or resumes the separate pitch sequencer.
 
-### Fade in slowly, or fade one drone out {#fades}
+## Change the spacing of a pitch sequence {#intervals}
 
-*Fade: PLAY over up to a minute*
+1. Open **SEQ → Sequence** and program two to four notes.
+2. Open **SEQ → Intervals** and set each event's relative arrival using KNOBs 1–3.
+3. Adjust KNOB 4 to change the duration of the whole progression without changing those relative positions.
 
-1. Turn **Fade** up, then tap [[PLAY]]: the drones come in over that time.
-2. Hold [[SEL]] and tap [[PLAY]]: drone II alone fades out (again, and it comes back).
+## Shape the pitch movement {#shape}
 
-![Setup 1, fading in over 10 s](../media/t-fade-0.png "Fade 10 s: FADING")
-![Setup 1, drone II out](../media/t-fade-1.png "SEL + PLAY: II OUT")
+1. Open **SEQ → Transitions**.
+2. Turn each active segment's knob (1→2, 2→3, 3→4 or 4→1).
+3. Compare smooth easing with early and late abrupt pitch changes.
 
-**Listen** (`t-fade`)
+> **Screenshot needed — SEQ Intervals and Transitions:** Capture both v1.5 pages with a multistep programmed sequence.
 
-- 0:00 P13 Telegraph, Fade 10 s, PLAY tapped: in over 10 s
-- 0:12 SEL + PLAY: drone II fades out
-
-### Stop a glide part way {#stop}
-
-*Turn a knob while a scene is on its way*
-
-1. Tap a scene on a slow Scene time.
-2. Turn any knob on the way: the glide stops there, a sound between the two.
-
-![Drones, the glide stopped by a turn of Cutoff](../media/t-stop-0.png "Stopped part way")
-
-**Listen** (`t-stop`)
-
-- 0:00 P1 Niagara, Scene time 8 s
-- 0:01 P5 Abyss tapped: a slow glide
-- 0:04 a knob turned: the glide stops there
+For the complete sequencer controls, see [SEQ reference](../reference/partner.md). For scenes, see [Scenes and saving](scenes.md).

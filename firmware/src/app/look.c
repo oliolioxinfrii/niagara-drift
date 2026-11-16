@@ -1814,16 +1814,16 @@ static void lk_pic_mods(void)
 }
 
 /* ---------------------------------------------------- Setup 1's picture --- */
-/* One graph, three independently calibrated fixed horizontal time domains.
- * Each trace starts low, rises over its current Fade/Morph/Scene duration,
- * and remains at the upper baseline until that parameter's maximum time.
- * The horizontal extent never rescales when a knob changes. */
+/* All three transitions share the maximum Scene time on the horizontal
+ * axis. Their separate final heights distinguish Fade (top), Morph (middle),
+ * and Scene (lower third), even when their durations coincide. */
 static float lk_ease(float u) { u = fm_clampf(u, 0.0f, 1.0f); return u * u * (3.0f - 2.0f * u); }
 static void lk_pic_setup1(void)
 {
     static const uint16_t color[3] = {
-        RGB(213, 62, 52), RGB(248, 147, 37), RGB(248, 216, 71)
+        RGB(248, 216, 71), RGB(248, 147, 37), RGB(213, 62, 52)
     };
+    static const int32_t plateau[3] = {25, 50, 77};
     static const char *const label[3] = {"FADE", "MORPH", "SCENE"};
     const int32_t x0 = 15, x1 = 230, high = 23, low = 103;
     float frac[3];
@@ -1847,7 +1847,8 @@ static void lk_pic_setup1(void)
     for (r = 0; r < 3; r++)
         frac[r] = fm_clampf(frac[r], 0.0f, 1.0f);
 
-    /* Three colors, but one coordinate system and no duplicate fade-out lines. */
+    /* Yellow Fade ends at the top, orange Morph halfway up, red Scene
+     * in the lower third; each shares the same time ruler. */
     for (r = 0; r < 3; r++)
         cv_text(15 + r * 73, 2, &FONT_XS, label[r], color[r]);
     cv_rect(x0, low, x1 - x0 + 1, 1, LK_RULE);
@@ -1858,10 +1859,7 @@ static void lk_pic_setup1(void)
         cv_rect(x, low + 2, 1, 3, LK_LABEL);
     }
     for (r = 0; r < 3; r++) {
-        /* Offset coincident trajectories by three pixels so a longer
-         * yellow plateau cannot conceal the red and orange traces. */
-        const int32_t offset = (r - 1) * 3;
-        int32_t prev = low + offset;
+        int32_t prev = low;
         for (i = 0; i <= x1 - x0; i++) {
             const float t = (float)i / (float)(x1 - x0);
             const float u = frac[r] > 0.001f ? fm_clampf(t / frac[r], 0.0f, 1.0f) : 1.0f;
@@ -1870,7 +1868,7 @@ static void lk_pic_setup1(void)
             const float v = r == 0 ? u * u :
                             r == 1 ? lk_ease(u) :
                             0.5f - 0.5f * fm_cosf(3.14159265f * u);
-            const int32_t yy = low - (int32_t)(v * (float)(low - high) + 0.5f) + offset;
+            const int32_t yy = low - (int32_t)(v * (float)(low - plateau[r]) + 0.5f);
             const int32_t x = x0 + i;
             if (i) cv_line(x - 1, prev, x, yy, color[r]);
             prev = yy;
@@ -1878,7 +1876,7 @@ static void lk_pic_setup1(void)
         {
             const int32_t marker = x0 + (int32_t)(frac[r] * (float)(x1 - x0) + 0.5f);
             const uint16_t ink = lit(r) ? LK_WHITE : color[r];
-            cv_round(marker - 2, high + offset - 2, 5, 5, 2, ink);
+            cv_round(marker - 2, plateau[r] - 2, 5, 5, 2, ink);
         }
     }
     cv_text(x0, 109, &FONT_XS, "0", LK_LABEL);

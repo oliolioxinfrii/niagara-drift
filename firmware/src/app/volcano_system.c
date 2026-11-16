@@ -1,11 +1,21 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Orbit/scene browser and the transient geological navigation atlas. */
 
+/* Eight bank identities, from P1's FX deep blue to P2's icy white.
+ * The SAVE browser navigation order (A-F, P1, P2) is unchanged. */
+static uint16_t vs_bank_ink(int bank)
+{
+    static const uint8_t stop[NBANKS] = {1, 2, 3, 0, 4, 5, 6, 7};
+    return lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], (float)stop[bank] / 7.0f);
+}
 /* The ellipse is a dotted instrument track, not a rendered planet orbit.
- * Scene markers are evenly spaced along it and remain identifiable by slot. */
-static void vs_orbit_figure(int slot, int filled, const char *name)
+ * Only the track and node outlines adopt the current bank's shade.
+ * The satellite remains the original warm geological palette. */
+static void vs_orbit_figure(int bank, int slot, int filled, const char *name)
 {
     const float twopi = 6.2831853f, quarter = 1.5707963f;
+    const uint16_t bank_ink = vs_bank_ink(bank);
+    const uint16_t node_fill = lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], 0.0f);
     int i, band;
     cv_text(10, 2, &FONT_XS, "ORBIT / RECORDED STATES", LK_LABEL);
     /* The planetary fragment is intentionally only a layered cutaway. */
@@ -35,19 +45,18 @@ static void vs_orbit_figure(int slot, int filled, const char *name)
         const int x = 120 + (int)(101.0f * fm_sinf(a + quarter));
         const int y = 57 + (int)(35.0f * fm_sinf(a));
         if ((i % 5) != 0)
-            cv_rect(x, y, 1, 1, vg_dim(LK_WHITE, 0.64f));
+            cv_rect(x, y, 1, 1, vg_dim(bank_ink, 0.80f));
     }
     for (i = 0; i < 8; i++) {
         const float a = twopi * (float)i / 8.0f;
         const int x = 120 + (int)(101.0f * fm_sinf(a + quarter));
         const int y = 57 + (int)(35.0f * fm_sinf(a));
-        const uint16_t col = i == slot ? LK_WHITE : (scene_has(BANK_ORDER[ui.menu_bank], i) ?
-                                                     VL_SURFACE : LK_UNLIT);
+        const uint16_t col = i == slot ? bank_ink : vg_dim(bank_ink, scene_has(bank, i) ? 0.82f : 0.42f);
         cv_round(x - 3, y - 3, 7, 7, 3, col);
-        cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
+        cv_round(x - 1, y - 1, 3, 3, 1, node_fill); /* always deep FX blue, never hollow */
         if (i == slot) {
-            cv_rect(x - 1, y - 6, 3, 1, VL_SURFACE);
-            cv_rect(x - 1, y + 6, 3, 1, VL_SURFACE);
+            cv_rect(x - 1, y - 6, 3, 1, bank_ink);
+            cv_rect(x - 1, y + 6, 3, 1, bank_ink);
         }
     }
     /* Two small solar-array grids connected to an angled central body. */
@@ -103,7 +112,7 @@ static void vl_save_menu(void)
     cv_blit(0, 0);
     cv_begin(240, LK_PIC_H, LK_BG);
     if (ui.save_menu == 1) {
-        vs_orbit_figure(slot, filled, name);
+        vs_orbit_figure(bank, slot, filled, name);
     } else if (ui.save_menu == 2) {
         /* The cursor stays inside the fixed-size slot-name buffer. */
         cv_text(12, 9, &FONT_XS, "RENAME RECORDED STATE", LK_LABEL);

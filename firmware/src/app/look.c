@@ -3216,7 +3216,9 @@ static void lk_frame(void)
     static int was = -1;                       /* into or out of overlays: every band afresh */
     const int atlas = ui.hold_btn == B_HOME && !(ui.btn >> B_SEL & 1u) &&
                       !ui.hold_turned && plat_ms() - ui.hold_t >= HOLD_MS;
-    const int km = ui.save_menu ? 2 : atlas ? 3 : keymap_on();
+    /* SEL remains a modifier, but holding it never replaces the active page
+     * with a keyboard reference overlay. */
+    const int km = ui.save_menu ? 2 : atlas ? 3 : 0;
     const int changed = km != was;
     if (changed) {
         was = km;

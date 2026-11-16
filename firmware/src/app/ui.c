@@ -2422,6 +2422,7 @@ static void input(void)
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
             gesture_up((int)i);
     }
+    } /* end normal keyboard dispatch; sequencer's keyboard is handled separately */
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();

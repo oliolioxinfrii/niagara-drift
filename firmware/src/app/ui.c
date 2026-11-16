@@ -129,6 +129,8 @@ static const char *const BANK_N[NBANKS] = {"A", "B", "C", "PRESETS 1-8", "D", "E
 static const uint8_t BANK_ORDER[NBANKS] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
 static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL", "STUTTER"};
 static const char *const SUB_NAME[4] = {"STRIP", "DARK", "STILL", "TAIL"};
+#define G_PRESS DR_G_TICK
+static int gl_par(int g) { return g < G_PRESS ? P_GL_0 + g : P_GL_4 + g - G_PRESS; }
 enum { S_NONE, S_PARTNER, S_SUBOCT, S_HP, S_OTAP, S_ODEST, S_FTAP, S_FDEST, S_PLINK, S_SYNC, S_XMOD, S_LFORESET, S_DTAP,
        S_PLOCK };
 typedef struct {
@@ -234,6 +236,7 @@ static struct {
     int16_t sub_sent[8];
     uint16_t key_held;                 /* all sixteen white keys, physical positions */
     uint16_t key_was_returning;        /* state when the current press began */
+    uint16_t key_initial_zero;         /* short touch from zero retains the small value */
     uint8_t key_mode[16];             /* 0: stationary, 1: returning, 2: paused return */
     uint32_t key_t0[16];
     uint32_t g_last;
@@ -1858,9 +1861,8 @@ static void midi_in(void)
  * Keys 1-8 are STRIP/DARK/STILL/TAIL for drone I and II; 9-16 retain
  * TICK/CHORD/SNARL/STUTTER/WEIGHT/SHIFT/CLEAN/WASH. */
 #define GEST_TAP_MS 220u
-#define G_PRESS DR_G_TICK
-static int gl_par(int g) { return g < G_PRESS ? P_GL_0 + g : P_GL_4 + g - G_PRESS; }
 static int key_gesture(int i) { return i < NPLAY ? -1 : i < NSCENES ? G_PRESS + i - NPLAY : i - NSCENES; }
+static uint32_t gkey(int g) { return g < G_PRESS ? WHITE_K[NSCENES + g] : WHITE_K[NPLAY + g - G_PRESS]; }
 static float *key_amount(int i) { return i < NPLAY ? &ui.sub_amt[i] : &ui.g_amt[key_gesture(i)]; }
 static void key_rejoin(int i, int on)
 {
@@ -1881,10 +1883,13 @@ static void gesture_down(int i)                  /* i: physical white key, 0..15
         ui.key_was_returning &= (uint16_t)~bit;
     }
     ui.key_held |= bit;
+    if (*key_amount(i) <= 0.0001f) ui.key_initial_zero |= bit;
+    else ui.key_initial_zero &= (uint16_t)~bit;
     ui.key_t0[i] = plat_ms();
     if (i >= NPLAY) {
         const int g = key_gesture(i);
         ui.g_held |= (uint8_t)(1u << g);
+        ui.g_t0[g] = ui.key_t0[i];
         hands_on(gl_par(g));
     } else if (i == 2 || i == 6) {
         key_rejoin(i, 0);
@@ -1900,8 +1905,7 @@ static void gesture_up(int i)
     ui.key_held &= (uint16_t)~bit;
     if (i >= NPLAY)
         ui.g_held &= (uint8_t)~(1u << key_gesture(i));
-    if (held < GEST_TAP_MS && amount > 0.0f &&
-        !(ui.key_t0[i] && amount < 0.00001f)) {
+    if (held < GEST_TAP_MS && amount > 0.0f && !(ui.key_initial_zero & bit)) {
         if (ui.key_was_returning & bit) {
             ui.key_mode[i] = 2;                 /* tap during return: hold its position */
         } else if (ui.key_mode[i] == 2) {
@@ -1915,6 +1919,7 @@ static void gesture_up(int i)
         ui.key_mode[i] = 0;                     /* a release after a hold is a latch */
     }
     ui.key_was_returning &= (uint16_t)~bit;
+    ui.key_initial_zero &= (uint16_t)~bit;
     if (i >= NPLAY) {
         int g = key_gesture(i), v = (int)(amount * 100.0f + 0.5f);
         proj.par[gl_par(g)] = (int16_t)v;
@@ -2250,7 +2255,6 @@ static void input(void)
         return;
     }
     if ((ch & btn) >> B_SEL & 1u) {
-        int g;
         ui.sel_t = plat_ms();
         ui.sel_turned = 0;
         if (ui.press >= 0 && !ui.press_done && plat_ms() - ui.press_t0 >= PR_WAIT_MS) {   /* ... a scene key: the
@@ -2784,17 +2788,8 @@ static void leds(void)
         b[B_REC] = 255;
     else if (ui.loop == L_REC)
         b[B_REC] = now - ui.loop_t0 + 20000u >= LOOP_MS ? ((ui.frame / 8u) & 1u ? 255 : 0) : now % 1000u < 500u ? 255 : 0;
-    {                                                  /* SEL: glows while it can keep what a hand holds (a blend, a
-                                                        * gesture past its tap) */
-        int keep = ui.press >= 0 && !ui.press_done && now - ui.press_t0 >= PR_WAIT_MS;
-        for (i = 0; i < DR_NGEST; i++)
-            if ((ui.g_held >> i & 1u) && !(ui.g_rel >> i & 1u) && now - ui.g_t0[i] >= GEST_TAP_MS)
-                keep = 1;
-        if (keep) {
-            b[B_SEL] = 128;
-            tip(TIP_KEEP);
-        }
-    }
+    if (ui.press >= 0 && !ui.press_done && now - ui.press_t0 >= PR_WAIT_MS)
+        b[B_SEL] = 128;  /* SEL no longer latches gestures */
     {                                                  /* the black keys' active switch layer */
         const sw_t *layer = sw_layer();
         for (i = 0; i < 11u; i++) {
@@ -2826,7 +2821,10 @@ static void leds(void)
     else if (ui.flash_t && ui.press >= 0 && now - ui.flash_t < 480u)
         k[WHITE_K[ui.press]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
     }
-    for (i = 0; i < DR_NGEST; i++) {                 /* gestures: actual amount, no minimum light when off */
+    if (!ui.scene_keys_enabled)
+        for (i = 0; i < NPLAY; i++)
+            k[WHITE_K[i]] = (uint8_t)(255.0f * ui.sub_amt[i] + 0.5f);
+    for (i = 0; i < DR_NGEST; i++) {
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
     }
@@ -2872,6 +2870,10 @@ void ui_init(void)
     dr_phones = (uint8_t)(ui.jack || plat_speaker_muted());   /* restore user preference; default speaker ON */
     ui.save_q = -2;
     sd_init();
+    for (int g = 0; g < DR_NGEST; g++) {
+        ui.g_amt[g] = (float)proj.par[gl_par(g)] * 0.01f;
+        ui.g_sent[g] = -1;
+    }
     ui.g_last = plat_ms();
     ui.splash_t0 = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);

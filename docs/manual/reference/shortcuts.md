@@ -1,6 +1,6 @@
 ---
 title: Shortcuts
-intro: Quick reference for button combinations, holds and taps
+intro: Page controls, transport, gesture taps and SEL combinations
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
@@ -11,46 +11,45 @@ intro: Quick reference for button combinations, holds and taps
 
 | Input | Action |
 |---|---|
-| Hold [[SEL]], turn **SELECT** | Adjust the common LFO rate or synced cycle division |
-| [[SEL]] + [[PLAY]] | Start, pause or resume pitch-sequencer transport without fading the drones |
-| [[SEL]] + [[HOME]] | Generate a randomized working sound and sequence without overwriting saved scenes |
-| [[SEL]] + [[SAVE]] | Undo or redo the last supported scene/transition change |
-| [[SEL]] + [[OCT−]] / [[OCT+]] | Toggle drone I / II out or back in |
-| Hold [[SEL]], turn a pitch or fine-adjustable knob | Make smaller steps; secondary controls where available |
-| Hold [[SEL]], touch a black key | Show the switch name and state without changing it |
-| Hold [[SEL]], turn KNOB 1 on **SEQ → Sequence** | Retune the selected pitch event along the current tuning grid |
-| Tap [[SEL]] while a gesture key is held | Latch that gesture at its current intensity |
-| Hold [[SEL]], turn KNOB 1 or 3 on **Sub · Drive** | Select that drone's sub waveform |
-| Hold [[SEL]], turn KNOB 1 on **Swell shape** | Adjust the original Shape parameter |
-| Hold [[SEL]], turn KNOB 2 on **Details** | Select delay type |
-| Hold [[SEL]], turn KNOB 4 on **Details** | Select the reverb input |
+| Hold **[[SEL]]**, turn **SELECT** | Change the shared LFO rate or clock-synchronized division |
+| **SEL + PLAY** | Start/pause/resume pitch-sequencer transport without changing the global PLAY fade |
+| **SEL + HOME** | Randomize the current sound and working sequence without overwriting saved slots |
+| **SEL + SAVE** | Undo/redo a supported sound change |
+| **SEL + OCT− / OCT+** | Toggle drone I / II on or off |
+| Hold **SEL**, turn a pitch or fine-adjustable knob | Make fine adjustments or use that page's secondary control |
+| **SEL + KNOB 1** on Sequence | Retune selected event on the current grid |
+| **SEL + KNOB 1 or 3** on Sub · Drive | Change the selected drone's sub waveform |
+| **SEL + KNOB 1** on Swell shape | Adjust original Shape |
+| **SEL + KNOB 2** on Details | Change delay type |
+| **SEL + KNOB 4** on Details | Change reverb input |
 
-### Page buttons and other holds
+Holding **SEL** leaves the current parameter page visible rather than opening the old key-map overlay. **SEL is not needed to retain a gesture amount**: releasing a gesture key retains it.
+
+### Gesture keys and navigation
 
 | Input | Action |
 |---|---|
-| Tap a page button again | Go to the next page in that family |
-| Turn **SELECT** | Go to the previous/next page within the current family |
-| Hold a page button, turn a knob, release | Temporarily edit that page, then return (except ARP) |
-| Hold [[HOME]] for 400 ms, release | View the geological activity atlas, then return to the previous page |
-| Hold [[ARP]] for 400 ms | Turn Swell on or off |
-| Tap a gesture key | Latch it fully; tap again to release it |
-| Tap [[SAVE]] | Open the scene browser |
-| **SAVE** in the scene browser | Confirm the selected action or overwrite |
-| **HOME** in the scene browser | Back/cancel |
-| **REC** in the scene browser | Rename the selected user slot |
-| Tap [[OCT−]] / [[OCT+]] | Advance LFO I / II waveform |
-| Hold [[OCT−]] / [[OCT+]] for 400 ms | Bypass or restore the respective LFO |
-| Tap [[C#5]] | Toggle LFO synchronization with Swell |
-| Hold [[C#5]] for 500 ms | Reset LFO phase without changing synchronization |
-| Tap [[REC]] repeatedly outside the browser | Record motion, begin loop playback, stop |
-| Hold [[OCT−]] and [[OCT+]] for 5 seconds | Enter the FM-1's recovery/update mode |
+| **White keys 1–4** | STRIP, DARK, STILL, TAIL for drone I |
+| **White keys 5–8** | STRIP, DARK, STILL, TAIL for drone II |
+| **White keys 9–16** | Tick, Chord, Snarl, Stutter, Weight, Shift, Clean, Wash |
+| Hold any gesture key | Increase intensity toward 100% over Morph Time |
+| Release a gesture key | Retain the reached intensity |
+| Tap an already active gesture | Return toward zero; tap to pause or resume that return |
+| Turn **PRESETS** | Adjust **Morph Time** for gesture movement |
+| Tap a page button twice / turn SELECT | Cycle pages within its family |
+| Hold **HOME** (~400 ms) | Inspect geological atlas; release to return |
+| Hold **ARP** (~400 ms) | Toggle Swell on or off |
+| Tap **SAVE** | Open the orbital scene browser |
+| **SAVE** in the browser | Confirm SAVE, immediate LOAD, or timed TRANSITION |
+| **HOME** in the browser | Back/cancel |
+| **REC** in the browser | Rename a user slot |
+| Tap **OCT− / OCT+** | Advance LFO I / II waveform |
+| Hold **OCT− / OCT+** (~400 ms) | Bypass or restore that LFO |
+| Tap **C♯5** outside SEQ note entry | Pause/resume both LFO waveforms at their current phase |
+| Hold **C♯5** (~500 ms) outside SEQ note entry | Smoothly rewind both LFO and Swell phase progressions to zero at the current LFO rate, then resume automatically |
+| Tap **REC** repeatedly outside the browser | Record, play back, stop a motion loop |
+| Hold **OCT− and OCT+** for five seconds | Enter chip update/recovery mode |
 
-### Keys
+On **SEQ → Sequence**, **all 27 physical piano keys** are note inputs, not ordinary switches or gestures. The normal black keys control drone switches; on the LFO pages they control modulation routing, except for shared transport and other global switches.
 
-- **White keys 1–8:** reserved on ordinary pages; note input on the Sequence page.
-- **White keys 9–12:** Tick, Chord, Snarl and Stutter (pressure gestures).
-- **White keys 13–16:** Weight, Shift, Clean and Wash (hold/tap gestures).
-- **Black keys:** drone switches outside LFO pages; modulation routing on LFO pages; pitch-entry notes on the Sequence page.
-
-To navigate scenes, use **SAVE → bank → slot → action**, not SEL + gesture or SAVE + white key. See [Scenes](scenes.md).
+See [Gestures](gestures.md), [Scenes](scenes.md) and [First pitch sequence](../recipes/sequencing.md).

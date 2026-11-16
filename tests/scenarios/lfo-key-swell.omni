@@ -22,17 +22,18 @@ expect lfo_transport 1
 tapkey b8
 expect lfo_transport 0
 wait 450
-# Long press rewinds both waveforms and Swell phases at the LFO rate,
-# leaves the transport stopped, without reviving the old lock.
+# Long press rewinds both waveforms and Swell phases at the LFO rate.
+# When they reach zero, playback automatically rebounds forward; no tap.
+# The legacy lock parameter remains unchanged.
 key b8 down
 wait 700
 key b8 up
 expect par67 0
 wait 5000
+expect lfo_transport 0
+# The following tap must PAUSE, proving the long press auto-resumed.
+tapkey b8
 expect lfo_transport 1
-expect lfo_phase 0
-expect swell1_phase 0
-expect swell2_phase 0
 tapkey b8
 expect lfo_transport 0
 tap LFO

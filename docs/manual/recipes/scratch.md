@@ -6,7 +6,7 @@ description: A step-by-step Volcano v1.5 tutorial using the SAVE browser and sou
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-# Build a sound from scratch
+### Build a sound from scratch {#scratch}
 
 *Begin with one oscillator and gradually introduce the second drone, sub, modulation and effects.*
 

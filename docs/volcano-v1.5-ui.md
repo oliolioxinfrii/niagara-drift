@@ -116,7 +116,8 @@ The test runner writes the new gallery of screenshots to
 `build/scenarios/volcano-ui/`, including
 `geological-atlas.png`, `orbit-memory.png`, `life.png`,
 `tone.png`, `surface.png`, `pitch-scope.png`, `pitch-resonance.png`,
-`setup-time-overlay.png`, and `atmosphere.png`.
+`setup-time-overlay.png`, `planet-stereo-narrow.png`, `planet-stereo-wide.png`,
+`life-lava-full.png`, and `atmosphere.png`.
 
 ## Review questions
 

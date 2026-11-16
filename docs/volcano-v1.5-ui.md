@@ -36,9 +36,41 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 | LFO | Waves, Sends, Mods | Existing informative wave/route diagrams, recolored in the Deep Mantle family |
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained. Random Start now randomizes all active transition shapes, including the loop back to step 1 |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
-| FX | Space, Details | Cyan seismographic arrivals and reverberant coda; the noise traces scroll forward and then reverse smoothly on a 9.24-second cosine-eased visual loop rather than jumping back at the end. Adjacent texture samples are interpolated for continuous motion. The 50/50 linear–square-root display gain remains; icy-white value ramps |
+| FX | Space, Details | Unchanged delay-arrival waveform above a model-driven, three-layer reverb coda. Room, Hall, Cathedral, Chorus Hall and Shimmer now have characteristic onsets and motion. DAMP removes treble texture, LENGTH changes the compressed tail, Chorus Hall adds a counter-moving strand, and Shimmer introduces an octave-up halo with an eight-second wash. The 9.24-second forward/reverse loop and icy-blue palette remain |
 | GLO | Setup 1, Setup 2 | Setup 1 gives yellow Fade (top), orange Morph (middle), and red Scene (lower third) distinct plateau heights on a common five-minute maximum Scene axis (or a longer maximum clock-synced span). Pixel-column strokes keep all three curves and their complete plateaus continuous at native and scaled display sizes. Setup 2 retains the same-sized centered planet, with animated L/R wavy orbits converging toward or diverging from a fixed external orbital reference as Stereo changes; the built-in speaker remains on KNOB 4 |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
+
+## FX reverb seismograph (model-driven, not FFT)
+
+The FX picture retains a seismographic layout within the 240 × 124-pixel
+picture strip. Only its **lower, reverb trace** has changed: the upper delay
+arrivals are unchanged. This is a **parameter-derived diagram**, not a
+measurement of the device's audible spectral output.
+
+The reverb types reuse their actual DSP profile values (mirrored here in
+the visualization): Room (4 ms predelay, 0.35 network size), Hall (18 ms,
+0.75), Cathedral (42 ms, 1.0), Chorus Hall (24 ms, 0.85 and much stronger
+modulation), and Shimmer (Hall geometry with an octave-up input). The left
+part of the trace resolves the early predelay and network buildup; the rest
+uses a compressed decay representation. This is intentionally not a single
+linear time scale, because milliseconds of predelay and seconds of reverb
+would otherwise be impossible to read together.
+
+Three overlapping blue traces represent slow body, mid-frequency diffusion
+and treble detail. DAMP progressively removes the fine trace toward the tail
+while preserving the low-frequency body; at **Inf**, the DSP disables damping
+and the visual trace also holds without decay. Chorus Hall draws an additional,
+dim counter-moving strand corresponding to its larger delay-line modulation
+and stereo width. Shimmer gradually adds a finer icy-blue halo over roughly
+eight seconds and lets it recede over six seconds. This wash is estimated
+inside the display, not read from the actual audio-buffer level.
+
+All textures remain deterministic, use the existing FX blue ramp and
+follow the same cosine-eased 9.24-second forward/reverse scroll as before.
+No audio DSP, saved-state layout or parameter mapping has been changed.
+`tests/scenarios/fx-reverb-model.omni` records screenshots for all five
+types, maximum DAMP, and infinite hold; build and hardware frame-rate
+validation are still required.
 
 ## Control behavior
 

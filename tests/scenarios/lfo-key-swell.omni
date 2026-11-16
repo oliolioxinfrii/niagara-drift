@@ -5,7 +5,7 @@ set 39 0
 set 67 0                       # legacy LFO-to-Swell parameter is no longer a key action
 set 45 0
 set 47 104                      # LFO period short enough for a 5 s stop test
-set 59 1                        # Swell enabled (transport also returns both envelopes)
+set 55 1                        # Swell enabled (transport also returns both envelopes)
 tap LFO
 expect view 6
 tapkey b4

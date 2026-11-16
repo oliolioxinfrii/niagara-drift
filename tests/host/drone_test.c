@@ -1337,18 +1337,21 @@ int main(void)
             last_swell1 = dr_pulse_dr_ph[1];
         }
         check("LFO STOP rewind is monotone without a phase jump", smooth);
-        check("LFO STOP arrives paused at exact phase zero for both Swells",
-              dr_lfo_transport == DR_LFO_PAUSE && dr_lfo_ph < 0.001f &&
+        check("LFO STOP reaches zero and automatically returns to RUN",
+              dr_lfo_transport == DR_LFO_RUN && dr_lfo_ph < 0.001f &&
               dr_lfo_dr_ph[0] < 0.001f && dr_lfo_dr_ph[1] < 0.001f &&
               dr_pulse_dr_ph[0] < 0.001f && dr_pulse_dr_ph[1] < 0.001f);
+        /* No user command: the next audio blocks must move both clocks
+         * forward, immediately after their rubber-band turnaround. */
         run(secs(0.2f));
-        check("LFO STOP keeps both LFO and Swell clocks at zero",
-              dr_lfo_ph < 0.001f && dr_pulse_dr_ph[0] < 0.001f &&
-              dr_pulse_dr_ph[1] < 0.001f);
-        dr_lfo_transport_set(DR_LFO_RUN);
-        run(secs(0.3f));
-        check("LFO resumes from the beginning after STOP", dr_lfo_transport == DR_LFO_RUN &&
-              dr_lfo_ph > 0.02f);
+        check("LFO and Swell progress from zero without another tap",
+              dr_lfo_transport == DR_LFO_RUN && dr_lfo_ph > 0.02f &&
+              dr_lfo_dr_ph[0] > 0.02f && dr_lfo_dr_ph[1] > 0.02f &&
+              dr_pulse_dr_ph[0] > 0.01f && dr_pulse_dr_ph[1] > 0.01f);
+        dr_lfo_transport_set(DR_LFO_PAUSE);
+        run(1);
+        check("Short tap pause still works after automatic rewind/resume",
+              dr_lfo_transport == DR_LFO_PAUSE);
     }
 
     {   /* RATE MOD: the LFO's own wave speeding it where high, slowing it where low: a triangle on Wave I

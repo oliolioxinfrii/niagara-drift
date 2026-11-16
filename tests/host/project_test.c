@@ -104,8 +104,8 @@ int main(void)
               scene_has(BANK_D + 2, 5) && !scene_has(BANK_D + 2, 6) && proj_note_presets == 6);
     check("the scenes' Colours converted, B's too", a1[DR_GP(1, GP_NCOLOR)] == 100 && b4[DR_GP(1, GP_NCOLOR)] == 100);
     check("saved: the project and banks B and C written", project_save() == 0 && store_n[OBJ_PROJ] == (int)sizeof(project_t) &&
-                                                       store_n[OBJ_BANKB] == (int)sizeof(bank_t) &&
-                                                       store_n[OBJ_BANKC] == (int)sizeof(bank_t));
+                                                       store_n[OBJ_BANKB] == (int)(sizeof(bank_t) + sizeof(seq_sidecar_t)) &&
+                                                       store_n[OBJ_BANKC] == (int)(sizeof(bank_t) + sizeof(seq_sidecar_t)));
     proj.par[DR_GP(0, GP_PITCH)] = 5000;
     check("a scene into C3", scene_put(2, 2) == 0 && scene_get(2, 2) && project_save() == 0 && store_n[OBJ_BANKC]);
     check("no Preset can be saved over (P3, P16)", scene_put(BANK_PRESETS, 2) != 0 &&
@@ -248,7 +248,7 @@ int main(void)
                   scene_get(1, 2)[DR_GP(0, GP_PITCH)] == 2222 && scene_get(1, 2)[P_WANDER] == 0 &&
                   scene_get(1, 2)[P_GD_1] == dr_param_info(P_GD_1)->def);
         check("... and B written again in the new layout on the next save",
-              project_save() == 0 && store_n[OBJ_BANKB] == (int)sizeof(bank_t));
+              project_save() == 0 && store_n[OBJ_BANKB] == (int)(sizeof(bank_t) + sizeof(seq_sidecar_t)));
     }
     {   /* PR #12's (22): the macros, 94 values a sound; the effects' four take their defaults */
         static proj_v22_t p22;
@@ -283,7 +283,7 @@ int main(void)
                   scene_get(2, 0)[P_CHAR] == 77 && scene_get(2, 0)[P_DLY_TYPE] == 3 &&
                   scene_get(2, 0)[P_PRESS_SENS] == 50);
         check("... and C written again in the new layout on the next save",
-              project_save() == 0 && store_n[OBJ_BANKC] == (int)sizeof(bank_t));
+              project_save() == 0 && store_n[OBJ_BANKC] == (int)(sizeof(bank_t) + sizeof(seq_sidecar_t)));
     }
     old_project(20u);
     check("v0.2's first (20) loads, Colours as they were",
@@ -318,7 +318,7 @@ int main(void)
                   scene_get(0, 1)[P_DLY_TYPE] == 4 && scene_get(1, 0)[P_DLY_TYPE] == 1);
         check("... the reverb's route (new in 33) as it was: both the drones and their echoes into it",
               proj.par[P_DLY_ROUTE] == 0 && scene_get(0, 0)[P_DLY_ROUTE] == 0 && scene_get(1, 0)[P_DLY_ROUTE] == 0);
-        check("... and written again in 33 on the next save", project_save() == 0 && store_n[OBJ_BANKB] == (int)sizeof(bank_t));
+        check("... and written again in 33 on the next save", project_save() == 0 && store_n[OBJ_BANKB] == (int)(sizeof(bank_t) + sizeof(seq_sidecar_t)));
     }
     {   /* 34 (#43): 101 values a sound, before the LFO's, the delay's and the scenes' clock values */
         static proj_v34_t p34;
@@ -736,8 +736,8 @@ int main(void)
         check("... and F8", scene_put(BANK_D + 2, 7) == 0 && scene_get(BANK_D + 2, 7)[DR_GP(0, GP_PITCH)] == 4200);
         check("... not key 9 (a gesture there)", scene_put(BANK_D + 1, NPLAY) != 0 && !scene_has(BANK_D + 1, NPLAY));
         proj.bank = BANK_D + 2;
-        check("saved: D and F written, E not", project_save() == 0 && store_n[OBJ_BANKD] == (int)sizeof(bank8_t) &&
-                                               store_n[OBJ_BANKF] == (int)sizeof(bank8_t) && store_n[OBJ_BANKE] == 0);
+        check("saved: D and F written, E not", project_save() == 0 && store_n[OBJ_BANKD] == (int)(sizeof(bank8_t) + sizeof(seq_sidecar_t)) &&
+                                               store_n[OBJ_BANKF] == (int)(sizeof(bank8_t) + sizeof(seq_sidecar_t)) && store_n[OBJ_BANKE] == 0);
         memset(&proj, 0, sizeof proj);
         check("... reloaded: D1 and F8 as stored, on bank F", project_load() == 0 && proj.bank == BANK_D + 2 &&
               scene_get(BANK_D, 0) && scene_get(BANK_D, 0)[DR_GP(0, GP_PITCH)] == 4100 && scene_get(BANK_D + 2, 7) &&
@@ -750,5 +750,42 @@ int main(void)
         check("a bank past the eight: A", project_load() == 0 && proj.bank == 0);
     }
     printf("project: %s\n", fails ? "FAILED" : "all ok");
+    {   /* Complete authored progressions round-trip with each of A-F's eight slots.
+         * Legacy project_t and bank_t prefixes remain identical in size. */
+        const int banks[6] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2};
+        seq_scene_t original[6], in;
+        int b, i, g, passed = 1;
+        memset(store_n, 0, sizeof store_n);
+        bank_dirty = 0;
+        project_defaults();
+        for (b = 0; b < 6; b++) {
+            memset(&in, 0, sizeof in);
+            in.count = (uint8_t)(2 + b % 3);
+            in.drone = (uint8_t)(b & 1);
+            in.phase = (uint8_t)(b * 13);
+            for (i = 0; i < SEQ_STEPS; i++) {
+                in.gap_s[i] = (uint16_t)(7 + b + i);
+                in.shape[i] = (int8_t)(i * 40 - 60);
+                for (g = 0; g < 2; g++)
+                    in.note[g][i] = (int16_t)(4000 + 100 * b + 50 * g + i * 120);
+            }
+            original[b] = in;
+            check("sequence fixture: save scene and progression", scene_put(banks[b], 0) == 0 &&
+                  project_seq_put(banks[b], 0, &in) == 0);
+        }
+        check("all six sequencer banks saved", project_save() == 0 &&
+              store_n[OBJ_BANKP] > (int)sizeof(bank_t));
+        project_load();
+        for (b = 0; b < 6; b++) {
+            const seq_scene_t *restored = project_seq_get(banks[b], 0);
+            if (!restored || memcmp(restored, &original[b], sizeof original[b]))
+                passed = 0;
+        }
+        check("A-F sequence count, intervals, curves, notes and phase round-trip", passed);
+        check("empty slots and factory presets have no saved progressions",
+              project_seq_get(0, 1) == 0 && project_seq_get(BANK_PRESETS, 0) == 0);
+        check("sequence trailer does not alter the legacy project format",
+              proj.format == PROJ_FORMAT && store_n[OBJ_PROJ] == (int)sizeof(project_t));
+    }
     return fails != 0;
 }

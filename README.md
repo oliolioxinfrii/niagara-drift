@@ -112,8 +112,14 @@ incorporated into Volcano. **Jiant** is another firmware I use frequently;
 Volcano should—and should not—attempt to be. This is a distinction
 between **influence** and **code or design reuse**.
 
-See [About Volcano](docs/manual/about.md#credits-and-lineage) for more
-detail and [From Niagara Drift](docs/manual/migration.md) for the changed
-controls. Licensed under GPL-3.0-only, except for the MPL-2.0 components
+**Development note.** The Volcano-specific code changes and most of this
+fork's documentation were written by ChatGPT under my direction. My work is
+primarily in scientific programming rather than C; this attribution applies
+to the changes I made to Niagara Drift, not to the original firmware and
+contributors credited above.
+
+See [About Volcano](docs/manual/about.md#development-and-ai-assistance) for
+more about the development process and
+[From Niagara Drift](docs/manual/migration.md) for the changed controls. Licensed under GPL-3.0-only, except for the MPL-2.0 components
 identified in [LICENSING.md](LICENSING.md). Volcano is not affiliated with
 or endorsed by M-VAVE or any of the projects named above.

@@ -26,9 +26,19 @@ The fade duration is set by **GLO → Setup 1 → Fade** (KNOB 1).
 3. Press REC again: the recorded movement repeats while you can play on top.
 4. Press REC a third time to stop the loop.
 
-The loop captures performance changes, not a new MIDI note sequence. The separate pitch sequencer is controlled by **SEL + PLAY**.
+The loop records parameter and original-gesture performance changes; it does not replace the independent **SEL + PLAY** pitch-sequencer transport. STRIP, DARK, STILL and TAIL are live session controls, not scene-slot settings. Test their interaction with REC rather than assuming that a saved scene will restore those amounts.
 
 > **Screenshot needed — REC and LOOP:** Capture the v1.5 header during recording and looping.
+
+### Slow one drone without muting it {#still}
+
+*STILL changes a drone's local time progression, not its audio output.*
+
+1. Start a two-drone progression with **SEL + PLAY**.
+2. Hold white key **7 (STILL II)** to slow drone II's LFO, Swell and sequencer clocks. At 100% they stop moving while its oscillator continues sounding.
+3. Release to retain that depth. Tap key 7 to return to zero over Morph Time, letting its local clocks smoothly rejoin their master phases. Drone I continues independently.
+
+> **Screenshot needed — STILL II:** Capture the SEQ and Swell progress markers for independently moving drone clocks.
 
 ### Edit another page without leaving your place {#peek}
 

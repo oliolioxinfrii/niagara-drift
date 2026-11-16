@@ -2765,9 +2765,9 @@ static void pulse_run(uint32_t n)
             if (!(j & 3u)) {                     /* each drone's offset envelope, evaluated every fourth sample */
                 const float d = pa >= 1.0f ? depth : dn * (1.0f - fm_exp2f(lf * pa));
                 local_ph[0] = sub_phase_tick(&sub_clock[0][SUB_SWELL], ph * 0.5f,
-                                             step * 2.0f, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
+                                             step * 0.5f, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
                 local_ph[1] = sub_phase_tick(&sub_clock[1][SUB_SWELL], ph * 0.5f,
-                                             step * 2.0f, 4.0f / DR_SR, sub_depth[1][2]) * 2.0f;
+                                             step * 0.5f, 4.0f / DR_SR, sub_depth[1][2]) * 2.0f;
                 pt = pulse_gain(local_ph[0], d, shape, b1, hz, 0.0f);
                 pt2 = pulse_gain(local_ph[1], d, shape, b1, hz, phase);
             }

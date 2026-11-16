@@ -7,25 +7,23 @@ intro: The emulator: the mouse and the computer keys
 
 ## Playing in a browser
 
-The emulator on the front page runs the firmware itself, with sound: no FM-1 needed.
+The repository can build a browser emulator from its own source, allowing you to operate VOLCANO without an FM-1. The public Niagara Drift emulator is a different firmware and should not be used as a VOLCANO control reference.
 
 ## Mouse and keys
 
-Play it on the [front page](https://evanyerburgh.github.io/niagara-drift/).
+From this checkout, run `./emulator.command` or build with `sh web/emu/build.sh` and serve `build/emu`. See [Building](../../../BUILDING.md).
 
-| Do | Mouse | Keyboard |
-|---|---|---|
-| Turn a knob | drag up or down, or scroll | ↑ ↓ LFO rate, ← → Movement |
-| Hold a button | Shift-click or right-click (click again to let go) | |
-| PLAY · SAVE (hold) · SEL (hold) | | Space · Enter · C |
-| HOME · EDIT · LFO I · LFO II (OCT− · OCT+) | | Esc · V · Z · X |
-| Black keys 1–11 | click | 1 … 0, − |
-| Scenes 1–8 · gestures 9–12 · gestures 13–16 | click | Q … I · A … F · G … K |
+| Action | Mouse |
+|---|---|
+| Turn a knob | Drag vertically or scroll over it |
+| Tap a button or piano key | Click it |
+| Hold a button | Use the emulator's documented hold interaction |
+
+The built-in emulator's keyboard assignments are specific to its version; consult its own interface or source for the current bindings. Do not assume that the public Niagara Drift emulator has the same controls.
 
 ## Good to know
 
-- **SAVE** keeps your sound in that browser.
+- **SAVE** opens the same scene browser as the FM-1 firmware.
 - **No pressure:** on keys 9–12 a held click climbs at the gesture's own time and falls when you let go. On the FM-1
   those keys follow how hard you press.
-- **Working on the code:** `./emulator.command` builds the same page from your checkout and serves it at
-  http://localhost:8765.
+- **Working on the code:** the web build uses the checked-out firmware source; rebuild after source changes.

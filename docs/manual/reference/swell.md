@@ -9,6 +9,8 @@ intro: ARP: two drones breathing at one rate, with an adjustable phase offset
 
 A volume envelope applied independently to the two drones. The drones share one rate, shape and depth, but drone II can be shifted relative to drone I.
 
+> **Screenshot needed — Swell:** `build/scenarios/volcano-ui/crust-swell.png`. A second screenshot of Swell shape should be captured separately.
+
 ## Buttons and pages
 
 - **Tap [[ARP]]** to open the Swell page; tap again for Swell shape. Further taps alternate the two pages.
@@ -28,7 +30,7 @@ A volume envelope applied independently to the two drones. The drones share one 
 - **Depth** sets how far the level dips, from no modulation to silence.
 - **Phase** offsets drone II relative to drone I from 0% (together) through 50% (alternating) to 100% (together again).
 - **Swing** makes every other breath longer, up to 3:1.
-- The display shows **both** envelopes over two bars: drone I in orange, drone II in cyan. Each has a matching moving phase dot. At 0% phase they coincide; at 50% they alternate.
+- The display shows **both** envelopes over two bars: two trajectories in the warm Crust palette. Each has a matching moving phase dot. At 0% phase they coincide; at 50% they alternate.
 
 ### Swell shape (2/2)
 
@@ -45,5 +47,5 @@ Each drone uses the same Wave/Skew/Edge/Width, but its phase is evaluated separa
 - The starting sound is a slow, gentle breath. The long ARP press bypasses it without losing the settings.
 - The ARP LED follows the actual Swell contour, including the selected shape, skew, width and swing, from dark at the trough to bright at its crest.
 - A phase offset of 0% preserves the common-envelope behavior of earlier Niagara Drift versions.
-- Tap [[C#5]] on **any page** to lock or free the LFO from Swell. Hold [[C#5]] for 500 ms to reset the LFO phase without changing the lock state. On non-LFO pages [[D#4]] controls Pitch Link for drone II; on LFO pages it selects drone II's filter destination. The two drone envelopes do not have independent clocks.
+- Tap [[C#5]] on an **ordinary or LFO page** to lock or free the LFO from Swell (but not on SEQ → Sequence, where all keys enter notes). Hold [[C#5]] for 500 ms to reset the LFO phase without changing the lock state. On non-LFO pages [[D#4]] controls Pitch Link for drone II; on LFO pages it selects drone II's filter destination. The two drone envelopes do not have independent clocks.
 - At high Swell rates, the 3 ms output glide rounds the steepest transitions.

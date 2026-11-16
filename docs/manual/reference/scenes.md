@@ -1,88 +1,73 @@
 ---
-title: Scenes and banks
-intro: The white keys: your sounds, gliding or crossfaded in by pressure
+title: Scenes and the SAVE browser
+intro: Store, load, rename and transition between presets and saved sounds
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-## Scenes and banks — Volcano development branch
+## Scenes and the SAVE browser
 
-On the Volcano branch, **white keys 1–16 are gestures** except during SEQ
-keyboard note entry. Scenes are stored and recalled in the **SAVE browser**,
-not by pressing a scene key. This replaces the older white-key scene controls
-documented further down this page.
+A *scene* is a stored sound. VOLCANO includes **48 writable scenes** in six user banks (A–F), with eight slots per bank, and **16 fixed factory presets** in two further banks (P1–P8 and P9–P16).
 
-Tap **SAVE** to open the browser. K1 selects the bank (A–F or the two factory
-Preset banks), K2 selects the slot, and K3 chooses **Save**, **Load**, or
-**Transition**. K4 chooses the final morph percentage only for Transition.
-Press SAVE to confirm, or HOME to exit; overwriting an occupied user slot
-requires a second SAVE confirmation.
+**SAVE** is the scene browser. Choose a bank, a slot and an action with its encoders. On ordinary pages, white keys 1–8 are reserved; on SEQ → Sequence they enter notes.
 
-- **Save** stores the current sound **and its authored 1–4-step sequence**
-  in a user bank A–F. Factory Presets cannot be overwritten.
-- **Load** immediately applies the selected sound and sequence without
-  waiting for Scene Time. The sequence returns to step 1, stopped; room
-  settings remain global. This is intended for starting or returning to an
-  idea before performance.
-- **Transition** moves toward the target sound over the configured Scene
-  Time, ending at the K4 percentage. Partial transitions retain the current
-  sequence; a 100% transition switches to the target sequence at the end of
-  the timed sound change.
+> **Screenshot needed — Orbit scene browser:** `build/scenarios/volcano-ui/orbit-memory.png`.
 
-## Earlier scene-key controls (historical)
+## Open the scene browser
 
-The following shortcuts apply to earlier Niagara Drift versions, **not**
-to the Volcano development branch.
+Tap **[[SAVE]]**. Its four encoders have fixed jobs:
 
-The white keys play your saved sounds, gliding in, or crossfading as you press.
+| Knob | Control |
+|---|---|
+| **KNOB 1** | Bank: A, B, C, D, E, F, P1–P8, P9–P16 |
+| **KNOB 2** | Slot: 1–8 |
+| **KNOB 3** | Action: SAVE, LOAD or TRANSITION |
+| **KNOB 4** | Transition amount: 0–100% (when using TRANSITION) |
 
-## Scenes
+Press **SAVE** to execute the selected action, or **HOME** to leave without executing it. **SEL** is not needed to navigate this browser.
 
-<img src="../../img/panel-keys.png" width="720" alt="The FM-1's keys: white keys 1 to 8 are scenes; the eight gesture keys above them each pick a bank with SEL (A to F, P1–8, P9–16); the black keys are switches">
+## Save a sound
 
-White keys 1–8 hold scenes, in 8 banks of 8: A to F are yours, and two hold the Presets.
+1. Set KNOB 1 to a user bank (A–F) and KNOB 2 to the desired slot.
+2. Set KNOB 3 to **SAVE**, then press the SAVE button.
+3. An empty slot is written immediately. If a slot already contains a sound, the instrument displays **OVERWRITE?**. Press SAVE again to replace it, or HOME to cancel.
 
-### Tap
+Factory presets cannot be overwritten.
 
-Glides to the scene, and stays.
+> **Screenshot needed — Overwrite confirmation:** Capture an occupied user-scene slot in the v1.5 SAVE browser.
 
-### Press
+## Load a sound
 
-Crossfades toward the scene, as far as you press. Let go and it glides back.
+Choose a bank and an occupied slot, set the action to **LOAD**, then press SAVE. The sound changes over the configured **Scene time** ([Setup](setup.md)). You can also load factory presets from either Presets bank.
 
-### Keep a blend
+## Transition partway toward a sound
 
-Tap [[SEL]] while pressing: the blend stays.
+Choose **TRANSITION** and a target scene. Set KNOB 4 to the desired percentage and press SAVE. At **0%**, the current sound remains unchanged; at **100%**, it reaches the target sound. Values in between move the sound partway toward the target over Scene time. Adjusting the browser's encoders does not change the sound until SAVE is pressed.
 
-### Take it
+A new transition starts from the sound currently being heard. Loading or transitioning to a factory preset resets the RAM-only pitch sequencer to one step.
 
-Press all the way and hold a moment: the scene stays when you let go.
+> **Screenshot needed — Orbital scene transition:** Capture a SAVE browser target and transition value from the v1.5 build.
 
-### Undo
+## Rename a user scene
 
-[[SEL]] + [[SAVE]]: back to the sound before. Again: forward.
+Select a user bank and slot in the SAVE browser, then press **REC**. KNOB 1 chooses the character position and KNOB 2 changes the character (letters, numbers, space and hyphen). **SAVE** confirms; **HOME** cancels. Each user slot has its own name, up to 11 characters. Factory preset names cannot be changed.
 
-## Banks
+## What a scene stores
 
-### Save
+The scene browser stores *a sound*, not an entire performance. This distinction is especially important for the pitch sequencer.
 
-Hold [[SAVE]], tap a key.
+| Part of Volcano | Saved in a user scene? | Where to find it |
+|---|---|---|
+| Drone oscillators, filters, modulation routing, effects and other sound parameters | **Yes** | HOME, EDIT, ENV, LFO, FX and related controls |
+| The selected musical **Tuning** | **Yes** | GLO → Setup 2 (Tuning follows scene recall) |
+| Pitch-sequencer notes, event count, event spacing, phase offset and transition shapes | **No — RAM only** | SEQ → Sequence, Intervals and Transitions |
+| A recorded performance **Motion Loop** | **No — performance memory** | REC |
+| **Fade**, **Morph**, **Scene time**, MIDI Sync, Stereo, Speaker, reference **Tune** and **Pitch Lock** | **No — instrument settings** | GLO and the Pitch Lock key |
 
-### Pick a bank
+The instrument retains its system settings separately from scene slots. A factory-preset recall resets a multistep pitch sequence to one step, so it should not be used as a way to retrieve a composed sequence.
 
-[[SEL]] + a gesture key: [[G4]] A, [[A4]] B, [[B4]] C, [[C5]] D, [[D5]] E, [[E5]] F; [[F5]] P1–P8, [[G5]] P9–P16.
+If you are constructing a performance, store the *sound* in a user scene, then program the pitch progression separately. See [First pitch sequence](../recipes/sequencing.md) for a worked example.
 
-## Good to know
+**SEL + SAVE** can restore the sound before the last supported scene change, then return to the later sound when used again.
 
-- **The glide** takes the Scene time (Setup 1). Turn a knob to stop it part way.
-- **A tap** is anything let go within half a second, however hard.
-- **The screen** says how far a press has gone ("A5 40%"), "KEPT" for a kept blend, and "→ A5" as it glides back.
-- **SAVE first:** a key pressed before SAVE plays its scene. The Presets can't be saved over.
-- **A scene keeps the sound and its Tuning,** not the room: Pressure, Stereo, Tune, Sync, Pitch lock and the Setup
-  times stay.
-- **The keys' lights:** lit keys hold a scene; the one you're on blinks slowly until you change something.
-- **Keys 9–16** are the [gestures](gestures.md).
-- **From 0.2:** scenes on keys 9–12 moved to empty keys 1–8 (the screen says how many). 0.2's Presets that 0.3
-  doesn't keep (Eerie, Glass, Tanpura, Whistle, Cathedral, Metal) are in bank F, keys 1–6; Heaven is now Sibyl, Clean
-  is Bare. Feedback moved to KNOB 1 on Life, Cross-mod to KNOB 4 on Mods, Tune to KNOB 2 on Setup 2; HOME opens
-  Drones, FX opens Space.
+See [Presets](presets.md) for the factory sounds, [Setup](setup.md) for Scene time and [Scenes recipes](../recipes/scenes.md) for examples.

@@ -20,7 +20,7 @@ The page you play from: each drone's level and cutoff; then its pitch and resona
 
 ## Drones
 
-<img class="shot" src="../../img/screen-play.png" width="240" alt="The Drones page: each drone's filter curve with its level in dB, its filter and key, and its note">
+> **Screenshot needed — HOME Drones:** `build/scenarios/volcano-ui/surface.png`.
 
 | Knob | What it does |
 |---|---|
@@ -31,11 +31,11 @@ The page you play from: each drone's level and cutoff; then its pitch and resona
 
 Low-pass (LP), band-pass (BP) or high-pass (HP), on a black key: [[A#3]] for drone I, [[A#4]] for drone II.
 
-<img src="../../img/black-keys-filter.png" width="560" alt="The black keys with the two filter keys picked out: A#3 for drone I, A#4 for drone II">
+> **Screenshot needed — Filter switches:** A v1.5 black-key diagram highlighting A#3 and A#4.
 
 ## Pitch
 
-<img class="shot" src="../../img/screen-play2.png" width="240" alt="The Pitch page: each drone's waveform as strands, and drone II's interval from drone I">
+> **Screenshot needed — HOME Pitch:** `build/scenarios/volcano-ui/pitch-scope.png`, plus `pitch-resonance.png` with a resonance knob selected.
 
 | Knob | What it does |
 |---|---|
@@ -52,6 +52,8 @@ Low-pass (LP), band-pass (BP) or high-pass (HP), on a black key: [[A#3]] for dro
 - **Pitch glides** from note to note, so a steady turn is one slide.
 - **A fine offset stays** (with SEL, +3 cents stays +3 from note to note) until you change the Tuning; "fine +3" shows
   it.
-- **The pictures:** on Drones, each filter's curve, its level in dB under it, its note at the right; a silent drone is
-  a thin gray curve. On Pitch, each wave as strands that fan out as it moves, and drone II's interval from drone I
-  ("5th ↑").
+- **VOLCANO's Drones display** shows fixed geological strata, with drone I's level shaping lava and drone II's level affecting smoke. Its two scope traces and overlaid filter responses use the actual sound and filter settings.
+- **The Pitch display** shows an oscilloscope-like pitch history. While adjusting resonance, the display exposes its filter-response curves.
+- **Hold HOME for 400 ms** from another page to inspect the activity atlas; release HOME to return. See [Controls](controls.md).
+
+> **Screenshot needed — Geological atlas:** `build/scenarios/volcano-ui/geological-atlas.png`.

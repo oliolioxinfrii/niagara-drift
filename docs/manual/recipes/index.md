@@ -1,9 +1,20 @@
 ---
 title: Recipes
-intro: How to get a sound or a move: what you hear, the moves, and what's good to know
+intro: Build sounds and movement with Volcano
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-Each recipe is a few moves across the pages, with the screens it lands on and a sound to hear it. They work from any
-sound: start from a Preset, or from your own.
+# Recipes
+
+These recipes begin with a sound or performance goal and identify the buttons, knobs and pages needed to reach it. **Start with Bare**, then try the **first pitch sequence** before exploring the more specialized effects. They complement the complete [control reference](../reference/index.md).
+
+- [Build a sound from scratch](scratch.md)
+- [First pitch sequence](sequencing.md) — program unequal timing and pitch movement
+- [Sounds and textures](sounds.md)
+- [Gestures](gestures.md)
+- [Scenes and saving](scenes.md)
+- [Time and transitions](time.md)
+- [Performing](performing.md)
+
+> **Media placeholders:** Some recipe scripts and audio examples originate with Niagara Drift and require fresh v1.5 validation. Until they have been regenerated from the Volcano code, this manual uses visible screenshot placeholders instead of displaying older screens as if they belonged to Volcano.

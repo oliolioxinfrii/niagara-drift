@@ -1,60 +1,67 @@
 ---
 title: Controls
-intro: The buttons and the pages, the header and the knobs
+intro: The FM-1 buttons, page navigation and global controls
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 ## Controls
 
-The FM-1's knobs and buttons, and the header at the top of the screen.
+VOLCANO uses the FM-1's four parameter encoders, four global encoders, page buttons and keys. You do not need to memorize the complete key map to begin: open a page and turn the four knobs shown beneath it.
 
-## Knobs
+> **Screenshot needed — FM-1 control map:** An annotated photograph or programmatically rendered panel generated from the v1.5 firmware's actual controls. Do not reuse the v1.3 `panel.png`.
 
-<img class="shot" src="../../img/panel-left.png" width="200" alt="The FM-1's left knobs: MASTER is Volume, SELECT the LFO rate, PRESETS Gesture time, ALGORITHM Movement; OCT− and OCT+ pick LFO I's and II's waves">
+## Global knobs
 
-| Knob | What it does |
+| Control | Function |
 |---|---|
-| **MASTER** | the volume. Past about four-fifths it overdrives: thicker, at about the same loudness |
-| **SELECT** | the LFO's rate |
-| **ALGORITHM** | Movement: how much the LFO moves the sound |
-| **PRESETS** | Gesture time: how fast the gestures move |
-| **KNOB 1–4** | what the page shows. On the drone pages, KNOB 1–2 are drone I, KNOB 3–4 drone II |
+| **MASTER** | Overall volume |
+| **SELECT** | Move backward or forward among pages in the current page family |
+| **[[SEL]] + SELECT** | Set the common LFO rate (or MIDI-synced cycle division) |
+| **PRESETS** | Gesture time: how quickly gestures develop |
+| **ALGORITHM** | Movement: scale the LFO modulation depths |
+| **KNOB 1–4** | Edit the four parameters shown on the current page; many drone pages use KNOB 1–2 for drone I and KNOB 3–4 for drone II |
 
-<img src="../../img/panel-knobs.png" width="360" alt="The FM-1's knobs 1 to 4: KNOB 1 and 2 for drone I, KNOB 3 and 4 for drone II">
+## Page buttons
 
-## Buttons
-
-<img src="../../img/panel-buttons.png" width="400" alt="The FM-1's twelve buttons, each with the page it opens: FX Space, SEL Fine, ENV Life, LFO Sends, EDIT Osc, GLO Setup, HOME Drones, SAVE Store, ARP Swell, SEQ Partner, PLAY On/off, REC Loop">
-
-| Button | What it does |
+| Button | Pages |
 |---|---|
-| [[HOME]] [[FX]] [[ENV]] [[LFO]] [[EDIT]] [[SEQ]] [[GLO]] [[ARP]] | open a page; tap again for its next |
-| [[PLAY]] | fade the drones in or out immediately |
-| [[SAVE]] | saves the sound |
-| [[SEL]] | hold for fine steps, and with other controls for their second job |
-| [[REC]] | records your moves, then loops them |
-| [[OCT−]] [[OCT+]] | LFO I's and LFO II's shape |
+| [[HOME]] | Drones, Pitch |
+| [[ENV]] | Life, Tone |
+| [[EDIT]] | Osc, Sub · Drive |
+| [[LFO]] | Waves, Sends, Mods |
+| [[SEQ]] | Partner, Pitch moves, Sequence, Intervals, Transitions |
+| [[ARP]] | Swell, Swell shape |
+| [[FX]] | Space, Details |
+| [[GLO]] | Setup 1, Setup 2 |
 
-## Header
+Press a page button to open that family; pressing it again cycles through its pages. **HOME** starts at Drones and **FX** at Space. Other families can reopen the page you last used. Turning **SELECT** cycles pages within the active family; it does not switch between page families.
 
-| Side | What it shows |
+Most page buttons also support a temporary *peek*: hold the button, adjust a control, and release to return to the previous page. **ARP** is an exception: holding it for at least 400 ms switches Swell on or off.
+
+## Other buttons
+
+| Button | Function |
 |---|---|
-| **Left** | the page's name, then what's running: REC or LOOP, SWELL, a gesture, II OUT |
-| **Right** | the sound: its bank and key ("A5", "P6 SEANCE"), "changed" once you've moved it |
+| [[PLAY]] | Fade the instrument in or out using the configured Fade time |
+| [[SAVE]] | Open the scene browser to save, load, rename or transition between sounds |
+| [[REC]] | Start recording a motion loop; press again to repeat it, and again to stop |
+| [[SEL]] | Modifier for fine adjustments and secondary controls |
+| [[OCT−]] / [[OCT+]] | Select or bypass LFO I / II waveforms |
 
-## Good to know
+**Hold HOME for 400 ms** to display the temporary VOLCANO activity atlas. It shows five geological layers representing effects, drone levels, Swell/sequencing, Feedback/Drift/Character and LFO activity. Releasing HOME returns to the previous page. See [Drones and Pitch](drones.md).
 
-- **Hold a page button to peek:** turn a knob, let go, and you're back ("let go: DRONES").
-- **HOME and FX** always open Drones and Space; the other buttons open the page you last used there.
-- **GLO** cycles Setup 1, Setup 2, Speaker (3/3). Speaker KNOB 1 mutes the built-in speaker without muting USB audio or headphones.
-- **The drone pages:** Drones, Tone, Osc, Sub · Drive, Partner, LFO sends; their knob names underlined amber and teal.
-- **SEL + HOME** creates a new randomized sound and sequencer without switching global PLAY on or off. The current Tuning, global settings, and saved scene slots are preserved. **SEL + SAVE** undoes the sound-parameter changes over the Scene time. **SEL + PLAY** starts, pauses, or resumes the sequencer without changing the global audio fade. The individual drone on/off shortcuts are **SEL + OCT−** (I) and **SEL + OCT+** (II).
-- **SAVE** saves at once (the sound dips for about 50 ms while playing), and glows dimly while something isn't saved.
-- **SEL** gives a pitch knob single cents and cutoff/resonance tenths, although cutoff and resonance are displayed as whole numbers. It glows when it can keep what you're holding.
-- **REC:** tap to record, tap to loop, tap to stop; up to 5 minutes, the time in the header. See
-  [the recipe](../recipes/performing.md#loop).
-- **OCT− / OCT+:** tap for the next shape; [[SEL]] + OCT for the one before. Each light pulses with its wave.
-- **On the way to a scene** the header says where, in gold ("→ P3 VESPERS"), a gold line filling under it.
-- **Overdriving MASTER** flattens the drones' swells and dips.
-- **Every knob glides:** a slow turn is a smooth sweep, a fast turn goes further.
+> **Screenshot needed — HOME atlas:** `build/scenarios/volcano-ui/geological-atlas.png`, captured from v1.5 source.
+
+## Navigation and saved sounds
+
+- **SAVE** opens the scene browser. White keys **1–8 are reserved** on ordinary pages.
+- **Keys 9–16** activate the eight gestures. Black keys control drone switches, linking and (on LFO pages) modulation routing.
+- **On the Sequence page**, all 27 keys enter notes rather than activating their ordinary switches or gestures. The first event follows the live pitches from HOME → Pitch.
+- **Hold SEL and touch a black key** to display the key's purpose without changing it.
+- **SEL + HOME** creates a randomized working sound and sequencer. **SEL + PLAY** starts or pauses the pitch progression without changing the instrument's fade.
+- **SEL + SAVE** undoes or redoes the last supported scene/transition change.
+
+The screen displays page names, current parameter values and action messages. VOLCANO uses five visual layer colors: cyan for FX, yellow for HOME, orange for SEQ/ARP, orange-red for EDIT/ENV and red for LFO. SAVE and GLO use separate system visuals.
+
+For every button combination, see [Shortcuts](shortcuts.md). For the scene browser, see [Scenes](scenes.md). To hear how the controls work together, follow [Build a sound](../recipes/scratch.md) and [First pitch sequence](../recipes/sequencing.md).

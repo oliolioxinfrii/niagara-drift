@@ -1,61 +1,61 @@
 ---
-title: Scenes and banks
-intro: The white keys: your sounds, gliding or crossfaded in by pressure
+title: Scenes and the SAVE browser
+intro: Store, load, rename and transition between presets and saved sounds
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-## Scenes and banks
+## Scenes and the SAVE browser
 
-The white keys play your saved sounds, gliding in, or crossfading as you press.
+A *scene* is a stored sound. VOLCANO includes **48 writable scenes** in six user banks (A–F), with eight slots per bank, and **16 fixed factory presets** in two further banks (P1–P8 and P9–P16).
 
-## Scenes
+Scenes are selected through **SAVE**, not through white keys 1–8. Those keys are reserved on ordinary pages and are used for note entry on the Sequence page.
 
-<img src="../../img/panel-keys.png" width="720" alt="The FM-1's keys: white keys 1 to 8 are scenes; the eight gesture keys above them each pick a bank with SEL (A to F, P1–8, P9–16); the black keys are switches">
+> **Screenshot needed — Orbit scene browser:** `build/scenarios/volcano-ui/orbit-memory.png`.
 
-White keys 1–8 hold scenes, in 8 banks of 8: A to F are yours, and two hold the Presets.
+## Open the scene browser
 
-### Tap
+Tap **[[SAVE]]**. Its four encoders have fixed jobs:
 
-Glides to the scene, and stays.
+| Knob | Control |
+|---|---|
+| **KNOB 1** | Bank: A, B, C, D, E, F, P1–P8, P9–P16 |
+| **KNOB 2** | Slot: 1–8 |
+| **KNOB 3** | Action: SAVE, LOAD or TRANSITION |
+| **KNOB 4** | Transition amount: 0–100% (when using TRANSITION) |
 
-### Press
+Press **SAVE** to execute the selected action, or **HOME** to leave without executing it. **SEL** is not needed to navigate this browser.
 
-Crossfades toward the scene, as far as you press. Let go and it glides back.
+## Save a sound
 
-### Keep a blend
+1. Set KNOB 1 to a user bank (A–F) and KNOB 2 to the desired slot.
+2. Set KNOB 3 to **SAVE**, then press the SAVE button.
+3. An empty slot is written immediately. If a slot already contains a sound, the instrument displays **OVERWRITE?**. Press SAVE again to replace it, or HOME to cancel.
 
-Tap [[SEL]] while pressing: the blend stays.
+Factory presets cannot be overwritten.
 
-### Take it
+> **Screenshot needed — Overwrite confirmation:** Capture an occupied user-scene slot in the v1.5 SAVE browser.
 
-Press all the way and hold a moment: the scene stays when you let go.
+## Load a sound
 
-### Undo
+Choose a bank and an occupied slot, set the action to **LOAD**, then press SAVE. The sound changes over the configured **Scene time** ([Setup](setup.md)). You can also load factory presets from either Presets bank.
 
-[[SEL]] + [[SAVE]]: back to the sound before. Again: forward.
+## Transition partway toward a sound
 
-## Banks
+Choose **TRANSITION** and a target scene. Set KNOB 4 to the desired percentage and press SAVE. At **0%**, the current sound remains unchanged; at **100%**, it reaches the target sound. Values in between move the sound partway toward the target over Scene time. Adjusting the browser's encoders does not change the sound until SAVE is pressed.
 
-### Save
+A new transition starts from the sound currently being heard. Loading or transitioning to a factory preset resets the RAM-only pitch sequencer to one step.
 
-Hold [[SAVE]], tap a key.
+> **Screenshot needed — Orbital scene transition:** Capture a SAVE browser target and transition value from the v1.5 build.
 
-### Pick a bank
+## Rename a user scene
 
-[[SEL]] + a gesture key: [[G4]] A, [[A4]] B, [[B4]] C, [[C5]] D, [[D5]] E, [[E5]] F; [[F5]] P1–P8, [[G5]] P9–P16.
+Select a user bank and slot in the SAVE browser, then press **REC**. KNOB 1 chooses the character position and KNOB 2 changes the character (letters, numbers, space and hyphen). **SAVE** confirms; **HOME** cancels. Each user slot has its own name, up to 11 characters. Factory preset names cannot be changed.
 
-## Good to know
+## What a scene stores
 
-- **The glide** takes the Scene time (Setup 1). Turn a knob to stop it part way.
-- **A tap** is anything let go within half a second, however hard.
-- **The screen** says how far a press has gone ("A5 40%"), "KEPT" for a kept blend, and "→ A5" as it glides back.
-- **SAVE first:** a key pressed before SAVE plays its scene. The Presets can't be saved over.
-- **A scene keeps the sound and its Tuning,** not the room: Pressure, Stereo, Tune, Sync, Pitch lock and the Setup
-  times stay.
-- **The keys' lights:** lit keys hold a scene; the one you're on blinks slowly until you change something.
-- **Keys 9–16** are the [gestures](gestures.md).
-- **From 0.2:** scenes on keys 9–12 moved to empty keys 1–8 (the screen says how many). 0.2's Presets that 0.3
-  doesn't keep (Eerie, Glass, Tanpura, Whistle, Cathedral, Metal) are in bank F, keys 1–6; Heaven is now Sibyl, Clean
-  is Bare. Feedback moved to KNOB 1 on Life, Cross-mod to KNOB 4 on Mods, Tune to KNOB 2 on Setup 2; HOME opens
-  Drones, FX opens Space.
+A scene stores the sound's parameters and Tuning, but not the RAM-only pitch-sequencer notes and timing. System settings such as Speaker, Stereo, Tune and the transition times are kept separately.
+
+**SEL + SAVE** can restore the sound before the last supported scene change, then return to the later sound when used again.
+
+See [Presets](presets.md) for the factory sounds, [Setup](setup.md) for Scene time and [Scenes recipes](../recipes/scenes.md) for examples.

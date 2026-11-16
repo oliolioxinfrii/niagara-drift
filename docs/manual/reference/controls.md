@@ -55,7 +55,7 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 
 ## Navigation and saved sounds
 
-- **SAVE** opens the separate scene browser; white keys **1–8 are not scene shortcuts** during normal playing.
+- **SAVE** opens the scene browser. White keys **1–8 are reserved** on ordinary pages.
 - **Keys 9–16** activate the eight gestures. Black keys control drone switches, linking and (on LFO pages) modulation routing.
 - **On the Sequence page**, all 27 keys enter notes rather than activating their ordinary switches or gestures. The first event follows the live pitches from HOME → Pitch.
 - **Hold SEL and touch a black key** to display the key's purpose without changing it.
@@ -64,4 +64,4 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 
 The screen displays page names, current parameter values and action messages. VOLCANO uses five visual layer colors: cyan for FX, yellow for HOME, orange for SEQ/ARP, orange-red for EDIT/ENV and red for LFO. SAVE and GLO use separate system visuals.
 
-For every button combination, see [Shortcuts](shortcuts.md). For the scene browser, see [Scenes](scenes.md).
+For every button combination, see [Shortcuts](shortcuts.md). For the scene browser, see [Scenes](scenes.md). To hear how the controls work together, follow [Build a sound](../recipes/scratch.md) and [First pitch sequence](../recipes/sequencing.md).

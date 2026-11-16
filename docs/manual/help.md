@@ -11,7 +11,7 @@ intro: Installing, updating, connecting and recovering Volcano
 |---|---|
 | A drone is silent | **SEL + OCT−** toggles drone I; **SEL + OCT+** toggles drone II |
 | The pitch progression has stopped | **SEL + PLAY** starts, pauses or resumes the sequencer; normal PLAY controls the global audio fade |
-| A preset is not at its programmed pitch | **Pitch Lock** ([[C#4]]) retains the existing pitch; switch it off to hear the preset's own pitch |
+| How a scene or preset LOAD affects pitch | **LOAD** now immediately applies its saved pitches even when Pitch Lock is on. TRANSITION continues to respect the current Pitch Lock and Scene Time |
 | Drone II wanders between notes | On SEQ → Pitch moves, reduce **Wander** (KNOB 3) |
 | White keys 1–8 change the sound rather than loading scenes | They control STRIP, DARK, STILL and TAIL, separately for each drone. Use **SAVE** to browse scenes |
 | The internal speaker has no sound, but USB or headphones work | Check **GLO → Setup 2 → Speaker** (KNOB 4) |

@@ -1914,13 +1914,24 @@ static void lfo_run(uint32_t n)
             lfo_rk = fm_maxf(lfo_rk - (float)CR / (0.12f * DR_SR), 0.0f);
         }
         inc = rm != 0.0f ? step * rk * fm_exp2f(rm * fm_clampf(lfo_at_now(rsrc), -1.0f, 1.0f)) : step;
-        {   /* Local positions are derived from the original shared clock. */
+        if (dr_lfo_transport == DR_LFO_STOPPING)
+            lfo_stop_speed = fm_minf(inc, 0.99f) / (float)CR;
+        {   /* Local positions follow the shared clock in RUN, remain fixed
+             * in PAUSE, or retreat toward zero at its natural rate in STOP. */
             int g;
             for (g = 0; g < DR_NGROUPS; g++) {
                 const float dt = (float)CR / DR_SR;
-                const float ph = sub_phase_tick(&sub_clock[g][SUB_LFO], master_ph, inc, dt, sub_depth[g][2]);
-                const int active = sub_depth[g][2] > 0.0001f || sub_clock[g][SUB_LFO].rejoining ||
+                float ph;
+                const int active = dr_lfo_transport == DR_LFO_STOPPING ||
+                                   sub_depth[g][2] > 0.0001f || sub_clock[g][SUB_LFO].rejoining ||
                                    fm_fabsf(sub_clock[g][SUB_LFO].error) > 0.00001f;
+                if (dr_lfo_transport == DR_LFO_PAUSE)
+                    ph = dr_lfo_dr_ph[g];
+                else if (dr_lfo_transport == DR_LFO_STOPPING) {
+                    lfo_stop_local[g] = fm_maxf(0.0f, lfo_stop_local[g] - fm_minf(inc, 0.99f));
+                    ph = lfo_stop_local[g];
+                } else
+                    ph = sub_phase_tick(&sub_clock[g][SUB_LFO], master_ph, inc, dt, sub_depth[g][2]);
                 int wv;
                 dr_lfo_dr_ph[g] = ph;
                 if (active && !lfo_local_active[g]) {
@@ -1949,15 +1960,22 @@ static void lfo_run(uint32_t n)
                 }
             }
         }
-        lfo_q += (uint32_t)(int32_t)(fm_minf(inc, 0.99f) * 2147483648.0f) << 1;   /* turns, in 32 bits */
-        if (lfo_q < q0) {
-            lfo_rnd[0] = lfo_rnd[1];             /* a new cycle: a new random level */
-            lfo_rnd[1] = lfo_rnd[2];
-            lfo_rnd[2] = rnd_next();
+        {
+            const uint32_t dq = (uint32_t)(int32_t)(fm_minf(inc, 0.99f) * 2147483648.0f) << 1;
+            if (dr_lfo_transport == DR_LFO_RUN) {
+                lfo_q += dq;
+                if (lfo_q < q0) {
+                    lfo_rnd[0] = lfo_rnd[1];     /* a new cycle: new random level */
+                    lfo_rnd[1] = lfo_rnd[2];
+                    lfo_rnd[2] = rnd_next();
+                }
+            } else if (dr_lfo_transport == DR_LFO_STOPPING) {
+                lfo_q = lfo_q > dq ? lfo_q - dq : 0u;
+            }
         }
         lfo_ph = (float)(lfo_q >> 8) * (1.0f / 16777216.0f);
     }
-    if (ext) {
+    if (ext && dr_lfo_transport == DR_LFO_RUN) {
         float x = ext_beats() / lbeats, e;
         x -= fm_floorf(x);
         e = x - lfo_ph;

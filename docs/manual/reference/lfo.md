@@ -7,7 +7,7 @@ intro: One clock, two waves, each with a shape, level and bypass
 
 ## LFO
 
-Volcano has two LFO waveforms (I and II) on a shared clock. Either waveform can be routed to either drone's pitch, X-Wave, cutoff, resonance or stereo pan. Both LFO waveforms use the **same clock**: one shared rate, with different shapes and separately controlled levels and destinations.
+Volcano has two LFO waveforms (I and II) on a shared clock. Either waveform can be routed to either drone's pitch, X-Wave, cutoff, resonance or stereo pan. Both LFO waveforms use the **same master clock**: one shared rate, with different shapes and separately controlled levels and destinations. **STILL** can independently slow the effective LFO progression heard by drone I or II, while keeping their shared programmed rate unchanged.
 
 ## Controls
 
@@ -17,7 +17,7 @@ Volcano has two LFO waveforms (I and II) on a shared clock. Either waveform can 
 - **Hold [[OCT-]]** or [[OCT+]] for at least 400 ms to bypass or restore LFO I or II, preserving the shape and level.
 - **[[SEL]] + [[OCT-]]** toggles drone I in/out, and **[[SEL]] + [[OCT+]]** toggles drone II in/out. These act on the drone fade, not its filter cutoff.
 
-The first [[LFO]] page lets you select either waveform directly using KNOB 1 or 3, and set the corresponding level using KNOB 2 or 4. The LFO's routing is on the next page, [LFO Sends](lfo-pages.md#lfo-sends). For an audible example, see [A singing filter](../recipes/sounds.md#sing).
+The first [[LFO]] page lets you select either waveform directly using KNOB 1 or 3, and set the corresponding level using KNOB 2 or 4. `C♯5` is the LFO **transport**: tap to pause or resume both waveforms at their phase; hold about 500 ms to rewind LFO and Swell smoothly to phase zero and resume automatically. This is **not** the earlier LFO-to-Swell lock. The LFO's routing is on the next page, [LFO Sends](lfo-pages.md#lfo-sends). For an audible example, see [A singing filter](../recipes/sounds.md#sing).
 
 ## Waveforms
 

@@ -9,7 +9,7 @@ intro: Store, load, rename and transition between presets and saved sounds
 
 A *scene* is a stored sound. VOLCANO includes **48 writable scenes** in six user banks (A–F), with eight slots per bank, and **16 fixed factory presets** in two further banks (P1–P8 and P9–P16).
 
-Scenes are selected through **SAVE**, not through white keys 1–8. Those keys are reserved on ordinary pages and are used for note entry on the Sequence page.
+**SAVE** is the scene browser. Choose a bank, a slot and an action with its encoders. On ordinary pages, white keys 1–8 are reserved; on SEQ → Sequence they enter notes.
 
 > **Screenshot needed — Orbit scene browser:** `build/scenarios/volcano-ui/orbit-memory.png`.
 
@@ -54,7 +54,19 @@ Select a user bank and slot in the SAVE browser, then press **REC**. KNOB 1 choo
 
 ## What a scene stores
 
-A scene stores the sound's parameters and Tuning, but not the RAM-only pitch-sequencer notes and timing. System settings such as Speaker, Stereo, Tune and the transition times are kept separately.
+The scene browser stores *a sound*, not an entire performance. This distinction is especially important for the pitch sequencer.
+
+| Part of Volcano | Saved in a user scene? | Where to find it |
+|---|---|---|
+| Drone oscillators, filters, modulation routing, effects and other sound parameters | **Yes** | HOME, EDIT, ENV, LFO, FX and related controls |
+| The selected musical **Tuning** | **Yes** | GLO → Setup 2 (Tuning follows scene recall) |
+| Pitch-sequencer notes, event count, event spacing, phase offset and transition shapes | **No — RAM only** | SEQ → Sequence, Intervals and Transitions |
+| A recorded performance **Motion Loop** | **No — performance memory** | REC |
+| **Fade**, **Morph**, **Scene time**, MIDI Sync, Stereo, Speaker, reference **Tune** and **Pitch Lock** | **No — instrument settings** | GLO and the Pitch Lock key |
+
+The instrument retains its system settings separately from scene slots. A factory-preset recall resets a multistep pitch sequence to one step, so it should not be used as a way to retrieve a composed sequence.
+
+If you are constructing a performance, store the *sound* in a user scene, then program the pitch progression separately. See [First pitch sequence](../recipes/sequencing.md) for a worked example.
 
 **SEL + SAVE** can restore the sound before the last supported scene change, then return to the later sound when used again.
 

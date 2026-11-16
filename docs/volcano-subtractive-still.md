@@ -116,7 +116,7 @@ The LFO wave/modulation screens, Swell graph and sequencer score show separate c
 - Run `CC="cc -D_DEFAULT_SOURCE -Wl,--no-as-needed -lm" sh tests/run_tests.sh`, including the new `still_test`. Fix all regressions in legacy scenarios and render golden files.
 - Build the web emulator and compare the waveform displays against the sounds at 0%, 50% and 100% STILL; test both drones frozen simultaneously and independently returning.
 - Check rapid taps, repeated holds, pauses mid-return, 100% saturation and a very short Morph Time; verify program/scenes and Motion Loop behavior.
-- Check MIDI-clock sync and Swell-locked LFO restart while STILL holds and while rejoining; examine random LFO waveforms and sharp-step sequencing.
+- Check MIDI-clock sync and the new C#5 pause/resume and smooth LFO/Swell rewind while STILL holds and rejoins; examine random LFO waveforms and sharp-step sequencing.
 - Record dry/wet WAVs and measure spectral changes for STRIP/DARK and effect tails for TAIL, including cross-FM and feedback.
 - Run `./build.sh`, `tools/budget.py` and hardware `tools/fm1_cpu.py`; ensure flash, .data+.bss, pool headroom and interrupt CPU budget are within FM-1 limits.
 - Check physical key debounce, latency, visual legibility and frame rate on the M-VAVE FM-1 before a merge.

@@ -20,7 +20,7 @@ typedef struct {
     uint8_t used, reserved[3];
     seq_scene_t slot[NPLAY];
 } seq_sidecar_t;
-static seq_sidecar_t seq_bank[6];             /* A-F user banks, eight slots each */
+static seq_sidecar_t seq_bank[6] OM_POOL;             /* A-F user banks, eight slots each */
 static uint8_t seq_a_dirty;                  /* A's sequences live after old Presets at OBJ_BANKP */
 _Static_assert(sizeof(bank_t) + sizeof(seq_sidecar_t) <= PLAT_STORE_MAX, "B/C sequences must fit");
 _Static_assert(sizeof(bank8_t) + sizeof(seq_sidecar_t) <= PLAT_STORE_MAX, "D-F sequences must fit");

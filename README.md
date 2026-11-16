@@ -36,8 +36,9 @@ under **GLO → Setup 2 → Speaker**.
   Drift, Wander, and Age keep the sound evolving.
 - **Performance controls.** Eight gestures transform several settings
   together; a motion loop can record and repeat manual changes.
-- **Pitch sequencing.** Program up to four notes per drone, control their
-  timing, and shape the transitions between notes.
+- **Pitch sequencing.** Move the continuously sounding drones through up to
+  four pitches, with unequal spacing between events and independent shapes
+  for the pitch transitions—not a conventional grid sequencer.
 - **Scenes and presets.** Start with 16 factory presets, save up to 48
   named scenes, and transition gradually between sounds using the scene
   browser.
@@ -53,8 +54,9 @@ between pages in the current group; turn the four encoders above the
 buttons to change the displayed parameters. **SAVE** opens the scene
 browser. Hold **HOME** to view the Volcano activity atlas.
 
-For a complete explanation of the controls, see the
-[manual](docs/manual/index.md). Its
+For an introduction to how the instrument works, see the
+[manual](docs/manual/index.md), then try the
+[first pitch-sequence tutorial](docs/manual/recipes/sequencing.md). The
 [reference](docs/manual/reference/index.md) covers the individual pages,
 while [recipes](docs/manual/recipes/index.md) demonstrate ways to build
 sounds. The manual is being updated for v1.5; authentic simulator screenshots and

@@ -878,6 +878,7 @@ static float swell_master_prev;             /* master at the prior Swell control
 volatile uint8_t dr_lfo_transport;
 static uint8_t swell_transport_hold;
 static float lfo_stop_local[DR_NGROUPS], swell_stop_local[DR_NGROUPS];
+static float swell_stop_master;                  /* preserve master even when STILL offsets its drones */
 static float lfo_stop_speed;                  /* normalized cycles per sample */
 static float sub_phase_wrap(float p)
 {
@@ -1017,6 +1018,7 @@ void dr_init(void)
     dr_lfo_transport = DR_LFO_RUN;
     swell_transport_hold = 0;
     lfo_stop_speed = 0.0f;
+    swell_stop_master = 0.0f;
     memset(lfo_stop_local, 0, sizeof lfo_stop_local);
     memset(swell_stop_local, 0, sizeof swell_stop_local);
     memset(sub_depth, 0, sizeof sub_depth);
@@ -1517,6 +1519,7 @@ static void drain(void)
                     lfo_stop_local[g] = dr_lfo_dr_ph[g];
                     swell_stop_local[g] = dr_pulse_dr_ph[g];
                 }
+                swell_stop_master = pulse_ph;
                 swell_transport_hold = 1;
                 dr_lfo_transport = DR_LFO_STOPPING;
             } else if (a == DR_LFO_RUN || a == DR_LFO_PAUSE) {
@@ -2857,7 +2860,10 @@ static void pulse_run(uint32_t n)
                                                          8.0f * lfo_stop_speed);
                         local_ph[g] = swell_stop_local[g];
                     }
-                    ph = local_ph[0];  /* both envelopes rewind at the LFO's rate */
+                    if (dr_lfo_transport == DR_LFO_STOPPING)
+                        swell_stop_master = fm_maxf(0.0f, swell_stop_master -
+                                                   8.0f * lfo_stop_speed);
+                    ph = swell_stop_master; /* master and both drone phases retreat separately */
                 } else {
                     local_ph[0] = sub_phase_tick(&sub_clock[0][SUB_SWELL], master,
                                                  advance, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
@@ -2888,11 +2894,15 @@ static void pulse_run(uint32_t n)
                                              2.0f * lfo_stop_speed * (float)n);
             local_ph[g] = swell_stop_local[g];
         }
-        ph = local_ph[0];
+        if (dr_lfo_transport == DR_LFO_STOPPING)
+            swell_stop_master = fm_maxf(0.0f, swell_stop_master -
+                                       2.0f * lfo_stop_speed * (float)n);
+        ph = swell_stop_master;
     }
     if (dr_lfo_transport == DR_LFO_STOPPING && lfo_q == 0u &&
         lfo_stop_local[0] <= 0.0f && lfo_stop_local[1] <= 0.0f &&
-        swell_stop_local[0] <= 0.0f && swell_stop_local[1] <= 0.0f) {
+        swell_stop_local[0] <= 0.0f && swell_stop_local[1] <= 0.0f &&
+        swell_stop_master <= 0.0f) {
         int g;
         dr_lfo_transport = DR_LFO_PAUSE;
         ph = 0.0f;

@@ -26,8 +26,8 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 | Knob | What it does |
 |---|---|
 | **Fade** | how long PLAY takes: up to 60 s (1.5 s to start) |
-| **Morph** | how long a black key or a new LFO wave takes to move the sound: 0.02–30 s (2 s to start) |
-| **Scene time** | how long every scene move takes: 0.1 s to 5 minutes (about 8 s to start) |
+| **Morph** | how long parameter morphs take **and** the time scale for held gesture intensity and STILL phase return: 0.02–30 s (2 s to start). The global PRESETS encoder adjusts the same setting. |
+| **Scene time** | how long a **TRANSITION** takes, from 0.1 s to 5 minutes (about 8 s to start); **LOAD** bypasses this and applies immediately |
 | **Sync** | **On** follows a MIDI clock; **Off** ignores it |
 
 VOLCANO displays **Fade (yellow)**, **Morph (orange)** and **Scene (red)** on a common time axis. Each trace reaches and retains its plateau at the selected time. The normal maximum is five minutes, with a longer span available under MIDI-clock synchronization.
@@ -83,7 +83,6 @@ hear is within 10 cents; otherwise the familiar name ("5th").
 - **Just and Shruti move with drone I** (a movable do): its pitch knob picks the tonic. The others are built on A, so
   Tune moves them; LMY's 1/1 is C, Harrison's and Partch's G.
 - **Wander, Chord, a partner's interval and Shift** take the Tuning's notes.
-- **A sound carries its Tuning:** a scene saved on LMY brings LMY back, even with Pitch lock on. A Preset plays on
-  12-tone unless it has its own. The Tuning changes half way through a scene's glide.
+- **A sound carries its Tuning:** a scene saved on LMY brings LMY back, even with Pitch Lock on. A factory preset normally plays on 12-tone unless it specifies another Tuning. LOAD applies the sound immediately; TRANSITION changes it over Scene Time.
 - **VOLCANO's Setup 2 visualization** places tuning markers around a planetary cross-section, with animated stereo orbits. The A marker follows Tune; orbit spacing reflects Stereo.
 - **Pressure sensitivity** is not an adjustable Setup parameter in v1.5.

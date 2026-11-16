@@ -33,7 +33,7 @@ A knob's name and value, as it settles.
 
 ### Keys
 
-What a key set, and what the next press does.
+The name and amount of the selected white-key gesture (STRIP, DARK, STILL, TAIL, or the eight sound gestures) and, on ordinary pages, the black-key switch. On the Sequence page the keys instead enter notes. Support for every new gesture announcement should be verified against the Screen Reader and the current firmware.
 
 ### Messages
 

@@ -31,9 +31,9 @@ Setup 1, KNOB 4: on follows a clock, off ignores it.
 | **The LFO** (SEL + SELECT) | a cycle a division: 32 bars to 1/16 ("LFO CYCLE") |
 | **The delay** (Time, Details) | a **note value**: 1/16, 1/8T, 1/8, 1/4T, 1/8D, 1/4, 1/2T, 1/4D, 1/2, 1/2D, 1 bar |
 | **Wander** | its notes land on the beat (on the bar, when slow), still at random |
-| **Scene time** (Setup 1) | in **bars**, 1 to 16; a scene change ends on a bar line |
+| **Scene Time** (Setup 1) | in **bars**, 1 to 16, for TRANSITION; **LOAD** remains immediate |
 
-The **SEQ pitch progression** uses its own loop duration in seconds. The Sync setting organizes Swell, LFO and delay timing around the external MIDI clock, but does not convert the sequencer's event positions into a clocked grid. For a free-time sequencing example, see [First pitch sequence](../recipes/sequencing.md).
+**STILL** can slow the effective LFO, Swell and sequencer clocks of either drone even when master clocks remain synchronized. When STILL returns to zero, the local phases smoothly rejoin. The **SEQ pitch progression** uses its own loop duration in seconds. The Sync setting organizes Swell, LFO and delay timing around the external MIDI clock, but does not convert the sequencer's event positions into a clocked grid. For a free-time sequencing example, see [First pitch sequence](../recipes/sequencing.md).
 
 ## Good to know
 

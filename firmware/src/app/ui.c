@@ -2885,10 +2885,15 @@ void ui_init(void)
 /* A volcanic cross-section composed within the LCD strip buffer. The title
  * remains legible throughout the startup interval; the fissure and ejecta
  * vary by only a few pixels while it is displayed. */
+/* Let the plume reach full size before the titles start fading back out.
+ * The fixed end time is also used by the host's optional splash renderer;
+ * ordinary host tests continue to skip the startup entirely. */
+#define SPLASH_FINISH_MS 7800u
+#define SPLASH_TITLE_FADE_MS 1600u
 #if defined(OM_HOST) && !defined(OM_WEB) && !defined(OM_SPLASH)
 #define SPLASH_MS 0u
 #else
-#define SPLASH_MS 5600u
+#define SPLASH_MS SPLASH_FINISH_MS
 #endif
 static uint32_t sp_hash(uint32_t x)
 {
@@ -2926,10 +2931,14 @@ static void draw_splash(uint32_t ms)
     const uint16_t SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
                    LAVA = RGB(255, 175, 45), SULFUR = RGB(255, 222, 80),
                    PAPER = RGB(255, 243, 227);
-    /* 5.6 s: fade lettering and magma in together, ascend from the basal
-     * conduit, break through the vent, then develop a broad incandescent
-     * spray. The terrain silhouette and geological bands remain static. */
+    /* 7.8 s: titles and magma fade in together, the vent erupts, and the
+     * titles fade back out after the eruption has fully developed.
+     * The volcano terrain is unchanged, and input still skips startup. */
     const float fade = fm_clampf((float)ms / 1800.0f, 0.0f, 1.0f);
+    const float out_remaining = fm_clampf(((float)SPLASH_FINISH_MS - (float)ms) /
+                                          (float)SPLASH_TITLE_FADE_MS, 0.0f, 1.0f);
+    const float title_fade = fade * out_remaining * out_remaining *
+                             (3.0f - 2.0f * out_remaining);
     const float travel = fm_clampf((float)ms / 3400.0f, 0.0f, 1.0f);
     const int lava_front = 236 - (int)(134.0f * travel);
     const uint32_t erupt_ms = ms > 3100u ? ms - 3100u : 0u;
@@ -3048,9 +3057,10 @@ static void draw_splash(uint32_t ms)
                             i % 4 == 0 ? PAPER : SULFUR);
             }
         }
-        /* White typography fades in concurrently with magma. Nothing
-         * obscures the lava or the film-grain texture with black boxes. */
-        const uint16_t lettering = sp_dim(PAPER, fade);
+        /* Titles fade in with magma and, once the eruption is complete,
+         * smoothly disappear before the instrument UI replaces the splash.
+         * The magma and active eruption remain visible during the fade-out. */
+        const uint16_t lettering = sp_dim(PAPER, title_fade);
         cv_text(18, 53 - y0, &FONT_L, "VOLCANO", lettering);
         cv_text(21, 90 - y0, &FONT_S, "M-VAVE FM-1", lettering);
         cv_text(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, lettering);

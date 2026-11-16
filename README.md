@@ -120,6 +120,8 @@ contributors credited above.
 
 See [About Volcano](docs/manual/about.md#development-and-ai-assistance) for
 more about the development process and
-[From Niagara Drift](docs/manual/migration.md) for the changed controls. Licensed under GPL-3.0-only, except for the MPL-2.0 components
+[From Niagara Drift](docs/manual/migration.md) for the changed controls.
+
+Licensed under GPL-3.0-only, except for the MPL-2.0 components
 identified in [LICENSING.md](LICENSING.md). Volcano is not affiliated with
 or endorsed by M-VAVE or any of the projects named above.

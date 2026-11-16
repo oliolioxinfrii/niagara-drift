@@ -9,6 +9,8 @@ intro: ARP: two drones breathing at one rate, with an adjustable phase offset
 
 A volume envelope applied independently to the two drones. The drones share one rate, shape and depth, but drone II can be shifted relative to drone I.
 
+> **Screenshot needed — Swell:** `build/scenarios/volcano-ui/crust-swell.png`. A second screenshot of Swell shape should be captured separately.
+
 ## Buttons and pages
 
 - **Tap [[ARP]]** to open the Swell page; tap again for Swell shape. Further taps alternate the two pages.
@@ -28,7 +30,7 @@ A volume envelope applied independently to the two drones. The drones share one 
 - **Depth** sets how far the level dips, from no modulation to silence.
 - **Phase** offsets drone II relative to drone I from 0% (together) through 50% (alternating) to 100% (together again).
 - **Swing** makes every other breath longer, up to 3:1.
-- The display shows **both** envelopes over two bars: drone I in orange, drone II in cyan. Each has a matching moving phase dot. At 0% phase they coincide; at 50% they alternate.
+- The display shows **both** envelopes over two bars: two trajectories in the warm Crust palette. Each has a matching moving phase dot. At 0% phase they coincide; at 50% they alternate.
 
 ### Swell shape (2/2)
 

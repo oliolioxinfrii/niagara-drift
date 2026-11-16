@@ -459,13 +459,16 @@ static void vg_air_reverb(float wet, float length, float damp, int hold,
     static const char *const name[5] = {"ROOM", "HALL", "CATH", "CHORUS", "SHIM"};
     const int v = proj.par[P_REV_TYPE];
     const int type = (unsigned)v < 5u ? v : 2;
-    const float gain = 0.5f * (wet + fm_sqrtf(wet));
+    /* Fourth-root response preserves continuous zero, but keeps the
+     * structure visible at 15-50% wet instead of only near full mix. */
+    const float gain = fm_sqrtf(fm_sqrtf(wet));
     const float halo = vg_air_halo(now, type);
+    const float drive = proj.par[P_DLY_ROUTE] == 0 ? vl_norm(P_DLY_DRIVE) : 0.0f;
     const float start = 13.0f + 0.85f * (float)type_map[type].predelay;
     const float spread = 5.0f + 0.18f * (float)type_map[type].size;
     const float tail_px = 24.0f + 177.0f * length;
     const float body_gain = 0.80f + (120.0f - (float)type_map[type].lowcut) / 300.0f;
-    const float swing = 0.16f * (float)type_map[type].mod;
+    const float swing = 0.39f * (float)type_map[type].mod;
     const float phase = (float)(now % VL_AIR_LOOP_MS) *
                         (6.2831853f / (float)VL_AIR_LOOP_MS);
     const uint16_t col[4] = {
@@ -484,28 +487,44 @@ static void vg_air_reverb(float wet, float length, float damp, int hold,
         float attack = fm_clampf(((float)x - start) / spread, 0.0f, 1.0f);
         const float tail_t = fm_clampf(((float)x - 70.0f) / tail_px, 0.0f, 1.0f);
         const float tail = 1.0f - tail_t;
+        const float age = fm_clampf(((float)x - start) / 170.0f, 0.0f, 1.0f);
+        /* DAMP is a low-pass within the feedback lines: body remains,
+         * treble vanishes, and the middle band loses its small wiggles.
+         * At Infinite LENGTH the DSP explicitly bypasses damping. */
         const float detail = hold ? 1.0f :
-            fm_clampf(1.0f - damp * (0.18f + 0.82f *
-                fm_clampf(((float)x - start) / 175.0f, 0.0f, 1.0f)), 0.04f, 1.0f);
+            (1.0f - damp) * (1.0f - damp) * (1.0f - 0.55f * damp * age);
+        const float mid_detail = hold ? 1.0f : 1.0f - 0.45f * damp * age;
         const float wobble = swing * fm_sinf(0.075f * (float)x + phase);
+        const float early = (float)x < start + 65.0f ?
+            fm_sinf(((float)x - start) * (type == 0 ? 0.47f : 0.23f) + phase * 0.2f) :
+            0.0f;
         const float pos = (float)x + scroll;
         const float notes[4] = {
-            vg_air_band(pos, 14, 109u) * 7.0f * body_gain,
-            vg_air_band(pos + 3.0f, 5, 571u) * 10.5f,
-            vg_air_band(pos + 7.0f, 2, 1079u) * 6.0f * detail,
+            vg_air_band(pos, 14, 109u) * 9.0f * body_gain,
+            (vg_air_band(pos + 3.0f, 5, 571u) * 12.0f +
+                early * (type == 0 ? 4.0f : 2.3f)) * mid_detail,
+            vg_air_band(pos + 7.0f, 2, 1079u) * 12.0f * detail,
             vg_air_band((float)x * 1.8f + scroll * 1.25f, 2, 2221u) *
-                6.0f * halo * detail
+                10.0f * halo * detail
         };
         float env;
         attack = attack * attack * (3.0f - 2.0f * attack);
-        env = gain * attack * (hold ? 1.0f : tail * (0.28f + 0.72f * tail));
+        env = gain * attack * (hold ? 1.0f : tail * (0.42f + 0.58f * tail));
         for (layer = 0; layer < nlayer; layer++) {
             const float bend = layer == 0 ? 0.35f : layer == 1 ? 1.0f :
                                layer == 2 ? -0.70f : 0.45f;
             const int y = vg_max(78, vg_min(110, 94 +
                           (int)(env * (notes[layer] + bend * wobble))));
-            if (x > 10 && gain > 0.0f)
-                cv_line(x - 1, prev[layer], x, y, col[layer]);
+            if (x > 10 && gain > 0.0f) {
+                uint16_t ink = layer == 2 ? vg_dim(col[layer], 0.12f + 0.88f * detail) :
+                               layer == 3 ? vg_dim(col[layer], 0.30f + 0.70f * detail) :
+                               col[layer];
+                /* Drive precedes reverb only on the combined/Both route.
+                 * Other sends bypass the drive and stay in the blue palette. */
+                if (layer == 1 && drive > 0.0f)
+                    ink = lk_mix(0x70B8DAu, 0xE86231u, 0.48f * drive);
+                cv_line(x - 1, prev[layer], x, y, ink);
+            }
             prev[layer] = y;
         }
         /* Chorus Hall's 1.45-wide, heavily modulated delay lines form a

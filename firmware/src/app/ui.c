@@ -2882,14 +2882,23 @@ void ui_init(void)
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 
-/* A volcanic cross-section composed within the LCD strip buffer. The title
- * remains legible throughout the startup interval; the fissure and ejecta
- * vary by only a few pixels while it is displayed. */
-/* Let the plume reach full size before the titles start fading back out.
- * The fixed end time is also used by the host's optional splash renderer;
- * ordinary host tests continue to skip the startup entirely. */
-#define SPLASH_FINISH_MS 7800u
-#define SPLASH_TITLE_FADE_MS 1600u
+/* A 14-second optional startup, paced like a slow geologic event.
+ * The terrain remains static: magma rises, the eruption develops, two
+ * independent captions appear and leave, then the entire image fades.
+ * Any button or key still skips the sequence immediately. */
+#define SPLASH_FINISH_MS          14000u
+#define SPLASH_LAVA_BEGIN_MS       1000u
+#define SPLASH_LAVA_FULL_MS        5000u
+#define SPLASH_VERSION_IN_MS       2150u
+#define SPLASH_VERSION_VISIBLE_MS  3700u
+#define SPLASH_ERUPT_MS            5100u
+#define SPLASH_NAME_IN_MS          6300u
+#define SPLASH_NAME_VISIBLE_MS     7800u
+#define SPLASH_VERSION_OUT_MS      8750u
+#define SPLASH_VERSION_GONE_MS    10750u
+#define SPLASH_NAME_OUT_MS         9750u
+#define SPLASH_NAME_GONE_MS       11750u
+#define SPLASH_TERRAIN_OUT_MS     12000u
 #if defined(OM_HOST) && !defined(OM_WEB) && !defined(OM_SPLASH)
 #define SPLASH_MS 0u
 #else
@@ -2911,7 +2920,15 @@ static int sp_rock_height(int x)
             return PY[j-1] + (PY[j] - PY[j-1]) * (x - PX[j-1]) / (PX[j] - PX[j-1]);
     return PY[11];
 }
-/* Fade the titles and magma together without introducing opaque panels. */
+/* A cubic ease ensures the independent captions fade smoothly at their
+ * scheduled times without abrupt opacity jumps. */
+static float sp_ease(uint32_t ms, uint32_t begin, uint32_t end)
+{
+    const float t = fm_clampf(((float)ms - (float)begin) /
+                             (float)(end - begin), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+/* Fade the magma's brightness without altering the underlying rock. */
 static uint16_t sp_dim(uint16_t c, float amount)
 {
     const float f = fm_clampf(amount, 0.0f, 1.0f);
@@ -2919,6 +2936,24 @@ static uint16_t sp_dim(uint16_t c, float amount)
     const int g = (int)((float)((c >> 5) & 63u) * f);
     const int b = (int)((float)(c & 31u) * f);
     return (uint16_t)((r << 11) | (g << 5) | b);
+}
+/* No background framebuffer exists on the FM-1, so fade the completed
+ * 120px drawing strip toward the existing black-sky color before its blit.
+ * The result is visually transparent against the startup background.
+ * The screen becomes empty before the normal instrument UI is shown. */
+static void sp_fade_canvas(uint16_t sky, float remaining)
+{
+    const uint32_t a = (uint32_t)(fm_clampf(remaining, 0.0f, 1.0f) * 256.0f + 0.5f);
+    const uint32_t br = sky >> 11, bg = (sky >> 5) & 63u, bb = sky & 31u;
+    uint32_t i;
+    if (a >= 256u) return;
+    for (i = 0; i < cv_w * cv_h; i++) {
+        const uint32_t c = swap16(cv_px[i]), inv = 256u - a;
+        const uint32_t r = (((c >> 11) * a + br * inv + 128u) >> 8);
+        const uint32_t g = ((((c >> 5) & 63u) * a + bg * inv + 128u) >> 8);
+        const uint32_t b = (((c & 31u) * a + bb * inv + 128u) >> 8);
+        cv_px[i] = swap16((uint16_t)((r << 11) | (g << 5) | b));
+    }
 }
 static void draw_splash(uint32_t ms)
 {
@@ -2931,18 +2966,26 @@ static void draw_splash(uint32_t ms)
     const uint16_t SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
                    LAVA = RGB(255, 175, 45), SULFUR = RGB(255, 222, 80),
                    PAPER = RGB(255, 243, 227);
-    /* 7.8 s: titles and magma fade in together, the vent erupts, and the
-     * titles fade back out after the eruption has fully developed.
-     * The volcano terrain is unchanged, and input still skips startup. */
-    const float fade = fm_clampf((float)ms / 1800.0f, 0.0f, 1.0f);
-    const float out_remaining = fm_clampf(((float)SPLASH_FINISH_MS - (float)ms) /
-                                          (float)SPLASH_TITLE_FADE_MS, 0.0f, 1.0f);
-    const float title_fade = fade * out_remaining * out_remaining *
-                             (3.0f - 2.0f * out_remaining);
-    const float travel = fm_clampf((float)ms / 3400.0f, 0.0f, 1.0f);
+    /* Opening holds on the undisturbed volcano for 1 s. Magma begins its
+     * ascent; the version follows. Only after the summit is reached does
+     * the eruption begin, followed by the large VOLCANO title. Version
+     * fades first, title fades halfway through; scenery fades last. */
+    const float travel = sp_ease(ms, SPLASH_LAVA_BEGIN_MS, SPLASH_LAVA_FULL_MS);
+    const float lava_bright = sp_ease(ms, SPLASH_LAVA_BEGIN_MS,
+                                    SPLASH_LAVA_BEGIN_MS + 1150u);
+    const float version_alpha = sp_ease(ms, SPLASH_VERSION_IN_MS,
+                                      SPLASH_VERSION_VISIBLE_MS) *
+                         (1.0f - sp_ease(ms, SPLASH_VERSION_OUT_MS,
+                                        SPLASH_VERSION_GONE_MS));
+    const float name_alpha = sp_ease(ms, SPLASH_NAME_IN_MS,
+                                   SPLASH_NAME_VISIBLE_MS) *
+                      (1.0f - sp_ease(ms, SPLASH_NAME_OUT_MS,
+                                     SPLASH_NAME_GONE_MS));
+    const float scene_remaining = 1.0f -
+          sp_ease(ms, SPLASH_TERRAIN_OUT_MS, SPLASH_FINISH_MS);
     const int lava_front = 236 - (int)(134.0f * travel);
-    const uint32_t erupt_ms = ms > 3100u ? ms - 3100u : 0u;
-    const int ascent = (int)fm_minf(30.0f, (float)erupt_ms / 68.0f);
+    const uint32_t erupt_ms = ms > SPLASH_ERUPT_MS ? ms - SPLASH_ERUPT_MS : 0u;
+    const int ascent = (int)fm_minf(30.0f, (float)erupt_ms / 72.0f);
     const int sparks = (int)fm_minf(38.0f, (float)erupt_ms / 58.0f);
     const float drift = (float)(ms % 800u) / 800.0f;
     int half, band, i, j;
@@ -2993,20 +3036,20 @@ static void draw_splash(uint32_t ms)
         /* The magma starts at the bottom of the visible cross-section.
          * Its advancing head travels upward; no static full-height lava
          * stroke is visible before it reaches the summit. */
-        if (ms > 0u) {
+        if (ms > SPLASH_LAVA_BEGIN_MS) {
             for (i = 236; i > lava_front; i -= 2) {
                 const int y1 = i - 2 < lava_front ? lava_front : i - 2;
                 const int x0 = 118 + (int)(2.5f * fm_sinf((float)i * 0.078f));
                 const int x1 = 118 + (int)(2.5f * fm_sinf((float)y1 * 0.078f));
                 cv_line(x0 - 2, i - y0, x1 - 2, y1 - y0,
-                        sp_dim(BED[5], fade * 0.85f));
+                        sp_dim(BED[5], lava_bright * 0.85f));
                 cv_line(x0, i - y0, x1, y1 - y0,
-                        sp_dim(SULFUR, fade));
+                        sp_dim(SULFUR, lava_bright));
                 cv_line(x0 + 2, i - y0, x1 + 2, y1 - y0,
-                        sp_dim(LAVA, fade * 0.90f));
+                        sp_dim(LAVA, lava_bright * 0.90f));
             }
             if (travel > 0.0f)
-                cv_rect(116, lava_front - y0, 5, 2, sp_dim(PAPER, fade));
+                cv_rect(116, lava_front - y0, 5, 2, sp_dim(PAPER, lava_bright));
         }
         /* Eruption happens only after the conduit approaches the crater.
          * The trailing strands undulate independently while growing. */
@@ -3057,13 +3100,14 @@ static void draw_splash(uint32_t ms)
                             i % 4 == 0 ? PAPER : SULFUR);
             }
         }
-        /* Composite titles over the drawn background; during fade-out
-         * they reveal strata and magma rather than turning into black glyphs.
-         * The eruption continues underneath until the splash finishes. */
-        const uint8_t title_alpha = (uint8_t)(255.0f * title_fade + 0.5f);
-        cv_text_alpha(18, 53 - y0, &FONT_L, "VOLCANO", PAPER, title_alpha);
-        cv_text_alpha(21, 90 - y0, &FONT_S, "M-VAVE FM-1", PAPER, title_alpha);
-        cv_text_alpha(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER, title_alpha);
+        /* Version arrives as magma climbs; VOLCANO arrives after eruption.
+         * Independent background-composited fades remove both captions
+         * before the entire geological illustration disappears. */
+        const uint8_t ver = (uint8_t)(255.0f * version_alpha + 0.5f);
+        const uint8_t name = (uint8_t)(255.0f * name_alpha + 0.5f);
+        cv_text_alpha(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER, ver);
+        cv_text_alpha(18, 53 - y0, &FONT_L, "VOLCANO", PAPER, name);
+        sp_fade_canvas(SKY, scene_remaining);
         cv_blit(0, (uint32_t)y0);
     }
 }

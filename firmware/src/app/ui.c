@@ -127,8 +127,8 @@ static const char *const BANK_N[NBANKS] = {"A", "B", "C", "PRESETS 1-8", "D", "E
 /* Browse user banks together, followed by the two immutable Preset banks.
  * Storage IDs remain unchanged for saved projects and scene recalls. */
 static const uint8_t BANK_ORDER[NBANKS] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
-static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL",
-                                               "STUTTER"};   /* D5-G5, then G4-C5: fixed */
+static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL", "STUTTER"};
+static const char *const SUB_NAME[4] = {"STRIP", "DARK", "STILL", "TAIL"};
 enum { S_NONE, S_PARTNER, S_SUBOCT, S_HP, S_OTAP, S_ODEST, S_FTAP, S_FDEST, S_PLINK, S_SYNC, S_XMOD, S_LFORESET, S_DTAP,
        S_PLOCK };
 typedef struct {
@@ -228,9 +228,15 @@ static struct {
     float g_out[DR_NGEST];             /* ... let go after a hold: how far in it was, and over how long (s, at Gesture
                                         * time x1) it goes: as long as it was held (Evan, 2026-10-18); 0: the swell */
     float g_out_s[DR_NGEST];
-    float g_amt[DR_NGEST];             /* ... how far in each is, 0..1 */
-    int16_t g_sent[DR_NGEST];          /* ... as the engine has it, 0..1000 */
-    uint32_t g_last;                   /* the last swell step's time */
+    float g_amt[DR_NGEST];             /* the eight original gestures */
+    int16_t g_sent[DR_NGEST];
+    float sub_amt[8];                  /* keys 1-8: four operations per drone */
+    int16_t sub_sent[8];
+    uint16_t key_held;                 /* all sixteen white keys, physical positions */
+    uint16_t key_was_returning;        /* state when the current press began */
+    uint8_t key_mode[16];             /* 0: stationary, 1: returning, 2: paused return */
+    uint32_t key_t0[16];
+    uint32_t g_last;
     uint64_t hands[(DR_NPARAMS + 63) / 64];   /* the values a hand has moved since a scene switch began: the
                                                * switch lets go of them (Evan, 2026-10-17: Movement fought it) */
     int16_t press_to[DR_NPARAMS];      /* ... the scene */
@@ -1845,124 +1851,127 @@ static void midi_in(void)
     }
 }
 
-/* THE GESTURES (v0.2): Weight, Shift, Clean, Wash on the top four white keys (always these: Evan, 2026-10-18, you
- * learn where they are), which sense no pressure, so
- * time stands in: held, a gesture comes in (over its own time x Gesture time), its parts in order; let go, it goes
- * over as long as it was held (x Gesture time, turned live: Evan, 2026-10-18). A tap (under GEST_TAP_MS: a press
- * needn't be quick) latches it on, all the way;
- * tapping a latched one lets it go (over its own time); SEL held as you let go keeps it where it is. No depth or
- * time of its own to set (Evan, 2026-10-18: how you play it sets them); Shift's move is on Moves. Latched
- * levels are values (P_GL_*): scenes keep them. v0.3: four more on keys 9-12 (G4-C5: Tick, Chord, Snarl, Stutter,
- * each the partner of the top key four to its right), which sense pressure: held, one goes toward how hard the key is
- * pressed (over its time x Gesture time), easing off or let go it comes back; a tap latches it, as the top keys'.
- * SEL tapped while a gesture is held latches it at the level it has reached (Evan, 2026-10-27), on every gesture key. */
-#define GEST_TAP_MS PR_TAP_MS          /* a gesture key let go sooner: a tap, as a scene key */
-#define G_PRESS DR_G_TICK              /* gestures from here on are on the pressure keys */
-static int gl_par(int g) { return g < G_PRESS ? P_GL_0 + g : P_GL_4 + (g - G_PRESS); }   /* its latch */
-static uint32_t gkey(int g) { return g < G_PRESS ? WHITE_K[NSCENES + g] : WHITE_K[NPLAY + g - G_PRESS]; }
-static void gesture_down(int g)
+/* Every white key controls a depth without pressure or a separate latch command.
+ * Hold increases at 100% / Morph Time; release retains the current amount.
+ * A tap of a stationary nonzero key begins a return, another tap pauses it;
+ * holding during a return reverses to increasing. No automatic reversal at 100%.
+ * Keys 1-8 are STRIP/DARK/STILL/TAIL for drone I and II; 9-16 retain
+ * TICK/CHORD/SNARL/STUTTER/WEIGHT/SHIFT/CLEAN/WASH. */
+#define GEST_TAP_MS 220u
+#define G_PRESS DR_G_TICK
+static int gl_par(int g) { return g < G_PRESS ? P_GL_0 + g : P_GL_4 + g - G_PRESS; }
+static int key_gesture(int i) { return i < NPLAY ? -1 : i < NSCENES ? G_PRESS + i - NPLAY : i - NSCENES; }
+static float *key_amount(int i) { return i < NPLAY ? &ui.sub_amt[i] : &ui.g_amt[key_gesture(i)]; }
+static void key_rejoin(int i, int on)
 {
-    if (proj.par[gl_par(g)]) {                     /* latched: let go of it, whatever the press */
-        param_set(gl_par(g), 0);
-        loop_note(gl_par(g), 0, 0);
+    if (i == 2 || i == 6) {
+        dr_still_rejoin(i / 4, on);
+        sd_still_rejoin(i / 4, on);
+    }
+}
+static void gesture_down(int i)                  /* i: physical white key, 0..15 */
+{
+    const uint16_t bit = (uint16_t)(1u << i);
+    if (ui.key_held & bit) return;
+    if (ui.key_mode[i] == 1) {                   /* a return pauses as soon as pressed */
+        ui.key_was_returning |= bit;
+        ui.key_mode[i] = 2;
+        key_rejoin(i, 0);
+    } else {
+        ui.key_was_returning &= (uint16_t)~bit;
+    }
+    ui.key_held |= bit;
+    ui.key_t0[i] = plat_ms();
+    if (i >= NPLAY) {
+        const int g = key_gesture(i);
+        ui.g_held |= (uint8_t)(1u << g);
         hands_on(gl_par(g));
-        ui.g_rel |= (uint8_t)(1u << g);        /* (no banner: the header shows it going, Evan 2026-11-07) */
+    } else if (i == 2 || i == 6) {
+        key_rejoin(i, 0);
     }
-    ui.g_held |= (uint8_t)(1u << g);
-    ui.g_t0[g] = plat_ms();
-    tip(TIP_GEST);
-    ui.g_out_s[g] = 0.0f;
+    ui.scene_at = -1;
 }
-static void gesture_up(int g)
+static void gesture_up(int i)
 {
-    uint32_t held = plat_ms() - ui.g_t0[g];
-    if (!(ui.g_held >> g & 1u))
-        return;                                        /* not a gesture's press (SEL + the key: a bank) */
-    ui.g_held &= (uint8_t)~(1u << g);
-    if (ui.g_rel >> g & 1u) {
-        ui.g_rel &= (uint8_t)~(1u << g);
-        return;
-    }
-    if (held >= GEST_TAP_MS && !(ui.btn >> B_SEL & 1u) && g < G_PRESS) {   /* let go after a hold: out over as long
-                                                                         * as it was held (a pressure key: its own time) */
-        ui.g_out[g] = ui.g_amt[g];
-        ui.g_out_s[g] = fm_minf((float)held * 0.001f, 60.0f);
-    }
-    if (held < GEST_TAP_MS) {                          /* a tap: latched, at full */
-        param_set(gl_par(g), 100);
-        loop_note(gl_par(g), 100, 0);
-        hands_on(gl_par(g));                   /* the header says "latched" */
-    } else if (ui.btn >> B_SEL & 1u) {                 /* SEL held: latched where it is */
-        int v = (int)(ui.g_amt[g] * 100.0f + 0.999f);   /* rounded up: a hair less would read as letting go
-                                                          * (QA 2026-10-20: Shift's chord swapped, Weight jumped) */
-        ui.btn_used |= 1u << B_SEL;
-        param_set(gl_par(g), v < 1 ? 1 : v);
-        loop_note(gl_par(g), v < 1 ? 1 : v, 0);
-        hands_on(gl_par(g));
-    }
-}
-static char *dec1(float v, char *b);                   /* below */
-/* GESTURE TIME: the gestures' times x 0.25 .. x 12, 50 as set. Slower, evenly in seconds (each detent the same time
- * more, to 12x); faster, by ratio and only to 4x (Evan, 2026-10-28: most of the old x 0.1 .. x 10 was fast, the slow
- * end a few big jumps; a slow one is for a tap, which latches and comes in by itself) */
-static float mtime_k(void)
-{
-    float m = (float)proj.mtime;
-    return m > 50.0f ? 1.0f + (m - 50.0f) * 0.22f : fm_exp2f((m - 50.0f) * 0.04f);
-}
-static void mtime_turn(int32_t e)                      /* PRESETS: Gesture time, shown as Weight's time in (the
-                                                        * others scale with it): right is faster (Evan, 2026-10-24) */
-{
-    int v = (int)proj.mtime - (int)e;
-    float t;
-    char *q;
-    proj.mtime = (uint8_t)(v < 0 ? 0 : v > 100 ? 100 : v);
-    mark_dirty();
-    t = fm_exp2f((float)DR_GEST_TIME[DR_G_WEIGHT] * 0.0490689f) * mtime_k();
-    scopy(ui.glab[0], "GESTURE TIME");
-    q = ui.glab[1];
-    if (t < 9.95f)
-        q = dec1(t, q);
-    else
-        itoa_u((uint32_t)(t + 0.5f), q);
-    while (*q)
-        q++;
-    scopy(q, " s");
-    ui.glab_until = plat_ms() + 1500u;
-    ui.act_t = plat_ms();
-}
-static void gesture_run(void)                          /* each frame: each gesture toward where it's going */
-{
-    uint32_t now = plat_ms(), dt = now - ui.g_last;
-    int g;
-    ui.g_last = now;
-    if (dt > 100u)
-        dt = 100u;
-    for (g = 0; g < DR_NGEST; g++) {
-        float to = (float)proj.par[gl_par(g)] * 0.01f;
-        if ((ui.g_held >> g & 1u) && !(ui.g_rel >> g & 1u)) {
-            to = 1.0f;
-            if (g >= G_PRESS) {                        /* a pressure key: as far as it's pressed (none: the emulator) */
-                int pr = plat_pressure(gkey(g));
-                if (pr >= 0)
-                    to = fm_clampf(((float)press_scaled(pr) / 127.0f - PR_DEAD) / (PR_FULL - PR_DEAD), 0.0f, 1.0f);
-            }
+    const uint16_t bit = (uint16_t)(1u << i);
+    const uint32_t held = plat_ms() - ui.key_t0[i];
+    const float amount = *key_amount(i);
+    if (!(ui.key_held & bit)) return;
+    ui.key_held &= (uint16_t)~bit;
+    if (i >= NPLAY)
+        ui.g_held &= (uint8_t)~(1u << key_gesture(i));
+    if (held < GEST_TAP_MS && amount > 0.0f &&
+        !(ui.key_t0[i] && amount < 0.00001f)) {
+        if (ui.key_was_returning & bit) {
+            ui.key_mode[i] = 2;                 /* tap during return: hold its position */
+        } else if (ui.key_mode[i] == 2) {
+            ui.key_mode[i] = 1;                 /* tap again: resume returning */
+            key_rejoin(i, 1);
+        } else if (amount > 0.0f) {
+            ui.key_mode[i] = 1;                 /* tap a stationary amount: return */
+            key_rejoin(i, 1);
         }
-        float *a = &ui.g_amt[g], k = mtime_k();
-        float step = *a > to && ui.g_out_s[g] > 0.0f
-                       ? (float)dt * 0.001f * ui.g_out[g] / (ui.g_out_s[g] * k)   /* let go: as long as it was held */
-                       : (float)dt * 0.001f / (fm_exp2f((float)DR_GEST_TIME[g] * 0.0490689f) * k);
+    } else {
+        ui.key_mode[i] = 0;                     /* a release after a hold is a latch */
+    }
+    ui.key_was_returning &= (uint16_t)~bit;
+    if (i >= NPLAY) {
+        int g = key_gesture(i), v = (int)(amount * 100.0f + 0.5f);
+        proj.par[gl_par(g)] = (int16_t)v;
+        loop_note(gl_par(g), v, 0);
+        mark_dirty();
+    }
+}
+static void gesture_run(void)
+{
+    const uint32_t now = plat_ms();
+    uint32_t dt = now - ui.g_last;
+    const float morph = dr_time_s(P_MORPH, proj.par[P_MORPH]) * 1000.0f;
+    int i;
+    ui.g_last = now;
+    if (dt > 100u) dt = 100u;
+    for (i = 0; i < NWHITE; i++) {
+        const uint16_t bit = (uint16_t)(1u << i);
+        const int g = key_gesture(i);
+        float *amount = key_amount(i);
+        const int pressed = (ui.key_held & bit) != 0;
+        const int raising = pressed && (*amount <= 0.0f || now - ui.key_t0[i] >= GEST_TAP_MS);
+        const float delta = (float)dt / fm_maxf(morph, 20.0f);
         int16_t q;
-        *a = *a < to ? fm_minf(*a + step, to) : fm_maxf(*a - step, to);
-        if (*a <= to)
-            ui.g_out_s[g] = 0.0f;                      /* out (or on its way in again): its own time from here */
-        q = (int16_t)(*a * 1000.0f + 0.5f);
-        if (q != ui.g_sent[g] && ui.loop == L_REC)
-            loop_note(LP_GEST + g, q, dt);             /* the loop: the level as played */
-        q = (int16_t)(fm_maxf(*a, loop_gest(g)) * 1000.0f + 0.5f);   /* playing: the loop's, or the hand's if more */
-        if (q != ui.g_sent[g]) {
-            ui.g_sent[g] = q;
-            dr_gesture(g, q);
+        if (raising) {
+            if (ui.key_mode[i] == 2)
+                key_rejoin(i, 0);
+            ui.key_mode[i] = 0;
+            *amount = fm_minf(*amount + delta, 1.0f);
+        } else if (!pressed && ui.key_mode[i] == 1) {
+            *amount = fm_maxf(*amount - delta, 0.0f);
+            if (*amount <= 0.0f) {
+                ui.key_mode[i] = 0;
+                if (g >= 0) mark_dirty();
+            }
+        } else if (!pressed && ui.key_mode[i] == 0 && g >= 0 &&
+                   ui.morph >= 0) {
+            /* A scene transition can still change a saved gesture depth. */
+            *amount = (float)proj.par[gl_par(g)] * 0.01f;
+        }
+        q = (int16_t)(*amount * 1000.0f + 0.5f);
+        if (i < NPLAY) {
+            if (q != ui.sub_sent[i]) {
+                ui.sub_sent[i] = q;
+                dr_subtract(i, q);
+                if (i == 2 || i == 6)
+                    sd_still_level(i / 4, q);
+            }
+        } else {
+            if (q != ui.g_sent[g] && ui.loop == L_REC)
+                loop_note(LP_GEST + g, q, dt);
+            q = (int16_t)(fm_maxf(*amount, loop_gest(g)) * 1000.0f + 0.5f);
+            if (q != ui.g_sent[g]) {
+                ui.g_sent[g] = q;
+                dr_gesture(g, q);
+            }
+            if (ui.morph < 0 && proj.par[gl_par(g)] != (int16_t)(*amount * 100.0f + 0.5f))
+                proj.par[gl_par(g)] = (int16_t)(*amount * 100.0f + 0.5f);
         }
     }
 }
@@ -2164,9 +2173,9 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
     uint32_t i;
     const uint32_t released = changed & ~btn;
     const uint32_t keyup = ui.keys & ~keys;
-    for (i = NPLAY; i < NWHITE; i++)
+    for (i = 0; i < NWHITE; i++)
         if (keyup >> WHITE_K[i] & 1u)
-            gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+            gesture_up((int)i);
     ui.keys = keys;
     if (ui.save_menu == 2) {
         menu_name_input(released);
@@ -2244,15 +2253,6 @@ static void input(void)
         int g;
         ui.sel_t = plat_ms();
         ui.sel_turned = 0;
-        for (g = 0; g < DR_NGEST; g++)                 /* SEL tapped while a gesture is held: latched where it is */
-            if ((ui.g_held >> g & 1u) && !(ui.g_rel >> g & 1u) && plat_ms() - ui.g_t0[g] >= GEST_TAP_MS) {
-                int v = (int)(ui.g_amt[g] * 100.0f + 0.999f);   /* rounded up, as a SEL let-go's */
-                param_set(gl_par(g), v < 1 ? 1 : v);
-                loop_note(gl_par(g), v < 1 ? 1 : v, 0);
-                hands_on(gl_par(g));
-                ui.g_rel |= (uint8_t)(1u << g);        /* its let-go does nothing more */
-                ui.btn_used |= 1u << B_SEL;            /* the header says "latched" */
-            }
         if (ui.press >= 0 && !ui.press_done && plat_ms() - ui.press_t0 >= PR_WAIT_MS) {   /* ... a scene key: the
                                                         * blend kept there; its let-go does nothing more */
             ui.btn_used |= 1u << B_SEL;
@@ -2406,18 +2406,12 @@ static void input(void)
                 scene_back();
         }
     }
-    for (i = NPLAY; i < NWHITE; i++) {                 /* the eight gesture keys, G4 .. G5 */
-        const int g = i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES);   /* keys 9-12: the pressure
-                                                                                          * gestures (v0.3) */
-        if (!((ch & keys) >> WHITE_K[i] & 1u))
-            continue;
-        if (btn >> B_SEL & 1u)
-            ui.btn_used |= 1u << B_SEL;   /* SEL+gesture is not a request for the key map */
-        gesture_down(g);
-    }
-    for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go */
+    for (i = 0; i < NWHITE; i++) {
+        if (i < NPLAY && ui.scene_keys_enabled) continue; /* legacy scenario only */
+        if ((ch & keys) >> WHITE_K[i] & 1u)
+            gesture_down((int)i);
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
-            gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+            gesture_up((int)i);
     }
     if (btn || keys || ch)
         ui.act_t = plat_ms();
@@ -2451,7 +2445,7 @@ static void input(void)
     if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */
         global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
     if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */
-        mtime_turn(e);
+        global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
             const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
@@ -2878,6 +2872,7 @@ void ui_init(void)
     dr_phones = (uint8_t)(ui.jack || plat_speaker_muted());   /* restore user preference; default speaker ON */
     ui.save_q = -2;
     sd_init();
+    ui.g_last = plat_ms();
     ui.splash_t0 = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);
 }

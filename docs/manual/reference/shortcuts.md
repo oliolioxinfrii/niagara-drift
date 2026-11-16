@@ -18,6 +18,8 @@ intro: Quick reference for button combinations, holds and taps
 | [[SEL]] + [[OCT−]] / [[OCT+]] | Toggle drone I / II out or back in |
 | Hold [[SEL]], turn a pitch or fine-adjustable knob | Make smaller steps; secondary controls where available |
 | Hold [[SEL]], touch a black key | Show the switch name and state without changing it |
+| Hold [[SEL]], turn KNOB 1 on **SEQ → Sequence** | Retune the selected pitch event along the current tuning grid |
+| Tap [[SEL]] while a gesture key is held | Latch that gesture at its current intensity |
 | Hold [[SEL]], turn KNOB 1 or 3 on **Sub · Drive** | Select that drone's sub waveform |
 | Hold [[SEL]], turn KNOB 1 on **Swell shape** | Adjust the original Shape parameter |
 | Hold [[SEL]], turn KNOB 2 on **Details** | Select delay type |
@@ -32,6 +34,7 @@ intro: Quick reference for button combinations, holds and taps
 | Hold a page button, turn a knob, release | Temporarily edit that page, then return (except ARP) |
 | Hold [[HOME]] for 400 ms, release | View the geological activity atlas, then return to the previous page |
 | Hold [[ARP]] for 400 ms | Turn Swell on or off |
+| Tap a gesture key | Latch it fully; tap again to release it |
 | Tap [[SAVE]] | Open the scene browser |
 | **SAVE** in the scene browser | Confirm the selected action or overwrite |
 | **HOME** in the scene browser | Back/cancel |

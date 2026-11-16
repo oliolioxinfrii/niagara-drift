@@ -57,9 +57,11 @@ Each knob shapes the pitch movement across one segment of the sequence:
 
 | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 |---|---|---|---|
-| 1→2 | 2→3 | 3→4 | 4→1 |
+| Segment 1 (1→2) | Segment 2 (2→3, or 2→1 with two steps) | Segment 3 (3→4, or 3→1 with three steps) | Segment 4 (4→1, with four steps) |
 
-The central setting provides a smooth sinusoidal ease; toward either extreme, the movement approaches an early or late abrupt jump. Only segments that belong to the active sequence can be adjusted.
+The final active segment always returns to **step 1**. With two steps, only KNOBs 1–2 are active; with three steps, only KNOBs 1–3 are active. At one step, transition-shape editing is unavailable. The central setting provides a smooth sinusoidal ease; at −100 the pitch changes at the *end* of the segment, and at +100 it changes at the *beginning*.
+
+**Step 1** follows the current pitches on **HOME → Pitch**. Changing those live pitches changes the first sequencer event, and Pitch Lock or Pitch Link can make drone II follow drone I instead of an independent sequence.
 
 > **Screenshot needed — Transitions:** Capture SEQ page 5 with non-default shapes for each active segment.
 

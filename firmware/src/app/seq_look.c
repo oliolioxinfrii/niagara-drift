@@ -18,7 +18,6 @@ static void lk_pic_seq_time(void)
     const int32_t x0 = 18, width = 204, y0 = 55, y1 = 76;
     const uint32_t total = sd_total_s();
     const int32_t x1 = x0 + width;
-    const uint32_t elapsed = sd_elapsed_ms();
     int i, g;
     char t[24];
 
@@ -52,7 +51,9 @@ static void lk_pic_seq_time(void)
             cv_round(x - 1, y - 1, 3, 3, 1, i == 0 ? LK_WHITE : LK_BG);
         }
         if (sd.enabled) {
-            const uint32_t tms = elapsed % (total * 1000u);
+            /* The Intervals page follows each drone's independent STILL clock,
+             * as the Sequence page's pitch path already does. */
+            const uint32_t tms = sd_elapsed_local(g) % (total * 1000u);
             const int32_t x = x0 + (int32_t)((uint64_t)tms * (uint32_t)width / (total * 1000u));
             cv_round(x - 3, y - 3, 7, 7, 3, LK_WHITE);
         }

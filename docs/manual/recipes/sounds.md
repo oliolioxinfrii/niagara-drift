@@ -7,7 +7,7 @@ description: Recipes for sounds on Volcano: ticks, a singing filter, hard sync, 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 Each recipe is a sound that takes more than one knob: a key and a knob together, or settings on two or three pages.
-**Every example begins from a stated factory preset.** To load one, press **SAVE**, select **Presets 1–8** or **Presets 9–16** and its numbered slot, set KNOB 3 to **LOAD**, then press SAVE. If Pitch Lock is enabled, preset recall preserves your current pitches; turn it off on an ordinary page (C♯4) if you want the preset's original register. See [Scenes](../reference/scenes.md) and [Presets](../reference/presets.md).
+**Every example begins from a stated factory preset.** To load one, press **SAVE**, select **Presets 1–8** or **Presets 9–16** and its numbered slot, set KNOB 3 to **LOAD**, then press SAVE. The SAVE browser's **LOAD** action now applies the preset's stored pitches immediately even when Pitch Lock is on. See [Scenes](../reference/scenes.md) and [Presets](../reference/presets.md).
 
 ## Tone and texture
 
@@ -29,7 +29,7 @@ a slow tick, a few clicks a second under drone II, a pulse to play against.
 
 > **Good to know.** The ticks come at drone I's pitch ÷ 16, two to a cycle (each edge of the sub's square): lower
 > drone I, slower ticks. Higher, or at −3 oct, they blur into a flutter. The clicks reach the speaker, though the hum
-> under them doesn't. The **Tick** gesture ([[G4]]) does this on its own, faster as you press harder. Or take drone I
+> under them doesn't. The **Tick** gesture ([[G4]]) does this on its own, increasing as you hold the key longer; release to retain the reached amount, then tap to return it toward zero. Or take drone I
 > itself under 20 Hz (Pitch, KNOB 1): a click each cycle, as in **Sonar** (P7).
 
 > **Screenshot needed — Sub · Drive, drone I's sub at -4 oct, Osc/Sb 100.** Regenerate this view from the Volcano v1.5 firmware.
@@ -145,8 +145,7 @@ drags and tears the pitch, and the echoes with it. It's clearest on a steady sou
 2. Tap black key 11, [[F#5]], until the screen shows **Snarl** (the LED winks).
 3. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: 40 a growl, 85 a snarl.
 
-> **Good to know.** The **Snarl** gesture ([[B4]]) brings it in by pressure, with the drive and Feedback on top, and
-> leaves without a trace. **Clean** ([[F5]]) takes it out while you hold it.
+> **Good to know.** The **Snarl** gesture ([[B4]]) brings it in as you hold the key, with drive and Feedback on top. Releasing the key retains the amount; tap it to start returning toward zero. **Clean** ([[F5]]) can suppress the grit while active.
 
 > **Screenshot needed — Mods, Snarl.** Regenerate this view from the Volcano v1.5 firmware.
 > **Screenshot needed — Mods, X-mod 85.** Regenerate this view from the Volcano v1.5 firmware.
@@ -181,31 +180,24 @@ four notes, a figure that repeats. Wander then moves the whole figure to a new n
 
 > **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 
-### A filter rhythm in time with Swell {#swell}
+### A filter rhythm alongside Swell {#swell}
 
-*A square LFO on both cutoffs, locked to the Swell's breath*
+*Use an LFO square wave and Swell to make two related but distinct rhythms.*
 
-**Start from:** **P1 Niagara** (Presets 1–8, slot 1). Ensure the selected LFO waveform is active and Movement is above 0% so the filter sends can be heard.
+**Start from:** **P1 Niagara** (Presets 1–8, slot 1). Ensure Movement is above zero and the LFO waveform and filter sends are active.
 
-The Swell makes both drones breathe; lock the LFO to it and a square wave on the filters jumps on the same beat, the
-two filters in turn.
+Swell and the LFO have separate rhythmic progressions. You can set them to similar rates so the filters seem to follow the breaths, or to different rates so the accents slowly drift apart.
 
-1. Tap [[ARP]] until the **Swell** page appears (hold ARP for 400 ms if Swell is off), and turn KNOB 1 for about a breath a
-   second.
-2. Tap [[LFO]] until **LFO Sends** appears. Tap [[OCT−]] until LFO I is **Square**, and tap key 8, [[A#4]], until LFO I moves
-   drone II's cutoff too.
-3. Turn KNOB 2 and KNOB 4, the cutoff sends, one up and one down: the filters jump in turn. Hold [[SEL]] and turn SELECT to about the
-   Swell's speed.
-4. Tap [[C#5]] to lock the LFO to Swell. Hold [[C#5]] for 500 ms if you want to reset the LFO phase without changing the lock state.
+1. Open **ARP → Swell**, turn it on with a 400 ms ARP hold if necessary, and set the breath rate with KNOB 1.
+2. Open **LFO → Waves** and select **Square** for LFO I, with a nonzero level. On **LFO → Sends**, route that LFO to the filter destinations with the black keys and raise the filter send depths (KNOB 2 and KNOB 4), using opposite signs for alternating movement.
+3. Hold **SEL** and turn SELECT to set the shared LFO rate. Try matching the Swell cycle length approximately, then moving slightly away from it.
+4. **C♯5 is now transport, not an LFO-to-Swell lock.** Tap C♯5 to pause/resume the LFO waveforms while Swell keeps running. Hold C♯5 for 500 ms to smoothly rewind both LFO and Swell phases to zero at the LFO rate; both resume automatically at zero. Try this with the two rates different.
 
-> **Good to know.** Echoes blur the rhythm: if your sound has them, turn the delay's Mix down first ([[FX]],
-> KNOB 2). Locking the LFO to Swell synchronizes their phases. Tap [[C#5]] again to free the LFO;
-> on an external MIDI clock, both can follow the synchronized tempo.
+> **Good to know.** If you use an external MIDI clock, both Swell and the LFO can be set to beat-related divisions, but a free-running pair need not remain phase-locked. The earlier C♯5 lock-to-Swell shortcut has been retired. Reduce the delay Mix on FX → Space if echoes make it hard to distinguish the modulation.
 
-> **Screenshot needed — LFO sends, LFO I Square on both cutoffs, on Swell.** Regenerate this view from the Volcano v1.5 firmware.
-> **Screenshot needed — Swell, rate 1.2 s.** Regenerate this view from the Volcano v1.5 firmware.
+> **Screenshot needed — Swell and LFO phases:** Capture the real LFO Sends and Swell pages on this branch, showing their separate progress indicators.
 
-> **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
+> **Audio preview pending:** Re-record this recipe from the new firmware; the old phase-lock example is no longer representative.
 
 ### LFO chasing itself {#chase}
 

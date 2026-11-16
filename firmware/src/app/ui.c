@@ -2653,26 +2653,9 @@ static int32_t echo_shift(int ty, int k)
     return ty == 4 ? JIT[k & 7] : ty == 5 ? (int32_t)(k * k) / 3 : 0;
 }
 
-/* THE BLACK KEYS' MAP (SEL held 0.4 s, nothing else asking for the screen: a knob turning, a white key held): the
- * eleven keys drawn where they sit on the keyboard (3-2-3-2-1), lit as the panel's are, and only their groups
- * named. A key touched while SEL is held names itself and its setting, large, and doesn't switch (Evan, 2026-10-19:
- * the eleven names and settings at once were too crowded to read). The LFO pages' layer on those pages */
-#define KEYMAP_MS 400u
-#define KEYMAP_JOB_MS 1500u            /* ... on a page where a knob has a SEL job: a quick SEL + turn never meets the map
-                                        * (Evan, 2026-10-28); once a job is turned, not until SEL is let go */
-static int keymap_on(void)
-{
-    uint32_t white = 0, i, wait = page_jobs(ui.view) ? KEYMAP_JOB_MS : KEYMAP_MS;
-    for (i = 0; i < NWHITE; i++)
-        white |= 1u << WHITE_K[i];
-    if (page_jobs(ui.view) && ui.sel_turned && ui.km_key < 0)
-        return 0;
-    if ((ui.btn_used >> B_SEL & 1u) && ui.km_key < 0)
-        return 0;                                      /* SEL already used in this hold (SEL + PLAY, a bank, a knob):
-                                                        * no map until it's let go (Evan, 2026-11-08) */
-    return (ui.btn >> B_SEL & 1u) && (plat_ms() - ui.sel_t >= wait || ui.km_key >= 0) && !lit(0) && !lit(1) &&
-           !lit(2) && !lit(3) && !(ui.keys & white) && ui.press < 0;
-}
+/* SEL continues to modify knobs and transport; it no longer opens a key map.
+ * Keep the query for host scenario compatibility, always reporting hidden. */
+static int keymap_on(void) { return 0; }
 static void sw_text(sw_t w, const char **name, const char **st)
 {
     static const char *const SUB[7] = {"", "-1 oct", "-2 oct", "1/3", "1/5", "-3 oct", "-4 oct"},

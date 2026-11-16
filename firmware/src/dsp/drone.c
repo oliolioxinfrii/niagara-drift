@@ -630,7 +630,7 @@ void dr_param_text(int i, int v, char *b)
 }
 
 /* -------------------------------------------------------------- commands --- */
-enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN };
+enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
 #define QN 128u
@@ -654,6 +654,9 @@ void dr_duck(int on) { post(C_DUCK, on, 0); }
 void dr_slide(int g, int ms) { post(C_SLIDE, g, ms); }
 void dr_pslide(int param, int ms) { post(C_PSLIDE, param, ms); }
 void dr_lfo_reset(void) { post(C_LFO_RESET, 0, 0); }
+void dr_lfo_transport_set(int state) {
+    if ((unsigned)state <= DR_LFO_STOPPING) post(C_LFO_TRANSPORT, state, 0);
+}
 void dr_seed(uint32_t s) { post(C_SEED, (int)(s >> 16 & 0xFFu), (int)(s & 0xFFFFu)); }
 void dr_gesture(int g, int amt) { post(C_GEST, g, amt); }
 void dr_subtract(int key, int amt) { if ((unsigned)key < 8u) post(C_SUB, key, amt); }
@@ -869,6 +872,13 @@ typedef struct {
 enum { SUB_LFO, SUB_SWELL };
 static sub_clock_t sub_clock[DR_NGROUPS][2];
 static float swell_master_prev;             /* master at the prior Swell control tick */
+/* Transport is session-only, rather than another saved sound parameter.
+ * STOP rewinds the LFO master and both drone-specific LFO / Swell clocks
+ * without a discontinuous jump; Swell remains at zero until resumed. */
+volatile uint8_t dr_lfo_transport;
+static uint8_t swell_transport_hold;
+static float lfo_stop_local[DR_NGROUPS], swell_stop_local[DR_NGROUPS];
+static float lfo_stop_speed;                  /* normalized cycles per sample */
 static float sub_phase_wrap(float p)
 {
     /* Most phases are within one turn: avoid soft floor on the Swell hot path.
@@ -1004,6 +1014,11 @@ void dr_init(void)
     lfo_rk = 0.0f;
     lfo_rnew = 0;
     lfo_q = 0u;
+    dr_lfo_transport = DR_LFO_RUN;
+    swell_transport_hold = 0;
+    lfo_stop_speed = 0.0f;
+    memset(lfo_stop_local, 0, sizeof lfo_stop_local);
+    memset(swell_stop_local, 0, sizeof swell_stop_local);
     memset(sub_depth, 0, sizeof sub_depth);
     memset(sub_clock, 0, sizeof sub_clock);
     swell_master_prev = 0.0f;
@@ -1493,7 +1508,22 @@ static void drain(void)
             }
             break;
         case C_LFO_RESET:
-            lfo_restart();
+            lfo_restart();                 /* legacy immediate DSP reset API */
+            break;
+        case C_LFO_TRANSPORT:
+            if (a == DR_LFO_STOPPING) {
+                int g;
+                for (g = 0; g < DR_NGROUPS; g++) {
+                    lfo_stop_local[g] = dr_lfo_dr_ph[g];
+                    swell_stop_local[g] = dr_pulse_dr_ph[g];
+                }
+                swell_transport_hold = 1;
+                dr_lfo_transport = DR_LFO_STOPPING;
+            } else if (a == DR_LFO_RUN || a == DR_LFO_PAUSE) {
+                dr_lfo_transport = (uint8_t)a;
+                if (a == DR_LFO_RUN)
+                    swell_transport_hold = 0; /* stop releases both Swells at phase zero */
+            }
             break;
         case C_SEED: {                           /* the random ones from somewhere new (the UI, at the first PLAY) */
             uint32_t x = ((uint32_t)a << 16 | ((uint32_t)b & 0xFFFFu)) * 0x9E3779B1u;

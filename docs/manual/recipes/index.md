@@ -17,4 +17,4 @@ These recipes begin with a sound or performance goal and identify the buttons, k
 - [Time and transitions](time.md)
 - [Performing](performing.md)
 
-> **Media placeholders:** Some recipe scripts and audio examples originate with Niagara Drift and require fresh v1.5 validation. Until they have been regenerated from the Volcano code, this manual uses visible screenshot placeholders instead of displaying older screens as if they belonged to Volcano.
+> **Media placeholders:** Some recipe scripts and audio examples originate with Niagara Drift or earlier Volcano iterations and require fresh subtractive/STILL branch validation. Until they have been regenerated from the Volcano code, this manual uses visible screenshot placeholders instead of displaying older screens as if they belonged to Volcano.

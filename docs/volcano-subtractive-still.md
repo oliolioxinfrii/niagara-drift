@@ -48,6 +48,27 @@ The existing eight gestures retain saved latches in `P_GL_0...P_GL_7`. Their mot
 - **Holding SEL no longer replaces the active page** with a key-map popup.
   SEL's fine-tuning and control-modifier shortcuts remain available.
 
+## SAVE browser: Load versus Transition
+
+**LOAD** is an editing and startup command. Confirming a populated slot applies
+its stored sound immediately rather than waiting for the Scene Time. The saved
+sequence is restored, stopped at step 1. The global room settings (including
+Pitch Lock, Scene Time, speaker, and external clock settings) are not replaced,
+but the saved pitches are applied even while Pitch Lock is active. Any in-flight
+scene morph is canceled. The menu shows **TIME: NOW** for this action.
+
+**TRANSITION** is the performance command. It moves from the current sound
+toward the chosen target over **Scene Time** (or the configured clock-synced
+bars), ending at the selected **MORPH** percentage. For example, 40% ends
+40% of the way from the current sound to the stored sound. Existing Pitch Lock,
+room exclusions and discrete-control threshold behavior remain in force.
+Partial transitions leave the current sequence in place; a 100% transition
+also loads the target's authored sequence.
+
+The Sequence → Intervals page change explicitly invalidates all three LCD
+strip caches, preventing the first Intervals screen from retaining the prior
+Sequence page's trace.
+
 ## STILL clock model
 
 The common master clocks continue running. For each drone and each of the three systems (LFO, Swell, sequencer), the effective time is a *local clock* derived from the master plus an independently accumulated phase error. That means both drones may freeze simultaneously without referencing each other. Their programmed LFO rate, Swell rate, sequence timing, and phase settings remain unchanged.
@@ -67,8 +88,12 @@ The LFO wave/modulation screens, Swell graph and sequencer score show separate c
 - Record dry/wet WAVs and measure spectral changes for STRIP/DARK and effect tails for TAIL, including cross-FM and feedback.
 - Run `./build.sh`, `tools/budget.py` and hardware `tools/fm1_cpu.py`; ensure flash, .data+.bss, pool headroom and interrupt CPU budget are within FM-1 limits.
 - Check physical key debounce, latency, visual legibility and frame rate on the M-VAVE FM-1 before a merge.
-- Rebuild after the sequence-storage changes; test saving distinct sequences in
-  A–F and recalling them after reboot, including through the SAVE browser. Confirm
-  that existing scenes and older overwritten Presets remain intact.
+- Run `tests/scenarios/save-menu-instant-load.omni` to distinguish immediate LOAD
+  from a timed 40% TRANSITION and verify both scenes retain separate sequences.
+- Run `tests/scenarios/seq-intervals-first-entry.omni`: the first and repeat
+  Intervals screenshots must be byte-identical. `tests/run_tests.sh` compares them.
+- Rebuild after sequence-storage changes; test saving distinct sequences in A–F
+  and recalling after reboot, including through the SAVE browser. Confirm
+  existing scenes and older overwritten Presets remain intact.
 
 No firmware build, host suite, or hardware measurement has been completed by this change alone.

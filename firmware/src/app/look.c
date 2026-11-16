@@ -1733,11 +1733,12 @@ static void lk_pic_lfo(void)
 
     /* Rate at the bottom left, as on 0.2. External sync still shows its division. */
     {
-        char *q = scopy(t, dr_ext_spb > 0.0f ? "cycle " :
-                           proj.par[P_LFO_LOCK] ? "locked " : "rate ");
         const int p = dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE;
+        char *q = scopy(t, dr_lfo_transport == DR_LFO_STOPPING ? "return " :
+                           dr_lfo_transport == DR_LFO_PAUSE ? "paused " :
+                           dr_ext_spb > 0.0f ? "cycle " : "rate ");
         dr_param_text(p, proj.par[p], q);
-        cv_text(12, 102, &FONT_S, t, proj.par[P_LFO_LOCK] ? K_GOLD : lilac);
+        cv_text(12, 102, &FONT_S, t, dr_lfo_transport == DR_LFO_RUN ? lilac : K_GOLD);
     }
 }
 

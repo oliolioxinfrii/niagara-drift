@@ -57,7 +57,7 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 
 - **SAVE** opens the separate scene browser; white keys **1–8 are not scene shortcuts** during normal playing.
 - **Keys 9–16** activate the eight gestures. Black keys control drone switches, linking and (on LFO pages) modulation routing.
-- **On the Sequence page**, the keyboard enters notes rather than activating its ordinary switches or gestures.
+- **On the Sequence page**, all 27 keys enter notes rather than activating their ordinary switches or gestures. The first event follows the live pitches from HOME → Pitch.
 - **Hold SEL and touch a black key** to display the key's purpose without changing it.
 - **SEL + HOME** creates a randomized working sound and sequencer. **SEL + PLAY** starts or pauses the pitch progression without changing the instrument's fade.
 - **SEL + SAVE** undoes or redoes the last supported scene/transition change.

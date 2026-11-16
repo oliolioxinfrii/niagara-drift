@@ -124,9 +124,9 @@ static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
 static const uint8_t WHITE_K[NWHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const char BANK_L[NBANKS] = {'A', 'B', 'C', 'P', 'D', 'E', 'F', 'P'};
 static const char *const BANK_N[NBANKS] = {"A", "B", "C", "PRESETS 1-8", "D", "E", "F", "PRESETS 9-16"};
-/* Browse user banks together, followed by the two immutable Preset banks.
- * Storage IDs remain unchanged for saved projects and scene recalls. */
-static const uint8_t BANK_ORDER[NBANKS] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
+/* Browse P1, P2, then A-F, matching the SAVE orbit's dark-to-light
+ * bank gradient. Storage IDs are unchanged for existing saved projects. */
+static const uint8_t BANK_ORDER[NBANKS] = {BANK_PRESETS, BANK_PRESETS2, 0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2};
 static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL", "STUTTER"};
 static const char *const SUB_NAME[4] = {"STRIP", "DARK", "STILL", "TAIL"};
 #define G_PRESS DR_G_TICK

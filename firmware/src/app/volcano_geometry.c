@@ -403,7 +403,18 @@ static void vl_tone(void)
 /* Seismographic propagation: discrete delay arrivals and a dissipating
  * reverberant coda, displayed on separate horizontal channels. */
 /* Delay is displayed as individual arrivals; reverb is the much longer
- * decaying coda. A perceptual amplitude mapping makes quiet mixes visible. */
+ * decaying coda. A perceptual amplitude mapping makes quiet mixes visible.
+ * The visual noise texture scrolls forward then backward along the same
+ * 22-pixel path. Cosine easing makes both turnarounds continuous (no seam or
+ * abrupt reversal); interpolation between adjacent noise samples keeps the
+ * waveform moving smoothly instead of changing in 210 ms steps. */
+#define VL_AIR_LOOP_MS (44u * 210u)
+static float vl_air_scroll(uint32_t now_ms)
+{
+    const float phase = (float)(now_ms % VL_AIR_LOOP_MS) *
+                        (6.2831853f / (float)VL_AIR_LOOP_MS);
+    return 11.0f * (1.0f - fm_cosf(phase)); /* 0 -> 22 -> 0 */
+}
 static void vl_air(void)
 {
     const float repeats = vl_norm(P_DLY_REPEATS), wet_delay = vl_norm(P_DLY_MIX);
@@ -412,6 +423,9 @@ static void vl_air(void)
     const float drive = vl_norm(P_DLY_DRIVE);
     const int period = 19 + (int)(vl_norm(P_DLY_TIME) * 34.0f);
     const int hold = proj.par[P_REV_LEN] >= 100;
+    const float scroll = vl_air_scroll(plat_ms());
+    const int scroll_step = (int)scroll;
+    const float scroll_frac = scroll - (float)scroll_step;
     int k, x, p;
     cv_text(9, 1, &FONT_XS, "DELAY / ARRIVALS", LK_LABEL);
     cv_text(9, 64, &FONT_XS, hold ? "REVERB / HELD FIELD" : "REVERB / CODA", LK_LABEL);
@@ -425,8 +439,10 @@ static void vl_air(void)
             const float wet = k ? wet_reverb : wet_delay;
             const float display_gain = 0.50f * wet + 0.50f * fm_sqrtf(wet); /* continuous at zero; more tonal differentiation */
             for (x = 10; x <= 230; x++) {
-                const uint32_t h = vg_hash((uint32_t)((x + p * 11 + (plat_ms() / 210u) % 23u) * 89));
-                const int noise = (int)(h % 23u) - 11;
+                const uint32_t h0 = vg_hash((uint32_t)((x + p * 11 + scroll_step) * 89));
+                const uint32_t h1 = vg_hash((uint32_t)((x + p * 11 + scroll_step + 1) * 89));
+                const float noise = ((float)(h0 % 23u) - 11.0f) * (1.0f - scroll_frac) +
+                                    ((float)(h1 % 23u) - 11.0f) * scroll_frac;
                 float env = 0.0f;
                 if (!k) {
                     const int pos = x - 18;

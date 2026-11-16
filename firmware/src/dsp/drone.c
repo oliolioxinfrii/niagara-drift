@@ -934,6 +934,7 @@ static uint32_t lfo_q;                          /* ... its phase in 32 bits (a f
 static int lfo_wc[2], lfo_wp[2];                 /* each tap's shape now, and the one before (Morph) */
 static float lfo_wx[2];                          /* ... how far from that one to this, 0..1 */
 static void lfo_restart(void);
+static void lfo_local_reset(void);
 static float lfo_rnd[3];                         /* the random shapes' levels (below) */
 static uint32_t lfo_seed;                        /* ... their generator (dr_init seeds it) */
 static float rnd_next(void);
@@ -995,6 +996,7 @@ void dr_init(void)
     lfo_q = 0u;
     memset(sub_depth, 0, sizeof sub_depth);
     memset(sub_clock, 0, sizeof sub_clock);
+    lfo_local_reset();
     dr_lfo_dr_ph[0] = dr_lfo_dr_ph[1] = 0.0f;
     dr_pulse_dr_ph[0] = dr_pulse_dr_ph[1] = 0.0f;
     lfo_wc[0] = lfo_wp[0] = par[P_LFO_W1];
@@ -1637,7 +1639,18 @@ static float lfo_tick_dr[DR_NGROUPS][2][BLK / CR + 1];
 static float lfo_local_s[DR_NGROUPS][2], lfo_local_rnd[DR_NGROUPS][3];
 static uint32_t lfo_local_seed[DR_NGROUPS] = {0xB5297A4Du, 0x68E31DA4u};
 static uint8_t lfo_local_active[DR_NGROUPS];
-static float lfo_local_prev_ph[DR_NGROUPS];          /* each tap's value at each control tick of the block */
+static float lfo_local_prev_ph[DR_NGROUPS];
+static void lfo_local_reset(void)
+{
+    int g;
+    memset(lfo_local_active, 0, sizeof lfo_local_active);
+    memset(lfo_local_s, 0, sizeof lfo_local_s);
+    memset(lfo_local_rnd, 0, sizeof lfo_local_rnd);
+    for (g = 0; g < DR_NGROUPS; g++)
+        lfo_local_prev_ph[g] = 0.0f;
+    lfo_local_seed[0] = 0xB5297A4Du;
+    lfo_local_seed[1] = 0x68E31DA4u;
+}          /* each tap's value at each control tick of the block */
 /* what drone I leaves for drone II each block: its sound, its oscillator's restarts, its pitch a tick */
 static float xbuf[BLK], ptick[BLK / CR + 1];
 static float ybuf[BLK];                           /* drone II's sound, for drone I's cross-FM in the next block */

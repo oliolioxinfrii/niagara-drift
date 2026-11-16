@@ -65,7 +65,7 @@ MENU = [("manual/", "Manual", "start with the instrument and its controls"),
 
 def menu_html(up, current):
     """Build instructions, source and the manual's own navigation."""
-    items = "".join(f'<a href="{up}{h}"{" aria-current=\\"page\\"" if n == current else ""}>{icon(MENU_ICON[n], "mi")}'
+    items = "".join(f'<a href="{up}{h}"{" aria-current=\"page\"" if n == current else ""}>{icon(MENU_ICON[n], "mi")}'
                     f'<span>{n}<small>{desc}</small></span></a>'
                     for h, n, desc in MENU)
     return (f'<a href="{REPO}/blob/main/BUILDING.md">Build</a><a href="{REPO}" aria-label="Source on GitHub">Source{GH}</a>'

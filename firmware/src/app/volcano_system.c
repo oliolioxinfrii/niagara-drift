@@ -161,38 +161,58 @@ static void vl_save_menu(void)
 }
 static void vs_atlas_terrain(int y0, const float a[5])
 {
-    const uint16_t colors[5] = {VL_AIR, VL_SURFACE, VL_CRUST, VL_MANTLE, VL_DEEP};
-    int layer, i;
-    /* Observing station and atmospheric signal above the surface. */
+    static const uint16_t colors[5] = {VL_AIR, VL_SURFACE, VL_CRUST, VL_MANTLE, VL_DEEP};
+    static const int8_t warp[8] = {2, 0, -6, -3, 3, 6, 0, -2};
+    int layer, i, band;
+    /* A recognizable topographic silhouette, left intentionally free of
+     * geographic outlines. It continues into the subsurface strata. */
     cv_line(6, 74 - y0, 45, 64 - y0, vg_dim(colors[1], a[1]));
     cv_line(45, 64 - y0, 67, 51 - y0, vg_dim(colors[1], a[1]));
     cv_line(67, 51 - y0, 83, 63 - y0, vg_dim(colors[1], a[1]));
     cv_line(83, 63 - y0, 118, 77 - y0, vg_dim(colors[1], a[1]));
-    for (i = 0; i < 7; i++) {
-        const int x = 66 + i * 7 % 28;
-        const int y = 43 - i * 5;
-        cv_rect(x, y - y0, 1, 1, vg_dim(colors[0], a[0]));
-    }
-    /* Five strata follow one another continuously, rather than five
-     * unrelated straight strokes. Their hues match the adjacent key. */
+    cv_line(6, 77 - y0, 46, 68 - y0, vg_dim(VL_CRUST, a[1] * 0.75f));
+    cv_line(46, 68 - y0, 67, 55 - y0, vg_dim(VL_CRUST, a[1] * 0.75f));
+    cv_line(67, 55 - y0, 84, 67 - y0, vg_dim(VL_CRUST, a[1] * 0.75f));
+    cv_line(84, 67 - y0, 118, 81 - y0, vg_dim(VL_CRUST, a[1] * 0.75f));
+
+    /* Several neighboring contours and granular rock fill each stratum.
+     * More texture produces the visual mass of a geological cutaway, but
+     * all five region brightnesses still encode actual instrument activity. */
     for (layer = 0; layer < 5; layer++) {
-        const int base = 87 + layer * 24;
-        int px = 6, py = base - 4 - y0;
-        const uint16_t ink = vg_dim(colors[layer], a[layer]);
-        for (i = 8; i <= 118; i += 2) {
-            const int warp = vg_interpolate((const int8_t[]){2, 0, -6, -3, 3, 6, 0, -2}, 8, i - 6, 112);
-            const int ny = base + warp - 4 - y0;
-            cv_line(px, py, i, ny, ink);
-            if ((layer + i) % 13 == 0)
-                cv_rect(i, ny + 3, 2, 1, vg_dim(ink, 0.62f));
-            px = i; py = ny;
+        const int base = 81 + layer * 24;
+        const uint16_t main = vg_dim(colors[layer], a[layer]);
+        for (band = 0; band < 4; band++) {
+            int px = 6, py = base + band * 4 - 4 + vg_interpolate(warp, 8, 0, 112) - y0;
+            for (i = 9; i <= 117; i += 3) {
+                const int fold = vg_interpolate(warp, 8, i - 6, 112);
+                const int ny = base + band * 4 + fold - 4 - y0;
+                const uint16_t ink = band == 0 ? main : vg_dim(main, 0.70f - 0.12f * (float)(band - 1));
+                cv_line(px, py, i, ny, ink);
+                px = i; py = ny;
+            }
         }
-        for (i = 0; i < 45; i++) {
-            uint32_t h = vg_hash((uint32_t)(i * 193 + layer * 701));
-            int x = 8 + (int)(h % 107u);
-            int y = base + 1 + (int)((h >> 9) % 17u) - y0;
-            cv_rect(x, y, 1, 1, vg_dim(ink, 0.25f + a[layer] * 0.30f));
+        for (i = 0; i < 125; i++) {
+            const uint32_t h = vg_hash((uint32_t)(i * 193 + layer * 701));
+            const int x = 8 + (int)(h % 107u);
+            const int yy = base + 1 + (int)((h >> 9) % 20u) - y0;
+            const uint16_t ink = vg_dim(main, (h & 7u) == 0u ? 0.65f : 0.29f);
+            cv_rect(x, yy, (h & 31u) == 0u ? 2 : 1, 1, ink);
         }
+    }
+    /* Glowing feeder conduit connects the deep layers to the surface. */
+    for (i = 0; i < 4; i++) {
+        const uint16_t ink = i == 1 ? vg_dim(VL_SURFACE, a[3]) :
+                            vg_dim(VL_MANTLE, 0.43f + 0.50f * a[3]);
+        cv_line(66 + i, 195 - y0, 67 + i, 57 - y0, ink);
+    }
+    /* A small, layered ash field rather than an empty black triangle. */
+    for (i = 0; i < 115; i++) {
+        const uint32_t h = vg_hash((uint32_t)(i * 97 + 113));
+        const int y = 32 + (int)(h % 22u);
+        const int x = 62 + (int)((h >> 8) % 35u) - 9 + (54 - y) / 5;
+        if (x >= 5 && x <= 114)
+            cv_rect(x, y - y0, 1, 1,
+                    vg_dim(i % 7 == 0 ? VL_AIR : VL_CRUST, 0.18f + 0.56f * a[0]));
     }
 }
 /* Navigation remains the original button map: this is a transient observatory

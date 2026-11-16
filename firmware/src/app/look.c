@@ -154,6 +154,15 @@ static int lk_gesture(void)
             best = g;
     return best;
 }
+static int lk_subtractive(void)
+{
+    int i, best = -1;
+    for (i = 0; i < NPLAY; i++)
+        if (ui.sub_amt[i] > 0.005f &&
+            (best < 0 || (int32_t)(ui.key_t0[i] - ui.key_t0[best]) > 0))
+            best = i;
+    return best;
+}
 #define LK_TRACK RGB(119, 114, 138)          /* the glide's line, before it fills */
 /* a badge's width; a gesture's with its % takes the room of "100%" whatever the number, so nothing after it moves */
 static int32_t lk_badge_w(int pct, const char *s)
@@ -235,7 +244,7 @@ static void lk_bar(void)
 {
     const uint32_t now = plat_ms();
     uint32_t rec_s = ui.loop == L_REC ? (now - ui.loop_t0) / 1000u : 0u;
-    int i, drop, gest, glide, gbank = 0, gest_pct = -1;
+    int i, drop, gest, sub_gest, glide, gbank = 0, gest_pct = -1;
     const int peek = ui.hold_btn >= 0 && !ui.hold_cycle && (ui.hold_turned || now - ui.hold_t >= HOLD_MS);
     float line = -1.0f;                      /* the line under the header, 0..1 (a glide's or the fade's), or none */
     uint32_t h;
@@ -245,13 +254,19 @@ static void lk_bar(void)
     int nb = 0, swell = -1, gb = -1, glen = 0, show_half, show_chg, show_name;
     lk_sound_at();
     gest = lk_gesture();
+    sub_gest = lk_subtractive();
+    if (sub_gest >= 0 && (gest < 0 || (int32_t)(ui.key_t0[sub_gest] - ui.g_t0[gest]) >= 0))
+        gest = -1;             /* show the most recently played subtractive key */
+    else
+        sub_gest = -1;
     glide = lk_glide(now, &line, &gbank);
     if (glide == -1 && (ui.playing ? fade_q() < 20 : fade_q() > 0)) {   /* PLAY's fade in or out, as it runs */
         line = ui.playing ? dr_fade : 1.0f - dr_fade;
     }
-    if (gest >= 0 && !(proj.par[gl_par(gest)] && !(ui.g_held >> gest & 1u)))
-        gest_pct = (int)(ui.g_amt[gest] * 100.0f + 0.5f);   /* coming in or going: how far, in % (Evan, 2026-11-07:
-                                                              * the number says more than four cells did) */
+    if (sub_gest >= 0)
+        gest_pct = (int)(ui.sub_amt[sub_gest] * 100.0f + 0.5f);
+    else if (gest >= 0)
+        gest_pct = (int)(ui.g_amt[gest] * 100.0f + 0.5f);
     h = hash(hash(2166136261u ^ rec_s ^ ((ui.view == V_PULSE || ui.view == V_SWELL_SHAPE) ? (uint32_t)ui_clock_bpm() << 20 : 0u),
                   0x4C42u | ui.view << 16 | ui.playing << 21 | ui.loop << 22 | (uint32_t)proj.par[P_PULSE] << 24 |
                       (uint32_t)proj.par[P_II_OUT] << 25 | (uint32_t)peek << 26 | (uint32_t)lk_chg << 27),
@@ -259,7 +274,7 @@ static void lk_bar(void)
                  (uint32_t)proj.bank << 24 | (uint32_t)((ui.view == V_PULSE || ui.view == V_SWELL_SHAPE) && dr_ext_spb > 0.0f) << 28 |
                  (uint32_t)((ui.view == V_FX || ui.view == V_FX2) && proj.par[P_DLY_REPEATS] > 85) << 29 |
                  (uint32_t)((ui.view == V_FX || ui.view == V_FX2) && proj.par[P_REV_LEN] >= 100) << 30);
-    h = hash(hash(h, (uint32_t)(gest + 1) | (uint32_t)ui.hold_from << 8 |
+    h = hash(hash(h, (uint32_t)(gest + 1) | (uint32_t)(sub_gest + 1) << 24 | (uint32_t)ui.hold_from << 8 |
                          (uint32_t)(line < 0.0f ? 0xFFFu : (uint32_t)(line * 224.0f)) << 12),
              (uint32_t)(gest_pct + 1));
     if (h == ui.sig[0])
@@ -290,18 +305,15 @@ static void lk_bar(void)
         badge[nb] = "SWELL";
         bcol[nb++] = LK_CORAL;
     }
-    if (gest >= 0) {                           /* "WASH 40%", or "CHORD latched" (gold: the spec) */
-        char *q = scopy(gname, GESTURE[gest]);
+    if (gest >= 0 || sub_gest >= 0) {
+        char *q = sub_gest >= 0 ? scopy(gname, SUB_NAME[sub_gest % 4]) : scopy(gname, GESTURE[gest]);
+        if (sub_gest >= 0)
+            q = scopy(q, sub_gest < 4 ? " I" : " II");
         glen = (int)(q - gname);
-        if (gest_pct < 0)
-            scopy(q, " latched");
-        else {
-            *q++ = ' ';
-            itoa_u((uint32_t)gest_pct, q);
-            while (*q)
-                q++;
-            scopy(q, "%");
-        }
+        *q++ = ' ';
+        itoa_u((uint32_t)gest_pct, q);
+        while (*q) q++;
+        scopy(q, "%");
         gb = nb;
         badge[nb] = gname;
         bcol[nb++] = LK_GOLD;
@@ -1570,7 +1582,7 @@ static const float *lk_lfo_phs(float *phs, int n)
 static void lk_lfo_line(int tap, int32_t x0, int32_t yc, int32_t amp, int n, const float *phs, int lit, float gain)
 {
     const int sh = proj.par[tap ? P_LFO_W2 : P_LFO_W1];
-    const float r0 = sh == DR_LFO_RANDOM ? 1.0f : 0.0f, ph = dr_lfo_ph;
+    const float r0 = sh == DR_LFO_RANDOM ? 1.0f : 0.0f, ph = dr_lfo_dr_ph[0];
     int16_t y[64];
     int i, at = 0;
     for (i = 0; i < n; i++) {
@@ -1589,7 +1601,15 @@ static void lk_lfo_line(int tap, int32_t x0, int32_t yc, int32_t amp, int n, con
     if (at > 0)                                /* brighter just behind the dot */
         lk_plot(x0 + 2 * (at > 6 ? at - 6 : 0), y + (at > 6 ? at - 6 : 0), (at > 6 ? 6 : at) + 1,
                 lk_mix(0x07060Bu, LK_LFO_TINT[tap], 1.0f));
-    cv_round(x0 + 2 * at - 3, y[at] - 3, 7, 7, 3, LK_WHITE);
+    for (int g = 1; g >= 0; g--) {
+        int at_g = 0;
+        const float local = dr_lfo_dr_ph[g];
+        for (i = 0; i < n; i++) {
+            const float p = phs ? phs[i] : 0.9999f * (float)i / (float)(n - 1);
+            if (p <= local) at_g = i;
+        }
+        cv_round(x0 + 2 * at_g - 3, y[at_g] - 3, 7, 7, 3, LK_DRONE[g]);
+    }
 }
 
 /* Both LFO taps share one phase clock, but keep their own shape and level.
@@ -1659,10 +1679,12 @@ static void lk_pic_lfo(void)
         }
         lk_plot(x0, y, n, c);
         if (active) {
-            const float ph = dr_lfo_ph;
-            const int32_t px = x0 + (int32_t)(ph * (float)wave_w);
-            const int32_t py = yc - (int32_t)(dr_lfo_wave(w, sh, r0 + ph) * (float)half);
-            cv_round(px - 3, py - 3, 7, 7, 3, paper);
+            for (int g = 1; g >= 0; g--) {
+                const float ph = dr_lfo_dr_ph[g];
+                const int32_t px = x0 + (int32_t)(ph * (float)wave_w);
+                const int32_t py = yc - (int32_t)(dr_lfo_wave(w, sh, r0 + ph) * (float)half);
+                cv_round(px - 3, py - 3, 7, 7, 3, LK_DRONE[g]);
+            }
         }
         cv_text(x0, yc - 32, &FONT_S, w ? "II" : "I", c);
         dr_param_text(w ? P_LFO_W2 : P_LFO_W1, sh, t);
@@ -2067,10 +2089,8 @@ static int16_t lk_swell_y(int g, float ph, int32_t top, int32_t h)
 static void lk_pic_swell(void)
 {
     const int on = proj.par[P_PULSE] != 0;
-    static float last;
-    static int bar;
-    const float ph = dr_pulse_ph;
-    float dot;
+    static float last[2];
+    static int bar[2];
     const int32_t x0 = 12, h = 100;
     int32_t top, lo = 9999, hi = -9999;
     int16_t y[LK_SW_N], path[2][LK_SW_N];
@@ -2085,10 +2105,7 @@ static void lk_pic_swell(void)
             hi = yi > hi ? yi : hi;
         }
     top = LK_PIC_H / 2 - (lo + hi) / 2;
-    if (ph < last - 1.0f)
-        bar ^= 1;
-    last = ph;
-    dot = ph + 2.0f * (float)bar;
+    /* Each drone has its own local progress dot, including when both freeze. */
     for (g = 1; g >= 0; g--) {
         const uint16_t c = on ? LK_DRONE[g] : LK_UNLIT;
         for (i = 0; i < LK_SW_N; i++)
@@ -2099,11 +2116,18 @@ static void lk_pic_swell(void)
         lk_plot(x0, y, LK_SW_N, c);
     }
     if (on) {
-        const int32_t px = x0 + (int32_t)(dot * 0.5f * (float)(LK_SW_N - 1) + 0.5f);
-        const int32_t y2 = lk_swell_y(1, dot, top, h);
-        const int32_t y1 = lk_swell_y(0, dot, top, h);
-        cv_round(px - 4, y2 - 4, 9, 9, 4, LK_DRONE[1]);
-        cv_round(px - 3, y1 - 3, 7, 7, 3, LK_DRONE[0]);
+        for (g = 1; g >= 0; g--) {
+            const float ph = dr_pulse_dr_ph[g];
+            float dot;
+            int32_t px, py;
+            if (ph < last[g] - 1.0f) bar[g] ^= 1;
+            last[g] = ph;
+            dot = ph + 2.0f * (float)bar[g];
+            px = x0 + (int32_t)(dot * 0.5f * (float)(LK_SW_N - 1) + 0.5f);
+            py = lk_swell_y(g, dot, top, h);
+            cv_round(px - (g ? 4 : 3), py - (g ? 4 : 3),
+                     g ? 9 : 7, g ? 9 : 7, g ? 4 : 3, LK_DRONE[g]);
+        }
     }
 }
 

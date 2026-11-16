@@ -28,7 +28,7 @@ Setup 1, KNOB 4: on follows a clock, off ignores it.
 | What | On the clock |
 |---|---|
 | **The Swell** (KNOB 1 on its page) | a breath a **Division**: 32 bars to 1/4 |
-| **The LFO** (SELECT) | a cycle a division: 32 bars to 1/16 ("LFO CYCLE") |
+| **The LFO** (SEL + SELECT) | a cycle a division: 32 bars to 1/16 ("LFO CYCLE") |
 | **The delay** (Time, Details) | a **note value**: 1/16, 1/8T, 1/8, 1/4T, 1/8D, 1/4, 1/2T, 1/4D, 1/2, 1/2D, 1 bar |
 | **Wander** | its notes land on the beat (on the bar, when slow), still at random |
 | **Scene time** (Setup 1) | in **bars**, 1 to 16; a scene change ends on a bar line |

@@ -24,6 +24,5 @@ The built-in emulator's keyboard assignments are specific to its version; consul
 ## Good to know
 
 - **SAVE** opens the same scene browser as the FM-1 firmware.
-- **No pressure:** on keys 9–12 a held click climbs at the gesture's own time and falls when you let go. On the FM-1
-  those keys follow how hard you press.
+- **No pressure required:** all 16 gesture keys, on both the emulator and physical FM-1, rise with hold duration at a speed set by Morph Time. Releasing a key retains its depth; a tap on an active key begins its return to zero. Keys 1–8 control STRIP, DARK, STILL and TAIL for the two drones.
 - **Working on the code:** the web build uses the checked-out firmware source; rebuild after source changes.

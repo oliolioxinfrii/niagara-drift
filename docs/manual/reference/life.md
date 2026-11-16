@@ -20,7 +20,7 @@ What keeps the drones alive and worn, and each drone's noise.
 
 ## Life
 
-<img class="shot" src="../../img/screen-life.png" width="240" alt="The Life page: feedback rings, a flame, a hand-drawn wave and a worn wave above the four knobs">
+> **Screenshot needed — Life observatory:** `build/scenarios/volcano-ui/life.png` and `life-lava-full.png`.
 
 | Knob | What it does |
 |---|---|
@@ -31,7 +31,7 @@ What keeps the drones alive and worn, and each drone's noise.
 
 ## Tone
 
-<img class="shot" src="../../img/screen-tone.png" width="240" alt="The Tone page: each drone's noise as snow, cut off by its filter">
+> **Screenshot needed — Tone:** `build/scenarios/volcano-ui/tone.png`.
 
 | Knob | What it does |
 |---|---|
@@ -43,5 +43,5 @@ What keeps the drones alive and worn, and each drone's noise.
 - **Feedback** rings in key, on drone I's harmonics, and holds about the same loudness when it sings.
 - **Age** wears in over about 20 s, and out as slowly. Character is the oscillators' own wear; Age is the tape's.
 - **Noise** follows the cutoff, resonance, LFO and Drift, since it's in the filter.
-- **The pictures:** on Life, rings for Feedback (the outer one red once it sings), a flame for Drift, a wave going
-  hand-drawn for Character, a worn saw for Age. On Tone, each drone's noise as snow, as tall as it sounds.
+- **VOLCANO's Life visualization** depicts Character as lava in the vent and over the flank, Feedback as plume fullness and strands, Drift as the plume's irregular movement, and Age as fine ash and weathering.
+- **The Tone visualization** uses separate ash/particle fields for the two drones. Noise governs particle density; Color changes the distribution while the WHITE/PINK labels remain explicit.

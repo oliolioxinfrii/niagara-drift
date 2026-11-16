@@ -62,3 +62,15 @@ expect par7 >650                   # still near 700 immediately after starting
 wait 5000
 expect par7 500                    # 40% of the 500-unit difference
 expect seqcount 2                 # partial transition does not replace the pattern
+
+# A full performance transition changes the pattern only at its endpoint.
+tap SAVE
+spin K3 2
+expect menuaction 2
+expect menupct 100
+tap SAVE
+expect savemenu 0
+expect seqcount 2                 # still playing the current authored pattern
+wait 5000
+expect seqcount 3                 # target A1 pattern loaded at Scene Time completion
+expect seqstate 0

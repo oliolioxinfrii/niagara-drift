@@ -7,7 +7,7 @@ intro: GLO: the room's settings, the Tuning and internal speaker
 
 ## Setup
 
-Settings for the FM-1 itself, not for a sound: how long changes take, the clock, tuning and stereo output.
+Settings for the FM-1 itself: how long changes take, MIDI-clock following, tuning and stereo output. The selected **Tuning** belongs to a scene; the other Setup settings do not. See [What a scene stores](scenes.md#what-a-scene-stores).
 
 ## Knobs
 

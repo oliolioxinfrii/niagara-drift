@@ -4,7 +4,8 @@
 notips
 page 15
 expect view 15
-set 90 75
+set 62 75                        # Delay mix
+set 63 75                        # Reverb mix
 wait 200
 shot fx-bounce-start.png
 wait 2310

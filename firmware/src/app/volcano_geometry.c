@@ -626,7 +626,12 @@ static void vg_air_delay(float wet, float repeats, float drive, int period,
                 }
             }
             {
-                const int amp = (int)(noise * env * (type == 4 ? 1.40f : 1.28f));
+                /* Modest peak-height lift for Clean, Tape, Grain and Self.
+                 * Wide and Ping-pong retain their stereo displacement and
+                 * current amplitude; MIX and DRIVE mappings are unchanged. */
+                const float height = type == 4 ? 1.75f :
+                                     (type == 0 || type == 3 || type == 5) ? 1.65f : 1.28f;
+                const int amp = (int)(noise * env * height);
                 const int yy = vg_max(18, vg_min(56, center + amp));
                 uint16_t ink = vg_dim(VL_AIR, p == 2 ? 1.0f : 0.42f + 0.20f * (float)p);
                 if (drive > 0.0f && (p == 2 || (p == 1 && vg_abs(amp) > 6)))

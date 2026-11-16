@@ -3214,14 +3214,19 @@ static void lk_save_menu(void) { vl_save_menu(); }
 static void lk_frame(void)
 {
     static int was = -1;                       /* into or out of overlays: every band afresh */
+    static int drawn_view = -1;                /* visible page, independent of overlay state */
     const int atlas = ui.hold_btn == B_HOME && !(ui.btn >> B_SEL & 1u) &&
                       !ui.hold_turned && plat_ms() - ui.hold_t >= HOLD_MS;
     /* SEL remains a modifier, but holding it never replaces the active page
      * with a keyboard reference overlay. */
     const int km = ui.save_menu ? 2 : atlas ? 3 : 0;
-    const int changed = km != was;
+    /* A view change must invalidate all three cached LCD strips. The previous
+     * picture could otherwise remain visible on the first Sequence -> Intervals
+     * frame, while the bottom controls already belonged to Intervals. */
+    const int changed = km != was || (km == 0 && drawn_view != (int)ui.view);
     if (changed) {
         was = km;
+        drawn_view = (int)ui.view;
         ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
         lcd_fill(0, 0, 240, 240, LK_BG);
     }

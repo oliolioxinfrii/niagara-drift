@@ -874,7 +874,7 @@ static sub_clock_t sub_clock[DR_NGROUPS][2];
 static float swell_master_prev;             /* master at the prior Swell control tick */
 /* Transport is session-only, rather than another saved sound parameter.
  * STOP rewinds the LFO master and both drone-specific LFO / Swell clocks
- * without a discontinuous jump; Swell remains at zero until resumed. */
+ * without a discontinuous jump; Swell and LFO advance from zero again. */
 volatile uint8_t dr_lfo_transport;
 static uint8_t swell_transport_hold;
 static float lfo_stop_local[DR_NGROUPS], swell_stop_local[DR_NGROUPS];

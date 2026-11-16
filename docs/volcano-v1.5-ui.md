@@ -37,7 +37,7 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained. Random Start now randomizes all active transition shapes, including the loop back to step 1 |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
 | FX | Space, Details | Cyan seismographic arrivals and reverberant coda; continuous 50/50 linear–square-root display gain avoids the former discontinuity at zero and retains more value differentiation; icy-white value ramps |
-| GLO | Setup 1, Setup 2 | Setup 1 overlays red Fade, orange Morph and yellow Scene curves against one shared five-minute maximum Scene axis (or a longer maximum clock-synced span). Setup 2 centers the same-sized planetary tuning cross-section and surrounds it with L/R atmospheric rings whose separation follows Stereo; the built-in speaker switch remains on KNOB 4 |
+| GLO | Setup 1, Setup 2 | Setup 1 gives yellow Fade (top), orange Morph (middle), and red Scene (lower third) distinct plateau heights on a common five-minute maximum Scene axis (or a longer maximum clock-synced span). Setup 2 retains the same-sized centered planet, with animated L/R wavy orbits converging toward or diverging from a fixed external orbital reference as Stereo changes; the built-in speaker remains on KNOB 4 |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
 
 ## Control behavior
@@ -46,11 +46,13 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
   the former third GLO page is retired. Pressure retains its neutral response.
 - A factory preset selection or transition clears any previously authored
   RAM-only multistep sequence; user scenes retain their existing behavior.
+- Automatic onboarding tip popups are disabled; explicit action messages and
+  second-part announcements remain available.
 - The global LFO rate, movement and gesture-time readouts use value-dependent
   dark-red-to-yellow halos and a matching gradient ruler around white text. The
   halo's interpolation stays in 24-bit RGB until it is converted to RGB565, so
   intermediate values no longer acquire a spurious green tint.
-- The splash screen retains its black-sky geological silhouette. The eruption grows during startup with animated ash, strands, and incandescent particles; small legends have dark contrast panels.
+- The splash screen retains its black-sky geological silhouette, but runs for 5.6 seconds. Magma rises from the bottom conduit as the white lettering fades in; only after it nears the vent do the plume and denser ejecta appear. No opaque text panels.
 
 ## ENV visual mappings
 
@@ -78,9 +80,9 @@ The five strata remain visible when inactive. Their brightness derives from:
 - Deep Mantle: magnitude of the active LFO signals scaled by Movement.
 
 These are **instrument-state indicators**, not scientifically calibrated
-measurements of geological energy. The atlas now uses dense parallel strata,
-mineral stippling, and a feeder conduit, while the labels and button map remain
-legible independent of brightness.
+measurements of geological energy. The atlas now places cyan atmospheric particles above the surface volcano,
+with the dense warm rock strata and magma feeder entirely beneath it. The
+labels and button map remain legible independent of brightness.
 
 ## Implementation locations
 

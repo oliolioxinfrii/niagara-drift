@@ -38,8 +38,12 @@ The three pitches now repeat, but the time spent traveling between them is unequ
 3. Return to **SEQ → Sequence**. Turn **KNOB 2** to select **drone II**, use KNOB 1 to select each event, and enter its pitch on the keyboard.
 4. Turn **KNOB 4** to shift drone II's phase around the loop. For example, an offset of 50% places it half a cycle away from drone I's corresponding events. The drones share the same overall event-spacing pattern, but need not play the same pitches or start at the same point.
 
-**Important:** The sequencer lives in RAM. **SAVE stores the sound, not these note and timing edits.** A scene cannot be used to recall a completed pitch progression; factory preset recall resets a multistep sequence to one step.
+**Saving the progression:** Press **SAVE**, select a user bank (A–F) and slot, choose **SAVE** with KNOB 3, then confirm. This stores the sound **and the authored sequence**—its pitches, event spacing, transition shapes, selected drone and phase offset. You can now use **LOAD** to recall both immediately. The recalled sequence starts **stopped at step 1**; press **SEL + PLAY** to perform it. Factory presets, and old scenes without stored sequence data, use a one-step progression. **STRIP/DARK/STILL/TAIL amounts and the current sequencer transport are not saved.**
 
 > **Screenshot needed — Two-drone sequence:** Capture the Sequence page with drone II selected and a nonzero phase offset.
+
+**STILL and the sequencer:** Use white key **3** to slow drone I's sequencer progression or key **7** to slow drone II's. At full STILL depth, that drone's progression stops while the other can continue. When STILL returns to zero, its local timing smoothly rejoins the master sequence. Neither the slowed timing offset nor the current playhead is written to the scene.
+
+> **Screenshot needed — Saved scene and sequence:** Show a saved user scene followed by an immediate LOAD and the restored, stopped sequence.
 
 For the complete encoder assignments, see [SEQ reference](../reference/partner.md). To understand what remains when loading scenes, see [What is saved?](../reference/scenes.md#what-a-scene-stores).

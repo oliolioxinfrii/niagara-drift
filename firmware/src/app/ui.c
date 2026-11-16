@@ -3017,6 +3017,53 @@ static void sp_fade_canvas(uint16_t sky, float remaining)
         cv_px[i] = swap16((uint16_t)((r << 11) | (g << 5) | b));
     }
 }
+#include "volcano_logo.h"
+
+/* Bauhaus-adjacent, rounded geometric wordmark from a compact OFL bitmap.
+ * Per-pixel compositing lets ash/plume pixels invert through the existing
+ * volcanic red-orange-yellow color family, instead of RGB inversion.
+ * 2-bit coverage is expanded to the renderer's native 15-level range. */
+static void sp_wordmark(int32_t y, uint8_t opacity, uint16_t sky)
+{
+    const uint16_t logo_red = RGB(248, 43, 43);
+    const uint32_t full = 15u * 255u;
+    const int32_t x0 = (240 - SP_LOGO_W) / 2;
+    int32_t gx, gy;
+    if (!opacity) return;
+    for (gy = 0; gy < SP_LOGO_H; gy++) {
+        const int32_t py = y + gy;
+        if (py < 0 || (uint32_t)py >= cv_h) continue;
+        for (gx = 0; gx < SP_LOGO_W; gx++) {
+            const char c = SP_LOGO_ROWS[gy][gx / 3];
+            const uint32_t idx = c >= 'A' && c <= 'Z' ? (uint32_t)(c - 'A') :
+                                 c >= 'a' && c <= 'z' ? (uint32_t)(c - 'a' + 26) :
+                                 c >= '0' && c <= '9' ? (uint32_t)(c - '0' + 52) :
+                                 c == '-' ? 62u : 63u;
+            const uint32_t coverage = ((idx >> (4 - 2 * (gx % 3))) & 3u) * 5u;
+            const uint32_t a = coverage * (uint32_t)opacity;
+            const int32_t px = x0 + gx;
+            const uint32_t at = (uint32_t)py * cv_w + (uint32_t)px;
+            uint32_t bg, ink, nr, ng, nb;
+            if (!a || (uint32_t)px >= cv_w) continue;
+            bg = swap16(cv_px[at]);
+            ink = logo_red;
+            if (bg != sky && px > 88 && px < 194) {
+                /* A dark-red plume becomes yellow lettering; bright molten
+                 * yellow becomes dark red; orange maps to a distinct orange.
+                 * The plume remains visible as a heat-color silhouette in
+                 * the wordmark. Do not invert background pixels elsewhere. */
+                const int green = (int)((bg >> 5) & 63u);
+                ink = green > 40 ? RGB(182, 25, 36) :
+                      green > 18 ? RGB(247, 117, 37) : RGB(255, 222, 63);
+            }
+            nr = ((ink >> 11) * a + (bg >> 11) * (full - a) + full / 2u) / full;
+            ng = (((ink >> 5) & 63u) * a + ((bg >> 5) & 63u) * (full - a) + full / 2u) / full;
+            nb = ((ink & 31u) * a + (bg & 31u) * (full - a) + full / 2u) / full;
+            cv_px[at] = swap16((nr << 11) | (ng << 5) | nb);
+        }
+    }
+}
+
 static void draw_splash(uint32_t ms)
 {
     static const uint16_t BED[11] = {
@@ -3168,7 +3215,7 @@ static void draw_splash(uint32_t ms)
         const uint8_t ver = (uint8_t)(255.0f * version_alpha + 0.5f);
         const uint8_t name = (uint8_t)(255.0f * name_alpha + 0.5f);
         cv_text_alpha(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER, ver);
-        cv_text_alpha(18, 53 - y0, &FONT_L, "VOLCANO", PAPER, name);
+        sp_wordmark(53 - y0, name, SKY);
         sp_fade_canvas(SKY, scene_remaining);
         cv_blit(0, (uint32_t)y0);
     }

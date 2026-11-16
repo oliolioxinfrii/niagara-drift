@@ -216,11 +216,10 @@ static void lk_pic_sequence(int timing)
         }
     }
     if (sd.enabled && len) {
-        const uint32_t t = sd_elapsed_ms() % len;
-        const int32_t x = x0 + (int32_t)((uint64_t)t * (uint32_t)width / len);
-        /* Both dots are at the same clock position, as on Swell page 1.
-         * Drone II's phase changes its height on the displaced trace. */
+        /* STILL displaces each drone's playhead without editing the shared score. */
         for (g = 1; g >= 0; g--) {
+            const uint32_t t = sd_elapsed_local(g) % len;
+            const int32_t x = x0 + (int32_t)((uint64_t)t * (uint32_t)width / len);
             const int32_t y = sd_y(sd_at_len(g, t, len, linked), lo, hi);
             cv_round(x - 3, y - 3, 7, 7, 3, LK_WHITE);
             cv_round(x - 2, y - 2, 5, 5, 2, LK_DRONE[g]);

@@ -87,11 +87,12 @@ A short C#5 tap pauses both LFO waves and their per-drone phase markers at the
 current position; another tap resumes from the same phase. The Swell is not
 paused by a short LFO tap. A hold of 500 ms enters a **smooth stop**: the LFO
 master and both drones' LFO and Swell clocks rewind from their current
-positions to phase zero at the *LFO's current rate*, then stay paused at
-zero until the next tap. The return time therefore depends on LFO rate; it is
-not an instantaneous reset or a fixed-duration animation. Both Swell clocks
-are held at zero after a full stop. If Swell phase offset is configured, that
-musical offset is preserved when playback resumes. External clock steering
+positions to phase zero at the *LFO's current rate*. At zero, both LFO and
+Swell clocks immediately resume forward motion, like a rubber-band turnaround:
+no additional tap, pause, or jump at the endpoint. The return time therefore
+depends on LFO rate; it is not an instantaneous reset or a fixed-duration
+animation. If Swell phase offset is configured, that musical offset is
+preserved after the turnaround. External clock steering
 is suspended while paused/stopping to prevent a phase discontinuity.
 
 The previous C#5 **LFO-to-Swell synchronization lock** is retired as a

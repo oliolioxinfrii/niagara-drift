@@ -1671,10 +1671,21 @@ static float sfr[BLK];                           /* ... and where in its sample 
  * destination); none: 0 */
 static inline float lfo_at(int drone, int tap, uint32_t t)
 {
-    const float *wave = lfo_local_active[drone] ? lfo_tick_dr[drone][0] : lfo_tick[0];
-    const float a = wave[t];
-    const float b = lfo_local_active[drone] ? lfo_tick_dr[drone][1][t] : lfo_tick[1][t];
-    return tap == DR_LFO_BOTH ? a + b : tap == DR_LFO_I ? a : tap == DR_LFO_II ? b : 0.0f;
+    const int active = lfo_local_active[drone];
+    const float a = active ? lfo_tick_dr[drone][0][t] : lfo_tick[0][t];
+    const float b = active ? lfo_tick_dr[drone][1][t] : lfo_tick[1][t];
+    float value = tap == DR_LFO_BOTH ? a + b : tap == DR_LFO_I ? a : tap == DR_LFO_II ? b : 0.0f;
+    if (active && sub_clock[drone][SUB_LFO].rejoining) {
+        /* RANDOM's cycle histories differ after a freeze even when its phase
+         * has rejoined. Blend the two LFO outputs before the local path ends. */
+        const sub_clock_t *c = &sub_clock[drone][SUB_LFO];
+        const float u = fm_clampf(c->elapsed / c->duration, 0.0f, 1.0f);
+        const float mix = u * u * (3.0f - 2.0f * u);
+        const float master = tap == DR_LFO_BOTH ? lfo_tick[0][t] + lfo_tick[1][t]
+                           : tap == DR_LFO_I ? lfo_tick[0][t] : tap == DR_LFO_II ? lfo_tick[1][t] : 0.0f;
+        value += (master - value) * mix;
+    }
+    return value;
 }
 
 static inline float fr(float x) { return x - fm_floorf(x); }

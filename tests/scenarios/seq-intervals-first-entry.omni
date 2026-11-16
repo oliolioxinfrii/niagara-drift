@@ -1,0 +1,19 @@
+# The first visit to SEQ Intervals must clear the preceding Sequence trace.
+# Capture the first entry and a subsequent entry for an exact framebuffer comparison.
+notips
+page 18
+spin K3 2
+expect seqcount 3
+wait 40
+shot sequence-before-intervals.png
+page 19
+expect view 19
+wait 40
+shot intervals-first.png
+page 20
+expect view 20
+wait 40
+page 19
+expect view 19
+wait 40
+shot intervals-return.png

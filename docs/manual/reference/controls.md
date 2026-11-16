@@ -18,7 +18,7 @@ VOLCANO uses the FM-1's four parameter encoders, four global encoders, page butt
 | **MASTER** | Overall volume |
 | **SELECT** | Move backward or forward among pages in the current page family |
 | **[[SEL]] + SELECT** | Set the common LFO rate (or MIDI-synced cycle division) |
-| **PRESETS** | Gesture time: how quickly gestures develop |
+| **PRESETS** | **Morph Time**: how quickly a held gesture rises or returns, and how STILL rejoins its master clock |
 | **ALGORITHM** | Movement: scale the LFO modulation depths |
 | **KNOB 1–4** | Edit the four parameters shown on the current page; many drone pages use KNOB 1–2 for drone I and KNOB 3–4 for drone II |
 
@@ -55,13 +55,15 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 
 ## Navigation and saved sounds
 
-- **SAVE** opens the scene browser. White keys **1–8 are reserved** on ordinary pages.
-- **Keys 9–16** activate the eight gestures. Black keys control drone switches, linking and (on LFO pages) modulation routing.
+- **SAVE** opens the scene browser. White keys **1–4** operate STRIP/DARK/STILL/TAIL for drone I, and **5–8** do the same for drone II.
+- **Keys 9–16** activate Tick, Chord, Snarl, Stutter, Weight, Shift, Clean and Wash. All 16 white-key gestures use hold/tap timing, not pressure. Black keys control drone switches, links and (on LFO pages) modulation routing.
 - **On the Sequence page**, all 27 keys enter notes rather than activating their ordinary switches or gestures. The first event follows the live pitches from HOME → Pitch.
-- **Hold SEL and touch a black key** to display the key's purpose without changing it.
+- **Hold SEL** to use secondary knob functions without replacing the active screen with the former key-map overlay.
 - **SEL + HOME** creates a randomized working sound and sequencer. **SEL + PLAY** starts or pauses the pitch progression without changing the instrument's fade.
 - **SEL + SAVE** undoes or redoes the last supported scene/transition change.
 
 The screen displays page names, current parameter values and action messages. VOLCANO uses five visual layer colors: cyan for FX, yellow for HOME, orange for SEQ/ARP, orange-red for EDIT/ENV and red for LFO. SAVE and GLO use separate system visuals.
 
-For every button combination, see [Shortcuts](shortcuts.md). For the scene browser, see [Scenes](scenes.md). To hear how the controls work together, follow [Build a sound](../recipes/scratch.md) and [First pitch sequence](../recipes/sequencing.md).
+**C♯5:** tap to pause or resume both LFO waveforms at their current phase; hold about 500 ms to smoothly return both LFO and Swell phases to zero at the current LFO rate, then resume automatically. This replaces the older LFO-to-Swell lock/reset shortcut.
+
+For every button combination, see [Shortcuts](shortcuts.md). For the scene browser, including stored sequences and immediate LOAD, see [Scenes](scenes.md). To hear how the controls work together, follow [Build a sound](../recipes/scratch.md) and [First pitch sequence](../recipes/sequencing.md).

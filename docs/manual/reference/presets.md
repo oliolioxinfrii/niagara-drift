@@ -7,14 +7,13 @@ intro: 16 sounds to start from, each changing over a minute
 
 ## Presets
 
-16 sounds built into Niagara Drift, each showing a different side of it and changing over a minute. They sit in two
-banks of eight on white keys 1–8.
+Sixteen factory sounds are included with Volcano, arranged in two banks of eight. Open the **SAVE scene browser** to hear them. Unlike user scenes, factory presets cannot be overwritten or renamed.
 
 ### P1–P8
 
-Hold [[SEL]] and tap [[F5]] for this bank, then tap white keys 1–8.
+In the SAVE browser, set KNOB 1 to **Presets 1–8**, KNOB 2 to the desired slot, and KNOB 3 to **LOAD**; press SAVE to confirm.
 
-<img src="../../img/keys-presets-1.png" width="720" alt="The keyboard: white keys 1 to 8 are P1 to P8; SEL with F5 picks their bank">
+> **Screenshot needed — Presets 1–8:** Capture this bank in the v1.5 Orbit scene browser.
 
 | Key | Preset | What it shows |
 |---|---|---|
@@ -29,9 +28,9 @@ Hold [[SEL]] and tap [[F5]] for this bank, then tap white keys 1–8.
 
 ### P9–P16
 
-Hold [[SEL]] and tap [[G5]] for this bank, then tap white keys 1–8.
+In the SAVE browser, choose **Presets 9–16** and load a slot using the same controls.
 
-<img src="../../img/keys-presets-2.png" width="720" alt="The keyboard: white keys 1 to 8 are P9 to P16; SEL with G5 picks their bank">
+> **Screenshot needed — Presets 9–16:** Capture this bank in the v1.5 Orbit scene browser.
 
 | Key | Preset | What it shows |
 |---|---|---|
@@ -48,7 +47,8 @@ Hold [[SEL]] and tap [[G5]] for this bank, then tap white keys 1–8.
 
 - **Pitch lock** ([[C#4]]) is on when a new FM-1 starts: the Presets keep the pitch you're on. Turn it off to hear
   each at its own notes and Tuning.
-- **They're fixed:** to keep your changes, save them in a bank of your own, A to F
+- **They're fixed:** to keep your changes, select a user bank A–F and **SAVE** in the scene browser
   ([recipe](../recipes/scenes.md#save)).
+- **Factory preset recalls reset a programmed multistep pitch sequence to one step.** The sequence itself is not stored in scenes.
 - **Most are rooted on D,** so moving between them keeps the root.
 - **Their loudest moments match P1's;** Bare is quieter on purpose.

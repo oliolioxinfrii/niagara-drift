@@ -29,6 +29,25 @@ A short tap of an already active, stationary key begins a linear return to zero;
 
 The existing eight gestures retain saved latches in `P_GL_0...P_GL_7`. Their motion-loop control events remain available. The PRESETS encoder's former separate Gesture Time control is replaced by access to the shared Morph Time setting in this draft; the existing `proj.mtime` field remains for backwards compatibility.
 
+## Sequence display, scene persistence and SEL
+
+- The **Intervals** page's two running playheads use each drone's own STILL-adjusted
+  sequencer clock, matching the **Sequence** page. The score's programmed event
+  markers remain at their authored positions.
+- **Saving a user scene (A–F)** stores its current sequence with the sound: 1–4
+  steps, two drones' note pitches, event intervals, interpolation shapes, selected
+  drone and phase offset. Recalling the slot restores its sequence, stopped and
+  reset to step 1. The sound's first pitch remains authoritative for step 1.
+  Transport state, editor cursor and STILL offsets are not stored. An older
+  scene without sequence data recalls as one step; factory Presets remain
+  one-step sounds.
+- Sequence data is kept in versioned trailers on the existing bank flash
+  objects, including A's sidecar on the historical overwritten-Presets object.
+  It does not change the existing sound/project binary format or discard
+  unmigrated Preset data.
+- **Holding SEL no longer replaces the active page** with a key-map popup.
+  SEL's fine-tuning and control-modifier shortcuts remain available.
+
 ## STILL clock model
 
 The common master clocks continue running. For each drone and each of the three systems (LFO, Swell, sequencer), the effective time is a *local clock* derived from the master plus an independently accumulated phase error. That means both drones may freeze simultaneously without referencing each other. Their programmed LFO rate, Swell rate, sequence timing, and phase settings remain unchanged.
@@ -48,5 +67,8 @@ The LFO wave/modulation screens, Swell graph and sequencer score show separate c
 - Record dry/wet WAVs and measure spectral changes for STRIP/DARK and effect tails for TAIL, including cross-FM and feedback.
 - Run `./build.sh`, `tools/budget.py` and hardware `tools/fm1_cpu.py`; ensure flash, .data+.bss, pool headroom and interrupt CPU budget are within FM-1 limits.
 - Check physical key debounce, latency, visual legibility and frame rate on the M-VAVE FM-1 before a merge.
+- Rebuild after the sequence-storage changes; test saving distinct sequences in
+  A–F and recalling them after reboot, including through the SAVE browser. Confirm
+  that existing scenes and older overwritten Presets remain intact.
 
 No firmware build, host suite, or hardware measurement has been completed by this change alone.

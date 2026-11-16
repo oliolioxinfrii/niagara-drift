@@ -867,7 +867,15 @@ typedef struct {
 } sub_clock_t;
 enum { SUB_LFO, SUB_SWELL };
 static sub_clock_t sub_clock[DR_NGROUPS][2];
-static float sub_phase_wrap(float p) { return p - fm_floorf(p); }
+static float sub_phase_wrap(float p)
+{
+    /* Most phases are within one turn: avoid soft floor on the Swell hot path.
+     * The fallback covers a very fast cubic return that temporarily overshoots. */
+    if (p >= 1.0f) p -= 1.0f;
+    else if (p < 0.0f) p += 1.0f;
+    if (p >= 1.0f || p < 0.0f) p -= fm_floorf(p);
+    return p;
+}
 static float sub_phase_tick(sub_clock_t *c, float master, float advance, float dt, float still)
 {
     if (still <= 0.0f && !c->rejoining && c->error == 0.0f) {

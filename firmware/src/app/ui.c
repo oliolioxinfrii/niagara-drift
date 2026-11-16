@@ -267,15 +267,6 @@ static void mark_dirty(void) { ui.dirty = 1; ui.chg_t = plat_ms(); }
  * what's been seen, the player's, as the Gesture time is). A tip waits for the screen: after any message */
 enum { TIP_BLEND, TIP_NAMES, TIP_GEST, TIP_FX, TIP_INTO, TIP_XMOD, TIP_CLOCK, TIP_UNDO, TIP_KN_LIFE, TIP_KN_MODS,
        TIP_KN_SETUP2, TIP_KEEP, TIP_KN_DRONES, TIP_KN_SPACE, NTIPS };
-static const char *const TIP_TEXT[NTIPS] = {   /* one line, the banner's width (~23) */
-    "PRESS HARDER: BLEND", "HOLD [SEL]: KEY NAMES", "HOLD: IN · TAP: LATCH", "TAP [FX]: TIME, TYPES",
-    "[SEL]+KNOB 4: INTO REV", "[F#5]: PITCH, SNARL", "SWELL KNOB 1: DIVISION", "[SEL] + [SAVE]: UNDO",
-    /* the knobs 0.3 moved (Evan, 2026-11-01), the first time a player from 0.2 opens their page (SEEN1_MOVED) */
-    "FEEDBACK NOW KNOB 1", "X-MOD NOW KNOB 4", "SPEAKER NOW KNOB 4",
-    "TAP [SEL]: KEEP IT",                      /* SEL glowing while a blend or a gesture can be kept */
-    "PITCH: TAP [HOME] AGAIN", "DRIVE, TIME: TAP [FX]"};   /* the pages 0.3 rearranged (2026-11-08), as the knobs */
-/* (a button or key in [ ]: the new look draws it in a box, the spec's rule 19; the old screen drops the brackets) */
-#define TIP_MS 3500u
 /* VOLCANO's interface does not display automatic onboarding tips.
  * Retain the call sites for compatibility; explicit messages and
  * second-part announcements still use the normal message queue. */
@@ -2962,7 +2953,8 @@ static void draw_splash(uint32_t ms)
             const int x = (int)(h % 240u);
             const int y = (int)((h >> 11) % 240u);
             const int rock = y >= sp_rock_height(x);
-            const int plume = x > 112 && x < 184 && y < 104 && i % 7 == 0;
+            const int plume = erupt_ms > 0u &&
+                              x > 112 && x < 184 && y < 104 && i % 7 == 0;
             if (rock || plume) {
                 const uint16_t c = plume ? (i % 9 == 0 ? SULFUR : DARK) :
                                    i % 11 == 0 ? SULFUR :

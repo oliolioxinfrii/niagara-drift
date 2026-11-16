@@ -218,8 +218,11 @@ static void sd_scene_capture(seq_scene_t *out)
 static void sd_scene_restore(const seq_scene_t *saved)
 {
     int i, g;
+    const float still_i = sd.still[0], still_ii = sd.still[1];
     sd_stop();
     sd_init();                      /* legacy scenes without a progression: one step */
+    sd.still[0] = still_i;         /* a scene does not cancel a live STILL gesture */
+    sd.still[1] = still_ii;
     if (!saved) return;
     sd.count = saved->count;
     sd.drone = saved->drone;

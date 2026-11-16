@@ -66,7 +66,10 @@ borrowed from each predecessor.
 | [ChoralRoot](https://github.com/Quixotic7/ChoralRootFM1) | Quixotic7 | Delay/reverb design, scene-crossfade and recovery ideas |
 | [fm1-base](https://github.com/charlesvestal/fm1-base) | Charles Vestal | Safe restore and flash-storage work (MPL-2.0) |
 | [FM-1 Screen Reader](https://github.com/charlesvestal/fm1-reader) | Charles Vestal | Accessible screen announcements and reading interface |
-| [Groove OS](https://www.groove-os.com/) | — | A precedent for FM-1 firmware in a browser |
+
+[Groove OS](https://www.groove-os.com/) was also a reference for the idea
+of running FM-1 firmware in a browser; it is identified as an
+**influence on Niagara Drift's ecosystem**, not as incorporated code.
 
 The specific reuse and license requirements are documented in
 [LICENSING.md](../../LICENSING.md).

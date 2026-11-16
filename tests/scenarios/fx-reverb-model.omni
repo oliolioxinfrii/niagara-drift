@@ -1,0 +1,37 @@
+# FX reverb model: deterministic screenshots of the five DSP type profiles.
+# The top delay trace is unchanged; the lower seismograph expresses type,
+# predelay, diffusion, high-frequency damping, decay and Shimmer wash.
+notips
+page 15
+expect view 15
+set 62 75                   # delay wet
+set 63 85                   # reverb wet
+set 95 65                   # reverb LENGTH
+set 96 0                    # bright tail
+set 64 0                    # Room, shortest predelay/network
+wait 250
+shot reverb-room.png
+set 64 1                    # Hall
+wait 250
+shot reverb-hall.png
+set 64 2                    # Cathedral, largest predelay/network
+wait 250
+shot reverb-cathedral.png
+set 64 3                    # Chorus Hall, strongest modulation and stereo width
+wait 250
+shot reverb-chorus-hall.png
+set 64 4                    # Shimmer, Hall plus octave-up wash
+wait 250
+shot reverb-shimmer-start.png
+wait 8200
+shot reverb-shimmer-full.png
+set 96 95                   # DAMP removes high-frequency trace, not low body
+wait 250
+shot reverb-damped.png
+set 95 100                  # Inf: damping bypassed, held tail
+wait 250
+shot reverb-held.png
+page 16
+expect view 16
+wait 250
+shot reverb-details.png

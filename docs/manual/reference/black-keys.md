@@ -37,7 +37,7 @@ On the [LFO pages](lfo-pages.md), the black keys control each drone's oscillator
 | [[G#3]] · [[G#4]] | the pitch send moves X-Wave instead |
 | [[A#3]] · [[A#4]] | which LFO moves the cutoff: I, II or both |
 | [[C#4]] · [[D#4]] | drone I's · drone II's filter send cycles Cutoff, Resonance and Pan |
-| [[C#5]] | tap to lock/free the LFO to Swell; hold 500 ms to reset its phase |
+| [[C#5]] | tap to pause/resume both LFOs; hold 500 ms to smoothly return LFO and Swell phases to zero, then resume |
 | [[D#5]] | which LFO moves the delay's time: I, II or both |
 
 ## Using SEL

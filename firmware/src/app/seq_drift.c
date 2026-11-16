@@ -109,7 +109,7 @@ static void sd_still_rejoin(int g, int on)
     sd.start_error[g] = sd.error[g];
     sd.start_velocity[g] = sd.velocity[g];
     sd.return_elapsed[g] = 0.0f;
-    sd.return_duration[g] = 1000.0f * fm_maxf(dr_time_s(P_MORPH, proj.par[P_MORPH]), 0.02f);
+    sd.return_duration[g] = 1000.0f * fm_maxf(dr_time_s(P_MORPH, proj.par[P_MORPH]) * sd.still[g], 0.02f);
     sd.returning[g] = 1;
 }
 static void sd_still_tick(uint32_t now)

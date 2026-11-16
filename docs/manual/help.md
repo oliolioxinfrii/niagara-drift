@@ -13,12 +13,12 @@ intro: Installing, updating, connecting and recovering Volcano
 | The pitch progression has stopped | **SEL + PLAY** starts, pauses or resumes the sequencer; normal PLAY controls the global audio fade |
 | A preset is not at its programmed pitch | **Pitch Lock** ([[C#4]]) retains the existing pitch; switch it off to hear the preset's own pitch |
 | Drone II wanders between notes | On SEQ → Pitch moves, reduce **Wander** (KNOB 3) |
-| White keys 1–8 do not load scenes | This is expected in v1.5. Open the scene browser with **SAVE** |
+| White keys 1–8 change the sound rather than loading scenes | They control STRIP, DARK, STILL and TAIL, separately for each drone. Use **SAVE** to browse scenes |
 | The internal speaker has no sound, but USB or headphones work | Check **GLO → Setup 2 → Speaker** (KNOB 4) |
 
 ## Installing Volcano
 
-Volcano is a **custom fork** of Niagara Drift. The original project's online installer and public emulator **do not** distribute this fork's firmware.
+Volcano is a **custom fork** of Niagara Drift. The original project's online installer and public emulator **do not** distribute this fork's firmware. This subtractive/STILL feature branch remains **unverified on physical FM-1 hardware**; do not treat it as a tested release package.
 
 At present, build the desired source revision locally using [BUILDING.md](../../BUILDING.md). The installer package is `build/omni.fwsc`; install it with [Slipway](https://discodave-glitch.github.io/slipway/app/) or the repository's command-line installer:
 

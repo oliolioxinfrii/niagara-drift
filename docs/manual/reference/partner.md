@@ -74,6 +74,6 @@ The final active segment always returns to **step 1**. With two steps, only KNOB
 - **User scenes save the authored sequence.** Pitches, timing, phase offset, selected drone, and transition shapes are stored with the sound in a user slot. **LOAD** restores them immediately, stopped at step 1. A factory preset or older user scene without sequence data restores a one-step sequence. [What a scene stores](scenes.md#what-a-scene-stores) explains what remains performance state.
 - **Pitch Lock** and **Pitch Link** affect how the two drones' pitches follow the programmed changes.
 
-**STILL I (white key 3)** and **STILL II (white key 7)** independently slow each drone's live sequencer clock toward zero speed. At 100%, the chosen drone's pitch progression stops while its oscillator keeps sounding. Returning STILL to zero smoothly catches the local phase up to the master; **the saved score is not rewritten**. See [Gesture reference](gestures.md#subtractive-gestures-keys-1-8).
+**STILL I (white key 3)** and **STILL II (white key 7)** independently slow each drone's live sequencer clock toward zero speed. At 100%, the chosen drone's pitch progression stops while its oscillator keeps sounding. Returning STILL to zero smoothly catches the local phase up to the master; **the saved score is not rewritten**. See [Gesture reference](gestures.md).
 
 For a short overview of the switches, see [Black keys](black-keys.md).

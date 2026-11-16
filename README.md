@@ -1,5 +1,7 @@
 # Niagara Drift
 
+> **VOLCANO development branch:** `feature/volcano-subtractive-still-gestures` provides 16 pressure-independent gestures, independent per-drone STILL clocks, per-slot sequencer saving in user banks A–F, moving cursors on the Sequence and Intervals displays, and no SEL-held key-map overlay. Hold SEL to use its modifiers; the SAVE browser remains the way to choose user banks. This is a draft, not validated on hardware. See [Volcano behavior and QA](docs/volcano-subtractive-still.md). Earlier control maps below describe historical Niagara Drift versions, not this branch.
+
 **A drone synth for the M-VAVE FM-1.**
 
 > **VOLCANO v1.5 graphical preview branch:** `feature/volcano-v1.5-ui` keeps
@@ -100,9 +102,12 @@ SEQ cycles through **Partner**, **Pitch moves**, **Sequence**, and **Intervals**
   Consecutive notes, including the loop return, differ by no more than one octave. Pitch
   Lock and Pitch Link keep drone II coupled to drone I.
 
-The sequencer is kept in RAM, independently of scenes and the Motion Loop. Its notes and
-timing are not saved with a scene. The Speaker setting and improved waveform/ARP LED
-brightness from the earlier Swell/UI work are also included.
+On the Volcano branch, saving a user scene in A–F also saves that slot's authored sequencer:
+step count, pitch notes, event timing, transition shapes and drone-II phase. Loading the
+scene restores its progression stopped at the beginning; the running clock and STILL
+performance offsets remain in RAM. Older user scenes without an authored progression
+load a one-step default. Factory Presets remain one-step sounds. The earlier versions
+of Niagara Drift described above kept the sequencer entirely in RAM.
 
 ## Installing this custom build
 

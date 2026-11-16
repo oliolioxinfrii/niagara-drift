@@ -904,7 +904,7 @@ static void sub_clock_return(int g, int on)
             c->start_error = c->error - fm_floorf(c->error + 0.5f);
             c->start_velocity = c->velocity;
             c->error = c->start_error;  /* equivalent cycle, nearer the master */
-            c->duration = fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.02f);
+            c->duration = fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]) * sub_depth[g][2], 0.02f);
             c->elapsed = 0.0f;
             c->rejoining = 1;
         } else {

@@ -2820,7 +2820,7 @@ static void pulse_run(uint32_t n)
     const float phase = (float)par[P_SWELL_PHASE] * 0.01f;
     float local_ph[DR_NGROUPS] = {ph, ph};
     uint32_t j;
-    if (ext) {                                   /* steered by the clock: at its place when it starts (or a Start), else
+    if (ext && !swell_transport_hold) {                                   /* steered by the clock: at its place when it starts (or a Start), else
                                                   * a fiftieth of the way a block */
         float tg = ext_target(dbeats), e = tg - ph;
         e -= e >= 1.0f ? 2.0f : e < -1.0f ? -2.0f : 0.0f;
@@ -2849,19 +2849,29 @@ static void pulse_run(uint32_t n)
                 if (advance < -0.5f) advance += 1.0f;
                 else if (advance > 0.5f) advance -= 1.0f;
                 swell_master_prev = master;
-                local_ph[0] = sub_phase_tick(&sub_clock[0][SUB_SWELL], master,
-                                             advance, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
-                local_ph[1] = sub_phase_tick(&sub_clock[1][SUB_SWELL], master,
-                                             advance, 4.0f / DR_SR, sub_depth[1][2]) * 2.0f;
+                if (swell_transport_hold) {
+                    int g;
+                    for (g = 0; g < DR_NGROUPS; g++) {
+                        if (dr_lfo_transport == DR_LFO_STOPPING)
+                            swell_stop_local[g] = fm_maxf(0.0f, swell_stop_local[g] -
+                                                         8.0f * lfo_stop_speed);
+                        local_ph[g] = swell_stop_local[g];
+                    }
+                    ph = local_ph[0];  /* both envelopes rewind at the LFO's rate */
+                } else {
+                    local_ph[0] = sub_phase_tick(&sub_clock[0][SUB_SWELL], master,
+                                                 advance, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
+                    local_ph[1] = sub_phase_tick(&sub_clock[1][SUB_SWELL], master,
+                                                 advance, 4.0f / DR_SR, sub_depth[1][2]) * 2.0f;
+                }
                 pt = pulse_gain(local_ph[0], d, shape, b1, hz, 0.0f);
                 pt2 = pulse_gain(local_ph[1], d, shape, b1, hz, phase);
             }
             t = pt;
-            ph += step;
-            if (ph >= 2.0f) {
-                ph -= 2.0f;
-                if (on && par[P_LFO_LOCK])             /* a new bar: the LFO, locked to the pulse, starts over */
-                    lfo_restart();
+            if (!swell_transport_hold) {
+                ph += step;
+                if (ph >= 2.0f)
+                    ph -= 2.0f;
             }
         }
         g += (t - g) * 0.00753f;                 /* 1 - exp(-1 / (3 ms * SR)) */
@@ -2869,7 +2879,31 @@ static void pulse_run(uint32_t n)
         pgain[0][j] = g;
         pgain[1][j] = g2;
     }
-    pulse_ph = pa > 0.0f || ext ? ph : 0.0f;     /* off (and out): the next one starts on a beat (on a clock, where it is) */
+    /* Off Swell still returns its displayed phase continuously on STOP. */
+    if (swell_transport_hold && pa <= 0.0f) {
+        int g;
+        for (g = 0; g < DR_NGROUPS; g++) {
+            if (dr_lfo_transport == DR_LFO_STOPPING)
+                swell_stop_local[g] = fm_maxf(0.0f, swell_stop_local[g] -
+                                             2.0f * lfo_stop_speed * (float)n);
+            local_ph[g] = swell_stop_local[g];
+        }
+        ph = local_ph[0];
+    }
+    if (dr_lfo_transport == DR_LFO_STOPPING && lfo_q == 0u &&
+        lfo_stop_local[0] <= 0.0f && lfo_stop_local[1] <= 0.0f &&
+        swell_stop_local[0] <= 0.0f && swell_stop_local[1] <= 0.0f) {
+        int g;
+        dr_lfo_transport = DR_LFO_PAUSE;
+        ph = 0.0f;
+        for (g = 0; g < DR_NGROUPS; g++) {
+            memset(&sub_clock[g][SUB_LFO], 0, sizeof(sub_clock[g][SUB_LFO]));
+            memset(&sub_clock[g][SUB_SWELL], 0, sizeof(sub_clock[g][SUB_SWELL]));
+            lfo_local_active[g] = 0;
+        }
+        swell_master_prev = 0.0f;
+    }
+    pulse_ph = (pa > 0.0f || ext || swell_transport_hold) ? ph : 0.0f;
     pulse_a = pa;
     dr_pulse_ph = pulse_ph;
     dr_pulse_dr_ph[0] = local_ph[0];

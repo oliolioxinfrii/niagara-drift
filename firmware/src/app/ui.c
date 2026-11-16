@@ -1466,6 +1466,11 @@ static void scene_morph(void)
         x = 1.0f;
     sound_blend(ui.morph_from, ui.morph == VISIT_BACK ? ui.visit_back : ui.morph_to,
                 ui.morph == MENU_TRANSITION ? x * (float)ui.morph_pct * 0.01f : x);
+    for (int g = 0; g < DR_NGEST; g++) {
+        const int key = g < G_PRESS ? NSCENES + g : NPLAY + g - G_PRESS;
+        if (!(ui.key_held & (1u << key)) && ui.key_mode[key] == 0)
+            ui.g_amt[g] = (float)proj.par[gl_par(g)] * 0.01f;
+    }
     if (x >= 1.0f)
         ui.morph = -1;
 }

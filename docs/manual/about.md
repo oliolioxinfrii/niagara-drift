@@ -87,5 +87,20 @@ The direct musical catalyst for Volcano was Nicolas Godin's score for
 to give Niagara Drift's evolving drones a freely spaced pitch
 progression without turning the FM-1 into an all-in-one workstation.
 
+### Development and AI assistance
+
+The Volcano-specific firmware code and most of the documentation for this
+fork were written by **ChatGPT**, working from my instructions and design
+decisions. I have not worked much with C since my undergraduate computer
+science classes. As a research scientist turned secondary mathematics
+teacher, I generally use scientific programming languages: formerly
+MATLAB, now Julia (all hail Julia!).
+
+This describes how the **Volcano modifications** were developed, not the
+authorship of the Niagara Drift codebase or its predecessors. Those
+contributors retain the credit and licensing described above. The
+firmware's behavior still needs to be established through testing, and
+the current subtractive/STILL branch is not a validated hardware release.
+
 Volcano is not affiliated with or endorsed by Evan Yerburgh, the
 developers above, M-VAVE or the makers of any referenced instrument.

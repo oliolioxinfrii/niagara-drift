@@ -15,6 +15,10 @@ shot pitch.png
 page 2
 wait 150
 shot life.png
+# Character should light lava from the base of the Life cone.
+spin K3 100
+wait 120
+shot life-lava-full.png
 page 3
 wait 150
 shot tone.png
@@ -58,6 +62,12 @@ shot setup-time-overlay.png
 page 12
 wait 150
 shot planet-tuning-stereo.png
+spin K3 -100
+wait 120
+shot planet-stereo-narrow.png
+spin K3 100
+wait 120
+shot planet-stereo-wide.png
 # The orbit browser is a separate overlay; HOME exits without saving.
 tap SAVE
 expect savemenu 1

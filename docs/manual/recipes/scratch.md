@@ -11,7 +11,7 @@ description: A step-by-step Volcano v1.5 tutorial using the SAVE browser and sou
 *Begin with one oscillator and gradually introduce the second drone, sub, modulation and effects.*
 
 1. Tap **SAVE**. Choose **Presets 9–16** with KNOB 1, slot **8** with KNOB 2 (**P16 Bare**), and **LOAD** with KNOB 3. Press SAVE to load it. Press PLAY if the global sound is stopped.
-2. Tap **HOME** to open **Drones**. Turn KNOB 2 to lower drone I's filter cutoff until the sawtooth becomes darker.
+2. Tap **HOME** until **Drones** appears. Turn KNOB 2 to lower drone I's filter cutoff until the sawtooth becomes darker.
 3. Use **SEL + OCT+** to bring drone II in. Tap HOME again to reach **Pitch** and turn KNOB 3 to tune it relative to drone I.
 4. Tap **EDIT** until **Sub · Drive** appears. Turn KNOB 1 to blend drone I toward its sub oscillator.
 5. Raise **ALGORITHM** (Movement) from zero. This scales how strongly the LFO affects the routed destinations.

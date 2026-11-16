@@ -9,7 +9,7 @@ intro: The FM-1 buttons, page navigation and global controls
 
 VOLCANO uses the FM-1's four parameter encoders, four global encoders, page buttons and keys. You do not need to memorize the complete key map to begin: open a page and turn the four knobs shown beneath it.
 
-> **Screenshot needed — FM-1 control map:** An annotated photograph or programmatically rendered panel generated from the v1.5 firmware's actual controls. Do not reuse the v1.3 `panel.png`.
+> **Screenshot needed — FM-1 control map:** Capture an authentic annotated panel for this branch. White keys 1–8 are STRIP/DARK/STILL/TAIL for drone I and II; 9–16 are the original eight gestures. Do not reuse the obsolete v1.3 `panel.png`.
 
 ## Global knobs
 

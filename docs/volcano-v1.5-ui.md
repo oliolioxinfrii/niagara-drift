@@ -37,7 +37,7 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained. Random Start now randomizes all active transition shapes, including the loop back to step 1 |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
 | FX | Space, Details | Cyan seismographic arrivals and reverberant coda; continuous 50/50 linear–square-root display gain avoids the former discontinuity at zero and retains more value differentiation; icy-white value ramps |
-| GLO | Setup 1, Setup 2 | Setup 1 gives yellow Fade (top), orange Morph (middle), and red Scene (lower third) distinct plateau heights on a common five-minute maximum Scene axis (or a longer maximum clock-synced span). Setup 2 retains the same-sized centered planet, with animated L/R wavy orbits converging toward or diverging from a fixed external orbital reference as Stereo changes; the built-in speaker remains on KNOB 4 |
+| GLO | Setup 1, Setup 2 | Setup 1 gives yellow Fade (top), orange Morph (middle), and red Scene (lower third) distinct plateau heights on a common five-minute maximum Scene axis (or a longer maximum clock-synced span). Pixel-column strokes keep all three curves and their complete plateaus continuous at native and scaled display sizes. Setup 2 retains the same-sized centered planet, with animated L/R wavy orbits converging toward or diverging from a fixed external orbital reference as Stereo changes; the built-in speaker remains on KNOB 4 |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
 
 ## Control behavior
@@ -52,7 +52,7 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
   dark-red-to-yellow halos and a matching gradient ruler around white text. The
   halo's interpolation stays in 24-bit RGB until it is converted to RGB565, so
   intermediate values no longer acquire a spurious green tint.
-- The splash screen retains its black-sky geological silhouette, but runs for 5.6 seconds. Magma rises from the bottom conduit as the white lettering fades in; only after it nears the vent do the plume and denser ejecta appear. No opaque text panels.
+- The splash screen retains its black-sky geological silhouette and runs for 7.8 seconds. Magma rises from the bottom conduit as white lettering fades in; after the eruption develops, the lettering fades completely out over the final 1.6 seconds before the screen closes. Any button can still skip the intro. No opaque text panels.
 
 ## ENV visual mappings
 

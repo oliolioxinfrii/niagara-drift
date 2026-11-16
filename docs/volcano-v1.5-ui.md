@@ -30,14 +30,14 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 
 | Button | Existing views | New graphical treatment |
 | --- | --- | --- |
-| HOME | Drones, Pitch | Fixed-dimness volcanic strata; Drone I drives lava up and down the left flank, Drone II level increases smoke; two seismic channels combine live scope samples with the current filter transfer function, making cutoff, mode and resonance visible without repeated fake pulses. Pitch shows Niagara's oscilloscopic history by default and filter-response strands while Reso is adjusted |
-| ENV | Life, Tone | Volcano/plume observatory; separate per-drone ash/particulate fans |
+| HOME | Drones, Pitch | Fixed-dimness volcanic strata; Drone I drives lava up and down the left flank, Drone II level increases smoke; two seismographic channels smooth actual scope samples and overlay their respective filter responses, preserving cutoff, mode, and resonance information without repeating artificial pulses. Pitch shows Niagara's oscilloscopic history by default and filter-response strands while Reso is adjusted |
+| ENV | Life, Tone | Volcano/plume observatory with Character lava anchored at the bottom of the cone; separate per-drone ash/particulate fans |
 | EDIT | Osc, Sub · Drive | Native Niagara-style waveform bundles, morphed oscillator shapes, subharmonic blend and drive response; updated source hues, header and thermal meters |
 | LFO | Waves, Sends, Mods | Existing informative wave/route diagrams, recolored in the Deep Mantle family |
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained. Random Start now randomizes all active transition shapes, including the loop back to step 1 |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
 | FX | Space, Details | Cyan seismographic arrivals and reverberant coda; continuous 50/50 linear–square-root display gain avoids the former discontinuity at zero and retains more value differentiation; icy-white value ramps |
-| GLO | Setup 1, Setup 2 | Setup 1 overlays red Fade, orange Morph and yellow Scene transition curves against fixed independent maximum-time axes. Setup 2 has the planetary tuning cross-section, A marker, stereo spacing and the built-in speaker switch on KNOB 4 |
+| GLO | Setup 1, Setup 2 | Setup 1 overlays red Fade, orange Morph and yellow Scene curves against one shared five-minute maximum Scene axis (or a longer maximum clock-synced span). Setup 2 centers the same-sized planetary tuning cross-section and surrounds it with L/R atmospheric rings whose separation follows Stereo; the built-in speaker switch remains on KNOB 4 |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
 
 ## Control behavior
@@ -50,7 +50,7 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
   dark-red-to-yellow halos and a matching gradient ruler around white text. The
   halo's interpolation stays in 24-bit RGB until it is converted to RGB565, so
   intermediate values no longer acquire a spurious green tint.
-- The splash screen has a black sky above the separately layered mineral ground.
+- The splash screen retains its black-sky geological silhouette. The eruption grows during startup with animated ash, strands, and incandescent particles; small legends have dark contrast panels.
 
 ## ENV visual mappings
 
@@ -78,8 +78,9 @@ The five strata remain visible when inactive. Their brightness derives from:
 - Deep Mantle: magnitude of the active LFO signals scaled by Movement.
 
 These are **instrument-state indicators**, not scientifically calibrated
-measurements of geological energy. Labels and the button map remain legible
-independent of brightness.
+measurements of geological energy. The atlas now uses dense parallel strata,
+mineral stippling, and a feeder conduit, while the labels and button map remain
+legible independent of brightness.
 
 ## Implementation locations
 

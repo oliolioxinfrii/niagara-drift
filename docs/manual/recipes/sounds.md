@@ -183,8 +183,8 @@ two filters in turn.
 4. Tap [[C#5]] to lock the LFO to Swell. Hold [[C#5]] for 500 ms if you want to reset the LFO phase without changing the lock state.
 
 > **Good to know.** Echoes blur the rhythm: if your sound has them, turn the delay's Mix down first ([[FX]],
-> KNOB 2). The Swell's speed sets the rhythm: the locked LFO restarts on each of its breaths. Hold [[D#4]]
-> again to free the LFO. (With a MIDI clock, the Swell and the locked LFO follow its beat too.)
+> KNOB 2). Locking the LFO to Swell synchronizes their phases. Tap [[C#5]] again to free the LFO;
+> on an external MIDI clock, both can follow the synchronized tempo.
 
 > **Screenshot needed — LFO sends, LFO I Square on both cutoffs, on Swell.** Regenerate this view from the Volcano v1.5 firmware.
 > **Screenshot needed — Swell, rate 1.2 s.** Regenerate this view from the Volcano v1.5 firmware.

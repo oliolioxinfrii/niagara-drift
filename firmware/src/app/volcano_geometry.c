@@ -456,7 +456,6 @@ static void vg_air_reverb(float wet, float length, float damp, int hold,
         {24, 85, 18, 90, 145},    /* Chorus Hall */
         {18, 75, 5, 90, 90}        /* Shimmer: Hall plus octave-up input */
     };
-    static const char *const name[5] = {"ROOM", "HALL", "CATH", "CHORUS", "SHIM"};
     const int v = proj.par[P_REV_TYPE];
     const int type = (unsigned)v < 5u ? v : 2;
     /* Fourth-root response preserves continuous zero, but keeps the
@@ -480,7 +479,6 @@ static void vg_air_reverb(float wet, float length, float damp, int hold,
     const int nlayer = halo > 0.015f ? 4 : 3;
     int prev[4] = {94, 94, 94, 94}, prev_echo = 94;
     int x, layer;
-    text_c(205, 64, &FONT_XS, name[type], VL_AIR);
     cv_rect(70, 78, 1, 34, vg_dim(VL_AIR, 0.19f));
     cv_rect((int)start, 78, 1, 4, vg_dim(VL_AIR, 0.66f));
     for (x = 10; x <= 230; x++) {
@@ -554,10 +552,12 @@ static void vg_air_delay(float wet, float repeats, float drive, int period,
         {1.00f, 0.39f, 30.0f, 0.0f, 60.0f, 0.00f}, /* Grain */
         {1.00f, 0.39f, 30.0f, 0.0f,  0.0f, 0.25f}  /* Self */
     };
-    static const char *const labels[6] = {"CLEAN", "WIDE", "PING", "TAPE", "GRAIN", "SELF"};
     const int v = proj.par[P_DLY_TYPE];
     const int type = (unsigned)v < 6u ? v : 3;
-    const float gain = fm_sqrtf(fm_sqrtf(wet)); /* readable without 100% wet */
+    /* Previous fourth-root mapping compressed 52% versus 100% too much.
+     * Blend linear and square-root response for a clearly readable wet
+     * level while preserving low-mix type geometry. This is display only. */
+    const float gain = 0.75f * wet + 0.25f * fm_sqrtf(wet);
     const float phase = (float)(now % VL_AIR_LOOP_MS) * (6.2831853f / (float)VL_AIR_LOOP_MS);
     const float flutter = type_map[type].wow / 30.0f;
     const float warm = fm_clampf(drive * 1.25f, 0.0f, 1.0f);
@@ -565,7 +565,6 @@ static void vg_air_delay(float wet, float repeats, float drive, int period,
     const int scroll_step = (int)scroll;
     const float scroll_frac = scroll - (float)scroll_step;
     int p, x, n;
-    text_c(204, 1, &FONT_XS, labels[type], VL_AIR);
     /* DRIVE processes the dry signal + echoes AFTER the delay. Even if
      * Delay MIX is zero, this orange indicator remains visible. */
     if (drive > 0.005f)
@@ -632,6 +631,9 @@ static void vg_air_delay(float wet, float repeats, float drive, int period,
                 uint16_t ink = vg_dim(VL_AIR, p == 2 ? 1.0f : 0.42f + 0.20f * (float)p);
                 if (drive > 0.0f && (p == 2 || (p == 1 && vg_abs(amp) > 6)))
                     ink = driven_ink;
+                /* Brightness as well as height tracks delay MIX. Neither
+                 * the orange DRIVE gauge nor the algorithm geometry changes. */
+                ink = vg_dim(ink, 0.35f + 0.65f * gain);
                 if (x > 10 && env > 0.0f)
                     cv_line(px, py, x, yy, ink);
                 else if (x > 10 && pos >= 0 && p == 1 && (x % 3) == 0)

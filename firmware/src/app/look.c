@@ -169,11 +169,13 @@ static int32_t lk_badge_w(int pct, const char *s)
 {
     int32_t w = text_w(&LK_F_TAG, s);
     if (pct) {
-        const char *p = s;
+        const char *p = s, *last = 0;
         int32_t wn = 0;
-        while (*p && *p != ' ')
+        while (*p) {
+            if (*p == ' ') last = p;
             p++;
-        wn = text_w(&LK_F_TAG, p);
+        }
+        if (last) wn = text_w(&LK_F_TAG, last);
         w += text_w(&LK_F_TAG, " 100%") - wn;
     }
     return w;

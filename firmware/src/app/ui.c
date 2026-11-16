@@ -3057,13 +3057,13 @@ static void draw_splash(uint32_t ms)
                             i % 4 == 0 ? PAPER : SULFUR);
             }
         }
-        /* Titles fade in with magma and, once the eruption is complete,
-         * smoothly disappear before the instrument UI replaces the splash.
-         * The magma and active eruption remain visible during the fade-out. */
-        const uint16_t lettering = sp_dim(PAPER, title_fade);
-        cv_text(18, 53 - y0, &FONT_L, "VOLCANO", lettering);
-        cv_text(21, 90 - y0, &FONT_S, "M-VAVE FM-1", lettering);
-        cv_text(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, lettering);
+        /* Composite titles over the drawn background; during fade-out
+         * they reveal strata and magma rather than turning into black glyphs.
+         * The eruption continues underneath until the splash finishes. */
+        const uint8_t title_alpha = (uint8_t)(255.0f * title_fade + 0.5f);
+        cv_text_alpha(18, 53 - y0, &FONT_L, "VOLCANO", PAPER, title_alpha);
+        cv_text_alpha(21, 90 - y0, &FONT_S, "M-VAVE FM-1", PAPER, title_alpha);
+        cv_text_alpha(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER, title_alpha);
         cv_blit(0, (uint32_t)y0);
     }
 }

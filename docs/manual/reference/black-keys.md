@@ -7,8 +7,8 @@ intro: Switches, and the LFO's routing on the LFO pages
 
 ## Black keys
 
-The 11 black keys are switches, with two sets of jobs: one for the drones, on every page but the LFO pages, and one
-for the LFO, while an LFO page is open. **[[C#5]] handles LFO lock/reset on every page.** Outside the LFO pages, [[D#4]] links drone II's pitch to drone I; on the LFO pages, it selects drone II's filter destination (Cutoff, Resonance or Pan). Cross-mod ([[F#5]]) is the same in both layouts.
+The 11 black keys are switches, with two sets of jobs: one for the drones, on ordinary pages (except the Sequence note-entry page), and one
+for the LFO while an LFO page is open. On **SEQ → Sequence**, all black and white keys enter notes instead of operating switches. **[[C#5]] handles LFO lock/reset on every page.** Outside the LFO pages, [[D#4]] links drone II's pitch to drone I; on the LFO pages, it selects drone II's filter destination (Cutoff, Resonance or Pan). Cross-mod ([[F#5]]) is the same in both layouts.
 
 ## Drone keys
 

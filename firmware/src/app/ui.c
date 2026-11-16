@@ -2130,6 +2130,52 @@ static void menu_name_input(uint32_t released)
         }
     }
 }
+/* LOAD is an editing/startup operation, not a performance morph. It takes
+ * the complete saved sound immediately, including both pitches even if the
+ * current Pitch Lock is enabled. Room/transport settings remain global.
+ * TRANSITION below deliberately keeps the Scene Time rule. */
+static void menu_load_scene(int bank, int slot)
+{
+    const int16_t *target = scene_get(bank, slot);
+    char label[12];
+    int k, g;
+    if (!target) {
+        say("EMPTY SLOT", "CHOOSE ANOTHER");
+        return;
+    }
+    undo_keep();
+    ui.morph = -1;                  /* cancel any old scene glide or transition */
+    ui.press = -1;
+    ui.visit = -1;
+    hands_clear();
+    proj.bank = (uint8_t)bank;
+    for (k = 0; k < DR_NPARAMS; k++)
+        if (!scene_room(k))
+            param_set(k, target[k]);
+    if (BANK_IS_PRESETS(bank)) {
+        sd_stop();
+        sd_init();
+    } else {
+        sd_scene_restore(project_seq_get(bank, slot));
+    }
+    /* A previous gesture's return must not immediately overwrite the saved
+     * latch levels when the next UI frame runs. Subtractive gestures remain
+     * performance state and are not altered by loading a scene. */
+    for (g = 0; g < DR_NGEST; g++) {
+        const int key = g < G_PRESS ? NSCENES + g : NPLAY + g - G_PRESS;
+        if (!(ui.key_held & (1u << key))) {
+            ui.key_mode[key] = 0;
+            ui.g_amt[g] = (float)proj.par[gl_par(g)] * 0.01f;
+            ui.g_sent[g] = -1;
+        }
+    }
+    ui.scene_at = (int8_t)slot;
+    ui.save_menu = 0;
+    mark_dirty();                   /* save the selected bank even for an identical sound */
+    scene_name(label, bank, slot);
+    say_c(label, "LOADED", K_GOLD);
+}
+
 static void menu_start_transition(int bank, int slot)
 {
     const int16_t *target = scene_get(bank, slot);
@@ -2241,10 +2287,7 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
             } else if (ui.menu_load == 2) {
                 menu_start_transition(bank, slot);
             } else if (ui.menu_load == 1) {
-                proj.bank = (uint8_t)bank;
-                mark_dirty();
-                scene_recall(slot, 1);
-                ui.save_menu = 0;
+                menu_load_scene(bank, slot);
             } else if (scene_has(bank, slot)) {
                 /* An occupied user scene requires a second, explicit SAVE.
                  * No flash or in-RAM scene mutation occurs before confirmation. */

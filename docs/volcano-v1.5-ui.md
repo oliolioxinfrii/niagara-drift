@@ -1,8 +1,7 @@
 # VOLCANO v1.5 — geological UI overhaul
 
-Status: **web-emulator review build; physical FM-1 performance remains unverified.**
-The v1.4 sound engine and scene storage are retained. Setup 2 no longer exposes
-pressure sensitivity, and factory preset recalls reset the RAM-only sequencer to one step.
+Status: **development UI and subtractive/STILL branch; full host and physical FM-1 verification remains outstanding.**
+This document describes the v1.5 graphical design. The companion [subtractive/STILL specification](volcano-subtractive-still.md) records the newer 16-gesture controls, immediate LOAD, stored user-scene sequences, and LFO transport. Setup 2 no longer exposes pressure sensitivity. Factory presets restore one-step sequences; **user scenes now store their authored 1–4-step sequences**.
 The new drawings are composed at native **240 × 240 pixels** by the existing RGB565
 strip renderer; no photograph, full-screen framebuffer, or additional DSP layer is required.
 
@@ -117,11 +116,10 @@ Web build, visual review and hardware frame-rate tests remain outstanding.
 
 - Setup 2 uses K1 Tuning, K2 Tune, K3 Stereo and K4 Speaker On/Off;
   the former third GLO page is retired. Pressure retains its neutral response.
-- A factory preset selection or transition clears any previously authored
-  RAM-only multistep sequence; user scenes retain their existing behavior.
+- A factory preset LOAD restores a one-step sequence. **LOAD** of a user scene immediately applies its sound and stored sequence, stopped at step 1; **TRANSITION** takes Scene Time, keeps the working sequence for partial morphs, and restores the target sequence only after a 100% transition completes. See [scene behavior](volcano-subtractive-still.md#save-browser-load-versus-transition).
 - Automatic onboarding tip popups are disabled; explicit action messages and
   second-part announcements remain available.
-- The global LFO rate, movement and gesture-time readouts use value-dependent
+- The global LFO rate, Movement and Morph Time readouts use value-dependent
   dark-red-to-yellow halos and a matching gradient ruler around white text. The
   halo's interpolation stays in 24-bit RGB until it is converted to RGB565, so
   intermediate values no longer acquire a spurious green tint.

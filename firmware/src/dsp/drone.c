@@ -870,6 +870,11 @@ static sub_clock_t sub_clock[DR_NGROUPS][2];
 static float sub_phase_wrap(float p) { return p - fm_floorf(p); }
 static float sub_phase_tick(sub_clock_t *c, float master, float advance, float dt, float still)
 {
+    if (still <= 0.0f && !c->rejoining && c->error == 0.0f) {
+        c->rate = dt > 0.0f ? advance / dt : 0.0f;
+        c->velocity = 0.0f;
+        return master;                /* zero cost from the original idle clock */
+    }
     if (c->rejoining) {
         float u, u2, u3, m0;
         c->elapsed = fm_minf(c->elapsed + dt, c->duration);
@@ -1896,6 +1901,22 @@ static void lfo_run(uint32_t n)
  * random shapes draw a new level (they froze, locked to a bar shorter than the LFO's cycle) */
 static void lfo_restart(void)
 {
+    const float old_master = lfo_ph;
+    int g;
+    /* A locked LFO may restart on a Swell bar; an independent STILL voice
+     * retains its audible position even while the master is reset. */
+    for (g = 0; g < DR_NGROUPS; g++) {
+        sub_clock_t *c = &sub_clock[g][SUB_LFO];
+        if (sub_depth[g][2] > 0.0f || c->rejoining || c->error != 0.0f) {
+            c->error += old_master;
+            if (c->rejoining) {
+                c->duration = fm_maxf(c->duration - c->elapsed, 0.02f);
+                c->start_error = c->error;
+                c->start_velocity = c->velocity;
+                c->elapsed = 0.0f;
+            }
+        }
+    }
     lfo_rnew = 1;
     lfo_rk = 1.0f;
     lfo_q = 0u;
@@ -2079,7 +2100,7 @@ static void render_group(int g, uint32_t n)
      * middle of the knob is heard: in a straight line it was ~6.4 kHz at 50, now ~3 kHz), a little x^2 (a bent
      * saw, even harmonics; its DC taken out), pitch jitter (about +-12 cents, ~20 Hz), the drones
      * apart (II up to 6 cents sharp), a whisper of noise (-44 dB) */
-    const float chr = pfs[P_CHAR] * 0.01f, asym = CHR_ASYM * chr, nz = 0.006f * chr;
+    const float chr = pfs[P_CHAR] * 0.01f * (1.0f - dark), asym = CHR_ASYM * chr, nz = 0.006f * chr;
     const float rk = 1.0f - fm_exp2f(-9.06472f * 8000.0f * fm_exp2f(-CHR_K * chr) * (1.0f / DR_SR));
     const float mm = g == 1 ? 0.06f * chr : 0.0f;
     /* FEEDBACK: its gain into the filter, in a straight line, bounded by its ceiling (it ran away from ~50 at
@@ -2099,7 +2120,7 @@ static void render_group(int g, uint32_t n)
 #define SING_CEIL 1.6f
 #endif
     const float fbc = fsa <= 0.7f ? FB_CEIL : FB_CEIL + (fsa - 0.7f) * (1.0f / 0.3f) * (SING_CEIL - FB_CEIL);
-    const float xw0 = pv[GP_WAVE] * 0.01f * (1.0f - dark);
+    const float xw0 = pv[GP_WAVE] * 0.01f;
     /* DRIVE: the soft clip's input gain, 0.5 (clean: a sine comes through with its 3rd harmonic near -40 dB)
      * to 16 (as before at 100); the make-up keeps a signal of DRV_REF's size as loud as it went in, so the
      * knob adds grit, not level (1/sqrt(gain) took 6 dB off from 20 to 100) */
@@ -2289,7 +2310,7 @@ static void render_group(int g, uint32_t n)
         pmod = (1.0f - v->dw[0]) * 24.0f * om;
         dr_pitch_live[g] = v->ps2 + tune + pmod + mac_p[g];
         xw = fm_clampf(lfo_fit(xw0, 0.5f * v->dw[0] * om, v->dw[0] * fm_fabsf(xwamt) * route_n(v, 0)) + dw * 0.12f * v->wn[1],
-                       0.0f, 1.0f) * 3.0f;
+                       0.0f, 1.0f) * (3.0f * (1.0f - dark));
         dr_xw[g] = xw * (100.0f / 3.0f);          /* as it sounds, with the LFO and Wander (the screen) */
         wi = (int)(xw + 0.025f);                 /* within 0.02 of a wave (2 of the knob's 300ths): that */
         wf = xw - (float)wi;                     /* wave alone, as dr_param_text names it (33 is the */

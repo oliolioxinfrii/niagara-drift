@@ -6,7 +6,7 @@ description: Volcano v1.5: saving, loading, naming and partial transitions with 
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-Volcano has six writable banks (A–F) of eight scenes each, plus 16 factory presets in two read-only banks. Everything is selected from the **SAVE browser**; ordinary white keys 1–8 no longer load or store scenes.
+Volcano has six writable banks (A–F) of eight scenes each, plus 16 factory presets in two read-only banks. Everything is selected from the **SAVE browser**. User scenes preserve synthesis settings and Tuning, **not the RAM-only notes, timing or transition shapes of your pitch sequence**.
 
 ### Make a preset your own {#save}
 
@@ -23,7 +23,7 @@ Volcano has six writable banks (A–F) of eight scenes each, plus 16 factory pre
 
 *Move toward another sound by a chosen percentage.*
 
-Instead of pressure-crossfading on a white key, Volcano uses an explicit scene **TRANSITION** action.
+Volcano uses an explicit scene **TRANSITION** action for blending between saved sounds.
 
 1. Start from any sounding scene or working sound.
 2. Open SAVE and choose the target bank and slot.
@@ -53,4 +53,4 @@ Names are attached to individual slots, not whole banks. Preset names cannot be 
 
 **SEL + SAVE** returns to the sound before the last supported scene operation; use it again to move forward. HOME in the browser cancels the current browser action rather than changing the sound.
 
-For exact encoder assignments, see [Scenes and the SAVE browser](../reference/scenes.md).
+For exact encoder assignments and a comparison of what scenes store versus what stays in RAM, see [Scenes and the SAVE browser](../reference/scenes.md#what-a-scene-stores). To build a pitch progression that continues alongside scene changes, see [First pitch sequence](sequencing.md).

@@ -135,17 +135,19 @@ static void vl_save_menu(void)
     cv_rect(8, 0, 224, 1, LK_RULE);
     if (ui.save_menu == 1) {
         const int32_t cx[4] = {31, 89, 148, 207};
-        const char *const label[4] = {"BANK", "SLOT", "ACTION", "MORPH"};
+        const char *const label[4] = {"BANK", "SLOT", "ACTION", ui.menu_load == 2 ? "MORPH" : "TIME"};
         const char *const action[3] = {"SAVE", "LOAD", "TRANS"};
         char short_bank[4] = {BANK_L[bank], bank == BANK_PRESETS ? '1' :
                               bank == BANK_PRESETS2 ? '2' : 0, 0};
-        const char *const value[4] = {short_bank, key, action[ui.menu_load], pct};
+        const char *const value[4] = {short_bank, key, action[ui.menu_load],
+                                      ui.menu_load == 2 ? pct : ui.menu_load == 1 ? "NOW" : "--"};
         for (i = 0; i < 4; i++) {
             text_c(cx[i], 9, &FONT_XS, label[i], LK_LABEL);
             text_c(cx[i], 34, &FONT_T20, value[i],
                    i == 2 && ui.menu_load == 0 && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_WHITE);
             cv_rect(cx[i] - 22, 70, 44, 1, LK_RULE);
-            cv_rect(cx[i] - 22, 70, i == 3 ? (int)(44.0f * (float)ui.menu_pct * 0.01f) :
+            cv_rect(cx[i] - 22, 70, i == 3 ? (ui.menu_load == 2 ?
+                    (int)(44.0f * (float)ui.menu_pct * 0.01f) : 0) :
                     (i == 2 ? 15 : 7), 2, VL_SURFACE);
         }
         cv_text(10, 75, &FONT_U2, "SAVE: YES / HOME: BACK", LK_LABEL);

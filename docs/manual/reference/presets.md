@@ -15,7 +15,7 @@ In the SAVE browser, set KNOB 1 to **Presets 1–8**, KNOB 2 to the desired slot
 
 > **Screenshot needed — Presets 1–8:** Capture this bank in the v1.5 Orbit scene browser.
 
-| Key | Preset | What it shows |
+| Slot | Preset | What it shows |
 |---|---|---|
 | P1 | **Niagara** | the starting sound: D and A a fifth apart, breathing slowly |
 | P2 | **Embers** | D and a pure third above, triangles blooming toward saws and back, the two drones in turn, a chorus hall |
@@ -32,7 +32,7 @@ In the SAVE browser, choose **Presets 9–16** and load a slot using the same co
 
 > **Screenshot needed — Presets 9–16:** Capture this bank in the v1.5 Orbit scene browser.
 
-| Key | Preset | What it shows |
+| Slot | Preset | What it shows |
 |---|---|---|
 | P9 | **Howl** | low, D and E♭ a semitone apart so they grind, the feedback high, drone II band-passed; a random LFO flares the filters every few seconds |
 | P10 | **Cistern** | reeds in a cistern: a fifth apart, drone I rounder with a sine sub, a bellows Swell, a tape delay a second long, the Shimmer reverb |
@@ -49,6 +49,6 @@ In the SAVE browser, choose **Presets 9–16** and load a slot using the same co
   each at its own notes and Tuning.
 - **They're fixed:** to keep your changes, select a user bank A–F and **SAVE** in the scene browser
   ([recipe](../recipes/scenes.md#save)).
-- **Factory preset recalls reset a programmed multistep pitch sequence to one step.** The sequence itself is not stored in scenes.
+- **Factory preset recalls reset a programmed multistep pitch sequence to one step.** Notes and timing remain in RAM rather than in scene slots; see [What a scene stores](scenes.md#what-a-scene-stores).
 - **Most are rooted on D,** so moving between them keeps the root.
 - **Their loudest moments match P1's;** Bare is quieter on purpose.

@@ -47,5 +47,6 @@ Each drone uses the same Wave/Skew/Edge/Width, but its phase is evaluated separa
 - The starting sound is a slow, gentle breath. The long ARP press bypasses it without losing the settings.
 - The ARP LED follows the actual Swell contour, including the selected shape, skew, width and swing, from dark at the trough to bright at its crest.
 - A phase offset of 0% preserves the common-envelope behavior of earlier Niagara Drift versions.
-- Tap [[C#5]] on an **ordinary or LFO page** to lock or free the LFO from Swell (but not on SEQ → Sequence, where all keys enter notes). Hold [[C#5]] for 500 ms to reset the LFO phase without changing the lock state. On non-LFO pages [[D#4]] controls Pitch Link for drone II; on LFO pages it selects drone II's filter destination. The two drone envelopes do not have independent clocks.
+- **C♯5 LFO transport:** a tap outside SEQ note entry pauses or resumes the LFO waveforms only; Swell continues. Holding C♯5 for 500 ms smoothly rewinds both LFO and Swell phases toward zero at the LFO rate, then resumes both. The former LFO-to-Swell lock is retired.
+- **STILL** (white key 3 for drone I, 7 for drone II) independently slows that drone's Swell *local progression*. The underlying shared Swell rate and programmed phase offset remain unchanged; on returning STILL toward zero, the local phase catches up. On non-LFO pages D♯4 controls Pitch Link, while on LFO pages it selects drone II's filter destination.
 - At high Swell rates, the 3 ms output glide rounds the steepest transitions.

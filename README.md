@@ -57,10 +57,9 @@ For a complete explanation of the controls, see the
 [manual](docs/manual/index.md). Its
 [reference](docs/manual/reference/index.md) covers the individual pages,
 while [recipes](docs/manual/recipes/index.md) demonstrate ways to build
-sounds. Some legacy manual pages still describe controls that changed in
-v1.4/v1.5; consult [v1.4 controls](docs/v1.4-controls.md) and the
-[Volcano v1.5 specification](docs/volcano-v1.5-ui.md) for those changes
-until the manual is brought up to date.
+sounds. The manual is being updated for v1.5; authentic simulator screenshots and
+recipe audio examples are still pending. The [Volcano v1.5 specification](docs/volcano-v1.5-ui.md)
+records the underlying interface design.
 
 ## Installing
 

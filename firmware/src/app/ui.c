@@ -2940,7 +2940,11 @@ static void draw_splash(uint32_t ms)
     const uint16_t RED = RGB(230, 27, 24), SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
                    BLACK = RGB(46, 14, 21), LAVA = RGB(255, 175, 45),
                    SULFUR = RGB(255, 222, 80), PAPER = RGB(255, 243, 227);
-    const int drift = (int)((ms / 280u) % 5u);
+    /* 3.5 s startup: vent lights, the plume grows, then incandescent
+     * ejecta appear. The geological silhouette and strata never move. */
+    const int drift = (int)((ms / 120u) % 9u);
+    const int ascent = (int)fm_minf(30.0f, (float)ms / 82.0f);
+    const int sparks = (int)fm_minf(18.0f, (float)ms / 170.0f);
     int half, band, i, j;
     for (half = 0; half < 2; half++) {
         const int y0 = 120 * half;
@@ -2993,32 +2997,53 @@ static void draw_splash(uint32_t ms)
             cv_line(116 + band, 184 - y0, 110 + 3 * band, 236 - y0,
                     band == 2 ? SULFUR : BED[5]);
         }
-        /* Interlocking smoke/tremor strands create a denser plume than
-         * a single zigzag. Ash grains escape into the upper background. */
-        for (band = 0; band < 9; band++) {
-            int px = 114 + band, py = 103;
-            for (i = 1; i <= 30; i++) {
+        /* Eruption grows upward across the startup interval. The plume is
+         * several interlocking strands, not a rigid translating triangle. */
+        for (band = 0; band < 11; band++) {
+            int px = 114 + band / 2, py = 103;
+            for (i = 1; i <= ascent; i++) {
                 const float t = (float)i / 30.0f;
-                const int x = 114 + band + (int)(27.0f * t * t +
-                              6.0f * fm_sinf((float)i * 0.39f + (float)band * 0.37f +
-                                             (float)drift * 0.13f));
+                const int x = 114 + band / 2 +
+                              (int)(29.0f * t * t +
+                              7.0f * fm_sinf((float)i * 0.39f + (float)band * 0.41f +
+                                             (float)drift * 0.16f));
                 const int y = 103 - (int)(108.0f * t);
-                cv_line(px, py - y0, x, y - y0,
-                        band == 0 ? BLACK : band & 1 ? DARK : RGB(252, 87, 35));
+                const uint16_t ink = band % 5 == 0 ? SULFUR :
+                                     band & 1 ? DARK : RGB(252, 87, 35);
+                cv_line(px, py - y0, x, y - y0, ink);
                 px = x; py = y;
             }
         }
-        for (i = 0; i < 160; i++) {
-            uint32_t h = sp_hash((uint32_t)(i * 199 + 71));
-            int y = (int)((h >> 7) % 109u);
-            int x = 116 + (int)((h >> 15) % 83u) - 24 + (109 - y) / 7;
-            if (x > 0 && x < 240)
-                cv_rect(x, y - y0, 1, 1, i % 17 == 0 ? SULFUR : DARK);
+        /* A deterministic moving particle field, progressively released
+         * upward. No RNG state, retained sprites, or audio-thread work. */
+        for (i = 0; i < (int)fm_minf(190.0f, (float)ms / 17.0f); i++) {
+            const uint32_t h = sp_hash((uint32_t)(i * 199 + 71));
+            const int flight = (int)((ms / 34u + (h >> 9) % 70u) % 112u);
+            const int y = 103 - flight;
+            const int x = 117 + (int)((h >> 15) % 66u) - 25 + flight / 5;
+            if (x > 0 && x < 240 && y < 103 && y >= 0 &&
+                flight <= ascent * 4 + 3)
+                cv_rect(x, y - y0, (h & 31u) == 0u ? 2 : 1, 1,
+                        i % 11 == 0 ? SULFUR : i % 3 ? DARK : LAVA);
         }
-        /* Type is printed last, over the mineral texture. */
+        /* Hot fragments arc from the vent once the eruption is established. */
+        for (i = 0; i < sparks; i++) {
+            const int x = 116 + ((i * 19) % 37) - 18 +
+                          (int)(6.0f * fm_sinf((float)ms * 0.004f + (float)i));
+            const int y = 97 - ((i * 17 + (int)(ms / 45u)) % 65);
+            cv_line(117, 102 - y0, x, y - y0,
+                    i % 3 == 0 ? SULFUR : LAVA);
+            cv_rect(x, y - y0, 2, 2, i % 4 == 0 ? PAPER : SULFUR);
+        }
+        /* The smaller legends have dark backing at constant positions so
+         * they remain readable even as the animated eruption crosses them. */
+        cv_rect(16, 87 - y0, 139, 18, SKY);
+        cv_rect(16, 86 - y0, 72, 1, SULFUR);
+        cv_rect(10, 207 - y0, 221, 24, SKY);
+        cv_rect(10, 207 - y0, 221, 1, DARK);
         cv_text(18, 53 - y0, &FONT_L, "VOLCANO", PAPER);
-        cv_text(21, 91 - y0, &FONT_S, "M-VAVE FM-1", SULFUR);
-        cv_text(14, 216 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER);
+        cv_text(21, 90 - y0, &FONT_S, "M-VAVE FM-1", PAPER);
+        cv_text(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER);
         cv_blit(0, (uint32_t)y0);
     }
 }

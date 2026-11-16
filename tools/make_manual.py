@@ -499,6 +499,32 @@ def check():
                     bad.append(f"{p.relative_to(out)}: {href}: nothing there")
                 elif frag and frag not in re.findall(r'id="([^"]+)"', tgt.read_text(encoding="utf-8")):
                     bad.append(f"{p.relative_to(out)}: {href}: no #{frag} there")
+        # The recipe renderer must not silently discard tutorial steps or
+        # screenshot placeholders from the Markdown source.
+        for md in sorted((MAN / "recipes").glob("*.md")):
+            if md.stem == "index":
+                continue
+            _, source = front(md.read_text(encoding="utf-8"))
+            _, recipes = recipe_page(source)
+            target = site / "recipes" / md.stem / "index.html"
+            if not target.exists():
+                bad.append(f"recipes/{md.stem}: generated page missing")
+                continue
+            generated = target.read_text(encoding="utf-8")
+            actual = generated.count('<section class="recipe"')
+            if actual != len(recipes):
+                bad.append(f"recipes/{md.stem}: rendered {actual} of {len(recipes)} recipes")
+            expected_notes = source.count("Screenshot needed")
+            visible_notes = generated.count("Screenshot needed")
+            if expected_notes != visible_notes:
+                bad.append(f"recipes/{md.stem}: rendered {visible_notes} of {expected_notes} screenshot placeholders")
+        for label, needle in (("scratch", "Presets 9–16"),
+                              ("scenes", "TRANSITION"),
+                              ("performing", "MIDI clock"),
+                              ("time", "pitch movement")):
+            target = site / "recipes" / label / "index.html"
+            if target.exists() and needle not in target.read_text(encoding="utf-8"):
+                bad.append(f"recipes/{label}: expected v1.5 instructions missing from generated page")
     for b in bad:
         print("manual: " + b)
     if bad:

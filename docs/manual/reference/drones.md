@@ -58,4 +58,4 @@ Low-pass (LP), band-pass (BP) or high-pass (HP), on a black key: [[A#3]] for dro
 
 > **Screenshot needed — Geological atlas:** `build/scenarios/volcano-ui/geological-atlas.png`.
 
-For the new per-drone controls, see [Subtractive gestures](gestures.md#subtractive-gestures-keys-1-8).
+For the new per-drone controls, see [Subtractive gestures](gestures.md).

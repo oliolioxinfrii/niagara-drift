@@ -81,6 +81,25 @@ The Sequence → Intervals page change explicitly invalidates all three LCD
 strip caches, preventing the first Intervals screen from retaining the prior
 Sequence page's trace.
 
+## LFO and Swell transport (C#5)
+
+A short C#5 tap pauses both LFO waves and their per-drone phase markers at the
+current position; another tap resumes from the same phase. The Swell is not
+paused by a short LFO tap. A hold of 500 ms enters a **smooth stop**: the LFO
+master and both drones' LFO and Swell clocks rewind from their current
+positions to phase zero at the *LFO's current rate*, then stay paused at
+zero until the next tap. The return time therefore depends on LFO rate; it is
+not an instantaneous reset or a fixed-duration animation. Both Swell clocks
+are held at zero after a full stop. If Swell phase offset is configured, that
+musical offset is preserved when playback resumes. External clock steering
+is suspended while paused/stopping to prevent a phase discontinuity.
+
+The previous C#5 **LFO-to-Swell synchronization lock** is retired as a
+performance control. Its legacy project parameter retains its place in the
+binary preset format for compatibility, but no longer restarts the LFO on
+Swell boundaries. The earlier direct DSP reset command is retained for
+host tests; it is not the long-press behavior.
+
 ## STILL clock model
 
 The common master clocks continue running. For each drone and each of the three systems (LFO, Swell, sequencer), the effective time is a *local clock* derived from the master plus an independently accumulated phase error. That means both drones may freeze simultaneously without referencing each other. Their programmed LFO rate, Swell rate, sequence timing, and phase settings remain unchanged.

@@ -48,6 +48,15 @@ The existing eight gestures retain saved latches in `P_GL_0...P_GL_7`. Their mot
 - **Holding SEL no longer replaces the active page** with a key-map popup.
   SEL's fine-tuning and control-modifier shortcuts remain available.
 
+## SAVE browser color identity
+
+The orbit and eight node outlines progress through the FX blue ramp: **P1** is
+deep blue (`#174C76`), **P2** is pale icy blue (`#EFFCFF`), with A–F given
+six intervening shades. The menu still cycles A–F, P1, P2. Every node has the
+same deep-blue center regardless of bank; outline brightness distinguishes
+empty and occupied slots, while ticks identify the selected slot. The
+satellite retains its original geological colors.
+
 ## SAVE browser: Load versus Transition
 
 **LOAD** is an editing and startup command. Confirming a populated slot applies

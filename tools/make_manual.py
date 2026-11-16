@@ -51,25 +51,24 @@ def icon(name, cls="ic"):
     return s.replace("<svg ", f'<svg class="{cls}" aria-hidden="true" focusable="false" ', 1)
 
 
-MENU_ICON = {"Play it": "play", "Start here": "flag", "Recipes": "cooking-pot", "Reference": "book-open",
+MENU_ICON = {"Manual": "book-open", "Recipes": "cooking-pot", "Reference": "book-open",
              "Shortcuts": "keyboard", "Help": "lifebuoy", "About": "info"}
 TAB_ICON = {"sounds": "waveform", "gestures": "hand-pointing", "scenes": "floppy-disk", "time": "timer",
             "performing": "faders", "scratch": "plant"}
-MENU = [("", "Play it", "the emulator: the firmware itself, in your browser"),
-        ("#start-here", "Start here", "the first steps, beside the emulator"),
-        ("manual/recipes/", "Recipes", "how to get a sound or a move"),
+MENU = [("manual/", "Manual", "start with the instrument and its controls"),
+        ("manual/recipes/", "Recipes", "build sounds, gestures and pitch sequences"),
         ("manual/reference/", "Reference", "every page, knob and key"),
-        ("manual/reference/shortcuts/", "Shortcuts", "every combination, hold and tap"),
-        ("manual/help/", "Help", "installing, going back, problems"),
-        ("manual/about/", "About", "what it does, the details, where it came from")]
+        ("manual/reference/shortcuts/", "Shortcuts", "button combinations and holds"),
+        ("manual/help/", "Help", "installation and recovery"),
+        ("manual/about/", "About", "Volcano's origins and technical details")]
 
 
 def menu_html(up, current):
-    """Install, Source and the menu (the front page has the same, web/emu/index.html)."""
-    items = "".join(f'<a href="{up}{h}"{" aria-current=\"page\"" if n == current else ""}>{icon(MENU_ICON[n], "mi")}'
-                    f'<span>{n}<small>{s}</small></span></a>'
-                    for h, n, s in MENU)
-    return (f'<a href="{up}install/">Install</a><a href="{REPO}" aria-label="Source on GitHub">Source{GH}</a>'
+    """Build instructions, source and the manual's own navigation."""
+    items = "".join(f'<a href="{up}{h}"{" aria-current=\\"page\\"" if n == current else ""}>{icon(MENU_ICON[n], "mi")}'
+                    f'<span>{n}<small>{desc}</small></span></a>'
+                    for h, n, desc in MENU)
+    return (f'<a href="{REPO}/blob/main/BUILDING.md">Build</a><a href="{REPO}" aria-label="Source on GitHub">Source{GH}</a>'
             f'<details class="menubtn"><summary aria-label="Menu" title="Menu">Menu</summary><div class="panel">{items}</div></details>')
 
 

@@ -33,6 +33,8 @@ Setup 1, KNOB 4: on follows a clock, off ignores it.
 | **Wander** | its notes land on the beat (on the bar, when slow), still at random |
 | **Scene time** (Setup 1) | in **bars**, 1 to 16; a scene change ends on a bar line |
 
+The **SEQ pitch progression** uses its own loop duration in seconds. The Sync setting organizes Swell, LFO and delay timing around the external MIDI clock, but does not convert the sequencer's event positions into a clocked grid. For a free-time sequencing example, see [First pitch sequence](../recipes/sequencing.md).
+
 ## Good to know
 
 - **Notes tune,** even with Pitch lock on; they don't start or stop the drones. With Pitch link on, channel 2 sets the

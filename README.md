@@ -1,6 +1,6 @@
 # Volcano
 
-**A drone synthesizer for the M-VAVE FM-1.**
+**A two-drone synthesizer for the M-VAVE FM-1.**
 
 Volcano is a custom firmware based on [Niagara Drift](https://github.com/evanyerburgh/niagara-drift)
 by Evan Yerburgh, replacing the FM-1's stock sound engine with two drones
@@ -34,14 +34,16 @@ under **GLO → Setup 2 → Speaker**.
   Link their pitches or let the drones modulate one another.
 - **Motion without constant playing.** LFOs, rhythmic Swell envelopes,
   Drift, Wander, and Age keep the sound evolving.
-- **Performance controls.** Eight gestures transform several settings
-  together; a motion loop can record and repeat manual changes.
+- **Sixteen performance gestures.** STRIP, DARK, STILL, and TAIL act
+  separately on each drone; eight additional gestures reshape the sound.
+  All are controlled by holding or tapping keys rather than pressure.
+  A motion loop can record and repeat manual changes.
 - **Pitch sequencing.** Move the continuously sounding drones through up to
   four pitches, with unequal spacing between events and independent shapes
   for the pitch transitions—not a conventional grid sequencer.
-- **Scenes and presets.** Start with 16 factory presets, save up to 48
-  named scenes, and transition gradually between sounds using the scene
-  browser.
+- **Scenes and presets.** Start with 16 factory presets and store up to
+  48 named user scenes, **including each scene's pitch sequence**. LOAD
+  recalls immediately; TRANSITION changes the sound over Scene Time.
 - **Effects.** Stereo delay, reverb, drive, and feedback extend the drones
   from subtle movement to sustained textures.
 - **Volcano interface.** Geological, waveform, and orbital displays make
@@ -52,16 +54,19 @@ under **GLO → Setup 2 → Speaker**.
 The FM-1's buttons open groups of sound controls. Turn **SELECT** to move
 between pages in the current group; turn the four encoders above the
 buttons to change the displayed parameters. **SAVE** opens the scene
-browser. Hold **HOME** to view the Volcano activity atlas.
+browser. Hold **HOME** to view the Volcano activity atlas. White
+keys 1–8 control per-drone subtractive gestures, while 9–16 control
+the original eight sound gestures.
 
 For an introduction to how the instrument works, see the
 [manual](docs/manual/index.md), then try the
 [first pitch-sequence tutorial](docs/manual/recipes/sequencing.md). The
 [reference](docs/manual/reference/index.md) covers the individual pages,
 while [recipes](docs/manual/recipes/index.md) demonstrate ways to build
-sounds. The manual is being updated for v1.5; authentic simulator screenshots and
-recipe audio examples are still pending. The [Volcano v1.5 specification](docs/volcano-v1.5-ui.md)
-records the underlying interface design.
+sounds. This branch adds [subtractive gestures and STILL](docs/volcano-subtractive-still.md)
+to the v1.5 interface; it remains a **development branch awaiting full host
+and hardware verification**. Authentic simulator screenshots and recipe
+audio examples are still pending.
 
 ## Installing
 
@@ -87,8 +92,10 @@ the local emulator are in [BUILDING.md](BUILDING.md).
 
 ## Credits and license
 
-Volcano is based on Niagara Drift by Evan Yerburgh. The underlying
-firmware draws on work from
+**Volcano is built on [Niagara Drift](https://github.com/evanyerburgh/niagara-drift)
+by Evan Yerburgh.** Its synthesis engine, effects, controls, and FM-1 platform
+work are the foundation of this firmware. Niagara Drift itself incorporated
+ideas and components from earlier FM-1 projects:
 [Felucca](https://github.com/hugelton/Felucca),
 [X0X](https://github.com/charlesvestal/fm1-x0x),
 [FoMni](https://github.com/charlesvestal/fm1-fomni),
@@ -96,9 +103,17 @@ firmware draws on work from
 [ChoralRoot](https://github.com/Quixotic7/ChoralRootFM1),
 [fm1-base](https://github.com/charlesvestal/fm1-base), and the
 [FM-1 Screen Reader](https://github.com/charlesvestal/fm1-reader).
-The original inspiration includes the Stylophone CPM DS-2,
-Moog Subharmonicon, and Soma Lyra-8.
+They are credited here **as part of Niagara Drift's lineage**, not as
+projects from which Volcano independently borrowed.
 
-Licensed under GPL-3.0-only, except for the MPL-2.0 components identified
-in [LICENSING.md](LICENSING.md). Volcano is not affiliated with or
-endorsed by M-VAVE or the makers of the instruments that inspired it.
+Other FM-1 firmwares informed my thinking without being directly
+incorporated into Volcano. **Jiant** is another firmware I use frequently;
+**Frasil** and **AMB-1** were points of comparison that helped define what
+Volcano should—and should not—attempt to be. This is a distinction
+between **influence** and **code or design reuse**.
+
+See [About Volcano](docs/manual/about.md#credits-and-lineage) for more
+detail and [From Niagara Drift](docs/manual/migration.md) for the changed
+controls. Licensed under GPL-3.0-only, except for the MPL-2.0 components
+identified in [LICENSING.md](LICENSING.md). Volcano is not affiliated with
+or endorsed by M-VAVE or any of the projects named above.

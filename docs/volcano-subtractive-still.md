@@ -63,7 +63,8 @@ bars), ending at the selected **MORPH** percentage. For example, 40% ends
 40% of the way from the current sound to the stored sound. Existing Pitch Lock,
 room exclusions and discrete-control threshold behavior remain in force.
 Partial transitions leave the current sequence in place; a 100% transition
-also loads the target's authored sequence.
+loads the target's authored sequence **only after Scene Time completes**, so
+the pitch progression cannot jump at the start of a performance transition.
 
 The Sequence → Intervals page change explicitly invalidates all three LCD
 strip caches, preventing the first Intervals screen from retaining the prior

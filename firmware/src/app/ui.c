@@ -8,7 +8,7 @@
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
  *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
- *   PRESETS        GESTURE TIME: every gesture's speed, x0.1 .. x10 (v0.2)
+ *   PRESETS        MORPH TIME: gesture depth and clock return timing
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
  *   MASTER         volume      SAVE   saves
@@ -3497,7 +3497,8 @@ static void sp_screen(int all)
     if (i >= 0) {
         sp_cat(" ");
         sp_cat(GESTURE[i]);
-        sp_cat(proj.par[gl_par(i)] ? " latched." : " on.");
+        { char v[12]; itoa_u((uint32_t)(ui.g_amt[i] * 100.0f + 0.5f), v);
+          sp_cat(" "); sp_cat(v); sp_cat(" percent."); }
     }
     if (proj.par[P_II_OUT])
         sp_cat(" Drone 2 out.");
@@ -3766,7 +3767,8 @@ static void speak(void)
         if (g >= 0) {
             sp_start();
             sp_cat(GESTURE[g]);
-            sp_cat(proj.par[gl_par(g)] ? " latched" : "");
+            { char v[12]; itoa_u((uint32_t)(ui.g_amt[g] * 100.0f + 0.5f), v);
+              sp_cat(" "); sp_cat(v); sp_cat(" percent"); }
             ann_say(sp_buf, 0, ANN_NOW);
         }
     }

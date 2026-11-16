@@ -8,6 +8,7 @@
  * needs an exp2 or a tan (pitch, glide, cutoff) is computed every CR samples, the control rate. */
 #include "drone.h"
 #include "fastmath.h"
+#include <string.h>                 /* memset/memcpy: local STILL clock state */
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define CR 16u                                  /* control rate: one update every 16 samples */
@@ -1669,6 +1670,14 @@ static uint8_t sbuf[BLK];
 static float sfr[BLK];                           /* ... and where in its sample it restarted (0..1) */
 /* a route's LFO at control tick t: Wave I, Wave II, or both summed (as two DS-2 waves switched to one
  * destination); none: 0 */
+/* The shared delay follows the master LFO, never a drone's private STILL clock.
+ * Shared feedback cannot be assigned to either drone after mixing. */
+static inline float lfo_at_master(int tap, uint32_t t)
+{
+    const float a = lfo_tick[0][t], b = lfo_tick[1][t];
+    return tap == DR_LFO_BOTH ? a + b : tap == DR_LFO_I ? a : tap == DR_LFO_II ? b : 0.0f;
+}
+
 static inline float lfo_at(int drone, int tap, uint32_t t)
 {
     const int active = lfo_local_active[drone];

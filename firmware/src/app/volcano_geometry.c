@@ -619,8 +619,10 @@ static void vg_air_delay(float wet, float repeats, float drive, int period,
                                         ((float)(h1 % 23u) - 11.0f) * scroll_frac;
                     const float smooth = 10.0f * vg_air_band((float)x + scroll, 4,
                                                                (uint32_t)(903 + p * 197));
-                    const float sharp = type == 4 ? 0.98f : type == 0 ? 0.92f :
-                                        type == 2 ? 0.79f : type == 1 ? 0.64f : 0.30f;
+                    /* The delay loop's actual tone coefficient influences
+                     * edge detail; Grain adds its own high-rate jitter. */
+                    const float sharp = type_map[type].grain > 0.0f ? 0.98f :
+                                        fm_clampf(type_map[type].tone + 0.07f, 0.20f, 0.98f);
                     noise = rough * sharp + smooth * (1.0f - sharp);
                 }
             }

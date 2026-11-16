@@ -867,6 +867,7 @@ typedef struct {
 } sub_clock_t;
 enum { SUB_LFO, SUB_SWELL };
 static sub_clock_t sub_clock[DR_NGROUPS][2];
+static float swell_master_prev;             /* master at the prior Swell control tick */
 static float sub_phase_wrap(float p)
 {
     /* Most phases are within one turn: avoid soft floor on the Swell hot path.
@@ -1004,6 +1005,7 @@ void dr_init(void)
     lfo_q = 0u;
     memset(sub_depth, 0, sizeof sub_depth);
     memset(sub_clock, 0, sizeof sub_clock);
+    swell_master_prev = 0.0f;
     lfo_local_reset();
     dr_lfo_dr_ph[0] = dr_lfo_dr_ph[1] = 0.0f;
     dr_pulse_dr_ph[0] = dr_pulse_dr_ph[1] = 0.0f;
@@ -2772,10 +2774,17 @@ static void pulse_run(uint32_t n)
         if (pa > 0.0f) {
             if (!(j & 3u)) {                     /* each drone's offset envelope, evaluated every fourth sample */
                 const float d = pa >= 1.0f ? depth : dn * (1.0f - fm_exp2f(lf * pa));
-                local_ph[0] = sub_phase_tick(&sub_clock[0][SUB_SWELL], ph * 0.5f,
-                                             step * 0.5f, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
-                local_ph[1] = sub_phase_tick(&sub_clock[1][SUB_SWELL], ph * 0.5f,
-                                             step * 0.5f, 4.0f / DR_SR, sub_depth[1][2]) * 2.0f;
+                /* Account for MIDI-clock phase steering as well as nominal
+                 * progression: at 100% STILL the audible envelope must not jump. */
+                float master = ph * 0.5f;
+                float advance = master - swell_master_prev;
+                if (advance < -0.5f) advance += 1.0f;
+                else if (advance > 0.5f) advance -= 1.0f;
+                swell_master_prev = master;
+                local_ph[0] = sub_phase_tick(&sub_clock[0][SUB_SWELL], master,
+                                             advance, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
+                local_ph[1] = sub_phase_tick(&sub_clock[1][SUB_SWELL], master,
+                                             advance, 4.0f / DR_SR, sub_depth[1][2]) * 2.0f;
                 pt = pulse_gain(local_ph[0], d, shape, b1, hz, 0.0f);
                 pt2 = pulse_gain(local_ph[1], d, shape, b1, hz, phase);
             }

@@ -7,10 +7,9 @@ intro: What each gesture does, and how to play them
 
 ## Gestures
 
-Macros: one key moves several settings together, on top of your sound, each in its own order. Keys 13–16 come in as
-you hold them, keys 9–12 as you press harder.
+Gestures change several settings together, on top of your sound. White keys 9–12 respond to pressure; keys 13–16 respond to holds and taps. White keys 1–8 are reserved on ordinary pages, not scene or bank selectors.
 
-<img src="../../img/panel-keys.png" width="720" alt="The FM-1's keys: keys 9 to 12 are the pressure gestures Tick, Chord, Snarl and Stutter; keys 13 to 16 the held gestures Weight, Shift, Clean and Wash">
+> **Screenshot needed — Gesture keys:** A new v1.5 panel crop showing the eight gesture keys without old scene-bank labels.
 
 ### Weight · [[D5]], hold
 
@@ -71,8 +70,7 @@ How fast they all move: left slower, right faster.
   3.9 s, Clean and Wash 3.3 s, the pressure gestures 6.5 s); the screen shows Weight's.
 - **It acts on a gesture already moving:** in fast, let go, turn it slow, and it leaves slowly.
 - **For a long one,** tap the key: it comes in on its own.
-- **The header** shows the last one played and how far in ("WASH 40%"), or "latched". Scenes remember which are
-  latched.
+- **The header** shows the most recent gesture and its amount (for example, "WASH 40%") or its latched state.
 - **The gesture keys' lights** follow their active effect levels, including motion-loop playback: dark at 0%,
   fully bright at 100%.
 - **The LFO steps aside** from what a gesture moves, so Movement doesn't wobble it.

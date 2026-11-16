@@ -1182,7 +1182,16 @@ static void scene_store(int n)                         /* SAVE held + a white ke
         say_c("PRESETS ARE FIXED", "[SAVE]: SELECT BANK", K_GOLD);
         return;
     }
-    scene_put(proj.bank, n);
+    seq_scene_t snapshot;
+    if (scene_put(proj.bank, n) != 0) {
+        say("NOT STORED", "INVALID SLOT");
+        return;
+    }
+    sd_scene_capture(&snapshot);
+    if (project_seq_put(proj.bank, n, &snapshot) != 0) {
+        say("NOT STORED", "SEQUENCE ERROR");
+        return;
+    }
     ui.scene_at = (int8_t)n;
     ui.dirty = 1;
     save_ask(n);
@@ -1356,6 +1365,8 @@ static void scene_recall(int n, int keep)              /* a white key: morph the
     if (BANK_IS_PRESETS(proj.bank)) {
         sd_stop();
         sd_init();  /* Factory sounds start with one step, independent of earlier RAM sequences. */
+    } else {
+        sd_scene_restore(project_seq_get(proj.bank, n));
     }
     if (keep)
         undo_keep();
@@ -1383,6 +1394,8 @@ static void scene_play(int bank, int n)
     if (BANK_IS_PRESETS(bank)) {
         sd_stop();
         sd_init();
+    } else {
+        sd_scene_restore(project_seq_get(bank, n));
     }
     for (k = 0; k < DR_NPARAMS; k++) {
         ui.morph_from[k] = proj.par[k];
@@ -2125,16 +2138,18 @@ static void menu_start_transition(int bank, int slot)
         say("EMPTY TARGET", "SELECT A SOUND");
         return;
     }
-    if (BANK_IS_PRESETS(bank)) {
-        sd_stop();
-        sd_init();
-    }
     if (!ui.menu_pct) {
         say("TRANSITION 0%", "SOUND UNCHANGED");
         ui.save_menu = 0;
         return;
     }
     undo_keep();
+    /* A partial timbre transition leaves the existing progression alone;
+     * 100% loads the target's sequence as an ordinary scene recall does. */
+    if (ui.menu_pct == 100) {
+        if (BANK_IS_PRESETS(bank)) { sd_stop(); sd_init(); }
+        else sd_scene_restore(project_seq_get(bank, slot));
+    }
     for (i = 0; i < DR_NPARAMS; i++) {
         ui.morph_from[i] = proj.par[i];
         ui.morph_to[i] = target[i];

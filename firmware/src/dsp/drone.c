@@ -2044,9 +2044,8 @@ static inline float lfo_fit(float b, float o, float s)
         return fm_clampf(fm_clampf(b, s, 1.0f - s) + o, 0.0f, 1.0f);
     return fm_clampf(0.5f + o * (0.5f / s), 0.0f, 1.0f);   /* wider than the range: fills it */
 }
-static inline float route_at(const grp_t *v, int i, uint32_t t)
+static inline float route_at(int g, const grp_t *v, int i, uint32_t t)
 {
-    const int g = v->p;
     float b = lfo_at(g, v->rt[i], t);
     return v->rw[i] >= 1.0f ? b : lfo_at(g, v->rp[i], t) + (b - lfo_at(g, v->rp[i], t)) * v->rw[i];
 }
@@ -2125,7 +2124,7 @@ static void render_group(int g, uint32_t n)
     const float pan0 = g ? 0.5f + 0.5f * width : 0.5f - 0.5f * width;
     const float pan_depth = pv[GP_FLFO_DEPTH] * 0.005f * mv * v->dp;
     const float pan = fm_fabsf(pan_depth) > 1e-6f ?
-        lfo_fit(pan0, route_at(v, 1, 0) * pan_depth,
+        lfo_fit(pan0, route_at(g, v, 1, 0) * pan_depth,
                 fm_fabsf(pan_depth) * route_n(v, 1)) : pan0;
     const float gl1 = fm_sqrtf(1.0f - pan) * 1.41421356f, gr1 = fm_sqrtf(pan) * 1.41421356f;
     float pdl, pdr, gl, gr;
@@ -2275,8 +2274,8 @@ static void render_group(int g, uint32_t n)
         sync = v->sync;
         /* the LFO: the oscillator's (pitch, up to +-24 semitones, or X-WAVE) and the filter's (cutoff, up
          * to +-5 octaves, or the resonance, its whole range at depth 100), each its route's wave(s) */
-        om = route_at(v, 0, j0 / CR) * oamt;
-        fl = route_at(v, 1, j0 / CR);
+        om = route_at(g, v, 0, j0 / CR) * oamt;
+        fl = route_at(g, v, 1, j0 / CR);
         fmod = fm_maxf(0.0f, 1.0f - v->dw[1] - v->dp) * fl * famt * 5.0f;
         r = lfo_fit(r0, v->dw[1] * fl * ramt, v->dw[1] * fm_fabsf(ramt) * route_n(v, 1));
         dr_reso[g] = r * 1000.0f;                /* as it sounds, with the LFO (the screen) */

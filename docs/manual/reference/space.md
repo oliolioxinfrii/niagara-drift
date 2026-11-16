@@ -56,5 +56,5 @@ The effects: a delay with six types, a drive, and a reverb with five.
 - **Runaway repeats** are held by a soft clip; the header says "runaway".
 - **A freeze** holds what's in it (Damp is out at Inf); PLAY to stop lets it go.
 - **Changing type** crossfades; the type knobs go round both ways.
-- **VOLCANO's FX view** uses cyan seismographic arrivals and a reverberant coda to depict the delay and reverb. Parameter values remain the authoritative readouts.
+- **VOLCANO's FX view** uses model-derived blue/icy seismographic drawings for the delay and reverb, not an FFT or measurement of the live audio. The six delay types (Clean, Wide, Ping-pong, Tape, Grain and Self) have distinguishable illustrated response patterns; delay DRIVE introduces orange into the processed trace. Reverb profile and DAMP change the texture of the depicted tail, while Chorus Hall and Shimmer have separate visual details. Parameter values remain the authoritative readouts.
 - The delay and reverb draw on ChoralRoot's design (see [About](../about.md#credits-and-lineage)).

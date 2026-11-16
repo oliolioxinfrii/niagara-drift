@@ -32,8 +32,9 @@
  *   LFO pages: drone I's oscillator tap/destination and filter tap/destination,
  *   drone II's filter destination, drone II's oscillator tap/destination and filter tap,
  *   LFO lock/reset, Delay LFO tap, Cross-mod.
- *   C#5 always controls LFO lock/reset: tap locks/frees the LFO to the Swell,
- *   hold at least 500 ms to reset its phase without changing the lock.
+ *   C#5 controls LFO transport: tap pauses/resumes both waves at their
+ *   current phase; hold at least 500 ms to rewind the LFO and both Swell
+ *   progressions to zero at the LFO rate, then remain paused.
  *   A routed LFO tap cycles Wave I, II and both; first, second and third choices light dim,
  *   bright and blinking, respectively.
  * ARP            tap: the SWELL page; tapped on it, the Swell on / off (lit, in time); hold: a peek
@@ -136,7 +137,7 @@ enum { S_NONE, S_PARTNER, S_SUBOCT, S_HP, S_OTAP, S_ODEST, S_FTAP, S_FDEST, S_PL
 typedef struct {
     uint8_t s, g;
 } sw_t;
-/* Normal pages: D#4 is drone-II Pitch Link; C#5 is LFO lock/reset,
+/* Normal pages: D#4 is drone-II Pitch Link; C#5 is global LFO pause/stop,
  * at the same physical position and with the same tap/hold behavior as on LFO pages.
  * C#4 remains the separate, global Pitch Lock. */
 static const sw_t SW_NORMAL[11] = {{S_PARTNER, 0}, {S_SUBOCT, 0}, {S_HP, 0}, {S_PLOCK, 0}, {S_PLINK, 1},
@@ -145,7 +146,7 @@ static const sw_t SW_NORMAL[11] = {{S_PARTNER, 0}, {S_SUBOCT, 0}, {S_HP, 0}, {S_
 /* the LFO pages: each drone's keys in one order, the pitch send's LFO and target, then the cutoff send's (Evan,
  * 2026-11-03) */
 /* On LFO pages, D#4 follows C#4 as drone II's filter destination;
- * C#5 takes the Swell lock / LFO reset beside D#5's delay LFO. */
+ * C#5 takes global LFO transport beside D#5's delay LFO. */
 static const sw_t SW_LFO[11] = {{S_OTAP, 0}, {S_ODEST, 0}, {S_FTAP, 0}, {S_FDEST, 0}, {S_FDEST, 1},
                                 {S_OTAP, 1}, {S_ODEST, 1}, {S_FTAP, 1}, {S_LFORESET, 0}, {S_DTAP, 1},
                                 {S_XMOD, 1}};
@@ -185,7 +186,7 @@ static struct {
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
     uint8_t jack;                      /* the headphone jack as last read (1: in), and since when */
     uint32_t jack_t;
-    uint32_t rst_t;                    /* LFO key pressed: tap locks/free, long hold resets */
+    uint32_t rst_t;                    /* LFO key: tap pause/play, long hold smooth stop */
     uint8_t rst_done;                  /* hold used or SEL key-map consumed the press */
     char msg[2][24];
     uint32_t msg_until;
@@ -614,7 +615,8 @@ static int sw_look(sw_t w)
     case S_OTAP: case S_FTAP: case S_DTAP:
         v = (w.s == S_DTAP ? proj.par[P_DLY_LFO] : p[w.s == S_OTAP ? GP_OLFO : GP_FLFO]) & 3;
         return v == DR_LFO_BOTH ? 3 : v == DR_LFO_II ? 2 : v ? 1 : 0;
-    case S_LFORESET: return proj.par[P_LFO_LOCK] ? 2 : 0;
+    case S_LFORESET: return dr_lfo_transport == DR_LFO_STOPPING ? 3 :
+                                  dr_lfo_transport == DR_LFO_PAUSE ? 2 : 0;
     default: v = sw_get(w); return v == 2 ? 3 : v ? 2 : 0;
     }
 }
@@ -692,13 +694,14 @@ static void sw_flip(sw_t w)
             tip(TIP_XMOD);
         break;
     }
-    case S_LFORESET: {                    /* short release: preserve phase, toggle lock to Swell */
-        const int locked = !proj.par[P_LFO_LOCK];
-        param_set(P_LFO_LOCK, locked);
-        if (locked && !proj.par[P_PULSE])
-            say_c("LFO LOCKED", "SWELL OFF", K_LFO);
-        else
-            say_c("LFO TO SWELL", locked ? "LOCKED" : "FREE", K_LFO);
+    case S_LFORESET: {                    /* short release: preserve phase, pause/resume */
+        const int resume = dr_lfo_transport != DR_LFO_RUN;
+        /* Retire the older Swell-lock function without changing the
+         * stored project's parameter layout. */
+        if (proj.par[P_LFO_LOCK])
+            param_set(P_LFO_LOCK, 0);
+        dr_lfo_transport_set(resume ? DR_LFO_RUN : DR_LFO_PAUSE);
+        say_c("LFO", resume ? "RESUME" : "PAUSED", K_LFO);
         return;
     }
     case S_DTAP: param_set(tp, nx); q = a; what = "DELAY"; st = WAVES[nx]; break;
@@ -2435,8 +2438,10 @@ static void input(void)
         } else if (w.s == S_LFORESET && !ui.rst_done &&
                    ((((keys >> BLACK_K[i]) & 1u) || (((ch & ~keys) >> BLACK_K[i]) & 1u))) &&
                    plat_ms() - ui.rst_t >= HOLD_MS + 100u) {
-            dr_lfo_reset();                           /* long hold: one reset, lock unchanged */
-            say_c("LFO", "RESET", K_LFO);
+            if (proj.par[P_LFO_LOCK])
+                param_set(P_LFO_LOCK, 0);
+            dr_lfo_transport_set(DR_LFO_STOPPING);  /* return to zero at LFO rate */
+            say_c("LFO / SWELL", "STOPPING", K_LFO);
             ui.rst_done = 1;
         } else if (w.s == S_LFORESET && !ui.rst_done &&
                    (((ch & ~keys) >> BLACK_K[i]) & 1u)) {
@@ -2724,7 +2729,8 @@ static void sw_text(sw_t w, const char **name, const char **st)
     case S_SUBOCT: *name = "Sub"; *st = SUB[(unsigned)p[GP_SUBOCT] < 7u ? p[GP_SUBOCT] : 1]; break;
     case S_HP: *name = "Filter"; *st = MODE[(unsigned)p[GP_MODE] < 3u ? p[GP_MODE] : 0]; break;
     case S_PLOCK: *name = "Pitch lock"; break;
-    case S_LFORESET: *name = "LFO to Swell"; *st = proj.par[P_LFO_LOCK] ? "locked" : "free"; break;
+    case S_LFORESET: *name = "LFO transport"; *st = dr_lfo_transport == DR_LFO_RUN ? "running" :
+                       dr_lfo_transport == DR_LFO_PAUSE ? "paused" : "returning"; break;
     case S_PLINK: *name = "Pitch link"; break;
     case S_SYNC: *name = "Hard sync"; break;
     case S_XMOD: *name = "X-mod"; *st = proj.par[P_XMOD] == DR_XMOD_OUT ? "snarl" : proj.par[P_XMOD] == DR_XMOD_FM ? "pitch" : on ? "cutoff" : "off"; break;
@@ -3418,8 +3424,8 @@ static void sp_does_k(int k, int key)
     case S_ODEST: sp_cat(on ? " for pitch" : " for x-wave"); break;
     case S_FDEST: sp_cat(p[GP_FLFO_DEST] == DR_TO_CUTOFF ? " for reso" : p[GP_FLFO_DEST] == DR_TO_RESO ? " for pan" : " for cutoff"); break;
     case S_XMOD: sp_cat(" for "); sp_cat(XM[(proj.par[P_XMOD] + 1) % (DR_XMOD_OUT + 1)]); break;
-    case S_LFORESET: sp_cat(proj.par[P_LFO_LOCK] ? " for free, hold to reset LFO" :
-                                                " for lock to Swell, hold to reset LFO"); break;
+    case S_LFORESET: sp_cat(dr_lfo_transport == DR_LFO_RUN ?
+                              " to pause, hold to stop" : " to resume, hold to stop"); break;
     default: break;
     }
 }

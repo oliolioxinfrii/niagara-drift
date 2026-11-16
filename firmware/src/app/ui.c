@@ -34,7 +34,7 @@
  *   LFO lock/reset, Delay LFO tap, Cross-mod.
  *   C#5 controls LFO transport: tap pauses/resumes both waves at their
  *   current phase; hold at least 500 ms to rewind the LFO and both Swell
- *   progressions to zero at the LFO rate, then remain paused.
+ *   progressions to zero at the LFO rate, then automatically run forward.
  *   A routed LFO tap cycles Wave I, II and both; first, second and third choices light dim,
  *   bright and blinking, respectively.
  * ARP            tap: the SWELL page; tapped on it, the Swell on / off (lit, in time); hold: a peek

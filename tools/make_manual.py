@@ -31,7 +31,7 @@ SRC = Path(__file__).resolve().parents[1]
 MAN = SRC / "docs" / "manual"
 WEB = SRC / "web" / "manual"                       # the pages' style and the banner's bands
 AUDIO = SRC / "build" / "manual-audio"
-REPO = "https://github.com/evanyerburgh/niagara-drift"
+REPO = "https://github.com/oliolioxinfrii/niagara-drift"
 LEVEL_LUFS = -14.0                                 # every recipe's sound at this perceived loudness (BS.1770), peaks under -1 dBFS
 
 GH = ('<svg class="gh" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 '
@@ -241,12 +241,12 @@ def recipe_page(text):
             while j < len(bl) and not (bl[j][0] == "h" and bl[j][1][0] <= 3):
                 body.append(bl[j])
                 j += 1
-            line = re.sub(r"^\*(.*)\*$", r"\1", body[0][1]) if body and body[0][0] == "p" else ""
+            line = re.sub(r"^\*(.*)\*$", r"\1", body[0][1]) if body and body[0][0] == "p" and re.fullmatch(r"\*[^*].*\*", body[0][1]) else ""
             if not groups:
                 groups.append(("", []))
             groups[-1][1].append((rid, title, line, not coming))
             if not coming:
-                recipes.append(recipe_html(rid, title, body[1:]))
+                recipes.append(recipe_html(rid, title, body))
             i = j
             continue
         i += 1
@@ -254,38 +254,47 @@ def recipe_page(text):
 
 
 def recipe_html(rid, title, body):
-    lead, moves, good, pics, listen = "", "", "", [], None
+    """Render every documented recipe block, including screenshot placeholders.
+
+    Recipes traditionally contain one italic lead, a numbered move list,
+    Good to know, screenshots and Listen. Preserve additional explanatory
+    paragraphs and multiple notes rather than silently dropping them.
+    """
+    content, pics, listen = [], [], None
     k = 0
     while k < len(body):
         kind, d = body[k]
         if kind == "p" and d.startswith("**Listen**"):
-            name = re.search(r"`([\w-]+)`", d).group(1)
+            name = re.search(r"`([\\w-]+)`", d)
             rows = body[k + 1][1] if k + 1 < len(body) and body[k + 1][0] == "ul" else []
-            listen = (name, [re.match(r"(\d+):(\d\d)\s+(.*)", r[1]).groups() for r in rows])
+            if name:
+                listen = (name.group(1), [re.match(r"(\\d+):(\\d\\d)\\s+(.*)", r[1]).groups() for r in rows])
             k += 2
             continue
         if kind == "p" and d.startswith("!["):
-            pics += re.findall(r'!\[([^\]]*)\]\(([^)\s]+) "([^"]*)"\)', d)
-        elif kind == "p" and not lead:
-            lead = inline(d)
+            pics += re.findall(r'!\\[([^\\]]*)\\]\\(([^)\\s]+) "([^"]*)"\\)', d)
+        elif kind == "p" and d.startswith("*") and d.endswith("*") and not d.startswith("**") and not content:
+            content.append(f'<p class="lead">{inline(d[1:-1])}</p>')
         elif kind == "ol":
-            moves = "".join(f"<li>{inline(t)}</li>" for _, t in d)
-        elif kind == "quote":
-            good = render(blocks(re.sub(r"^\*\*Good to know\.?\*\*\s*", "", d)))
+            items = "".join(f"<li>{inline(t)}</li>" for _, t in d)
+            content.append(f'<ol class="moves">{items}</ol>')
+        elif kind == "quote" and re.match(r"^\\*\\*Good to know\\.?\\*\\*", d):
+            note = re.sub(r"^\\*\\*Good to know\\.?\\*\\*\\s*", "", d)
+            content.append(f'<div class="good"><b>Good to know</b>{render(blocks(note))}</div>')
+        else:
+            content.append(render([(kind, d)]))
         k += 1
-    figs = "".join(f'<figure><img src="../../media/{Path(s).name}" alt="{html.escape(a)}"><figcaption>{inline(c)}</figcaption></figure>'
-                   for a, s, c in pics)
+    figs = "".join(f'<figure><img src="../../media/{Path(src).name}" alt="{html.escape(alt)}"><figcaption>{inline(caption)}</figcaption></figure>'
+                   for alt, src, caption in pics)
     snd = ""
     if listen:
         name, rows = listen
         li = "".join(f'<li><button data-t="{int(mm) * 60 + int(ss)}" aria-label="Play {html.escape(title)} from {mm}:{ss}">'
-                     f'{mm}:{ss}</button><span>{inline(w)}</span></li>' for mm, ss, w in rows)
+                     f'{mm}:{ss}</button><span>{inline(words)}</span></li>' for mm, ss, words in rows)
         snd = (f'<div class="listen"><h4 id="{rid}-listen">Listen</h4><audio controls preload="none" '
                f'src="../../media/{name}.mp4" aria-label="{html.escape(title)}: a sound example"></audio><ol>{li}</ol></div>')
-    return (f'<section class="recipe" id="{rid}"><div class="recipe-head"><h3>{inline(title)}</h3>'
-            f'</div>'
-            f'<div class="recipe-body"><div class="how">{f"<p class=lead>{lead}</p>" if lead else ""}<ol class="moves">{moves}</ol>'
-            f'{f"<div class=good><b>Good to know</b>{good}</div>" if good else ""}</div>'
+    return (f'<section class="recipe" id="{rid}"><div class="recipe-head"><h3>{inline(title)}</h3></div>'
+            f'<div class="recipe-body"><div class="how">{"".join(content)}</div>'
             + (f'<div class="screens">{figs}</div>' if figs else "") + f'{snd}</div></section>')
 
 
@@ -315,19 +324,19 @@ def page_html(rel, meta, body, current, side=""):
     img = f'<meta property="og:image" content="{up}manual/media/{meta["image"]}">' if meta.get("image") else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(title)} · Niagara Drift</title>
-<meta name="description" content="{desc}"><meta property="og:title" content="{html.escape(title)} · Niagara Drift">
+<title>{html.escape(title)} · Volcano</title>
+<meta name="description" content="{desc}"><meta property="og:title" content="{html.escape(title)} · Volcano">
 <meta property="og:description" content="{desc}">{img}<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="{mup}manual.css"></head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="top"><div class="top-in">
-<nav class="menu" aria-label="Site"><a class="homeicon" href="{up}" aria-label="Home: Niagara Drift, play it in your browser" title="Home">{HOME}</a>{menu_html(up, current)}</nav>
-<div class="title"><small>{"Niagara Drift" + (" · " + kicker if kicker else "")}</small><h1>{inline(title)}</h1><p>{inline(intro)}</p></div>
+<nav class="menu" aria-label="Site"><a class="homeicon" href="{up}" aria-label="Home: Volcano" title="Home">{HOME}</a>{menu_html(up, current)}</nav>
+<div class="title"><small>{"Volcano" + (" · " + kicker if kicker else "")}</small><h1>{inline(title)}</h1><p>{inline(intro)}</p></div>
 </div></div>
 <main id="main" tabindex="-1" class="page{' side' if side else ''}">{side}<div class="prose">{body}</div></main>
-<p class="foot">Niagara Drift · free, open-source firmware (GPL-3.0) for the M-VAVE FM-1. Sound examples are rendered from the
-firmware's own code on a computer, with headphones' settings, not recorded from an FM-1. <a href="{mup}about/">About</a> ·
+<p class="foot">Volcano · a Niagara Drift derivative for the M-VAVE FM-1. Previously recorded recipe audio is being updated; original sound examples were rendered from the
+original firmware's code on a computer, not recorded from an FM-1. <a href="{mup}about/">About</a> ·
 <a href="{REPO}">Source on GitHub</a></p>
 <script src="{mup}manual.js"></script>
 </body></html>"""

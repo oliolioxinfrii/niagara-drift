@@ -50,12 +50,14 @@ The existing eight gestures retain saved latches in `P_GL_0...P_GL_7`. Their mot
 
 ## SAVE browser color identity
 
-The orbit and eight node outlines progress through the FX blue ramp: **P1** is
-deep blue (`#174C76`), **P2** is pale icy blue (`#EFFCFF`), with A–F given
-six intervening shades. The menu still cycles A–F, P1, P2. Every node has the
-same deep-blue center regardless of bank; outline brightness distinguishes
-empty and occupied slots, while ticks identify the selected slot. The
-satellite retains its original geological colors.
+The SAVE browser cycles **P1 → P2 → A → B → C → D → E → F**, progressing
+through the FX parameter-value ramp from deep blue (`#174C76` on P1) to
+near-white blue (`#EFFCFF` on F). **P2 is the second-darkest shade**, not
+the near-white endpoint. Every node retains the same deep-blue center
+regardless of bank; outline brightness distinguishes empty and occupied
+slots, while ticks identify the selected slot. The satellite retains its
+original geological colors, but is smaller and sits between the two
+lower-left orbit nodes without covering either node.
 
 ## SAVE browser: Load versus Transition
 

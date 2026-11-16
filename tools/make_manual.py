@@ -265,21 +265,21 @@ def recipe_html(rid, title, body):
     while k < len(body):
         kind, d = body[k]
         if kind == "p" and d.startswith("**Listen**"):
-            name = re.search(r"`([\\w-]+)`", d)
+            name = re.search(r"`([\w-]+)`", d)
             rows = body[k + 1][1] if k + 1 < len(body) and body[k + 1][0] == "ul" else []
             if name:
-                listen = (name.group(1), [re.match(r"(\\d+):(\\d\\d)\\s+(.*)", r[1]).groups() for r in rows])
+                listen = (name.group(1), [re.match(r"(\d+):(\d\d)\s+(.*)", r[1]).groups() for r in rows])
             k += 2
             continue
         if kind == "p" and d.startswith("!["):
-            pics += re.findall(r'!\\[([^\\]]*)\\]\\(([^)\\s]+) "([^"]*)"\\)', d)
+            pics += re.findall(r'!\[([^\]]*)\]\(([^)\s]+) "([^"]*)"\)', d)
         elif kind == "p" and d.startswith("*") and d.endswith("*") and not d.startswith("**") and not content:
             content.append(f'<p class="lead">{inline(d[1:-1])}</p>')
         elif kind == "ol":
             items = "".join(f"<li>{inline(t)}</li>" for _, t in d)
             content.append(f'<ol class="moves">{items}</ol>')
-        elif kind == "quote" and re.match(r"^\\*\\*Good to know\\.?\\*\\*", d):
-            note = re.sub(r"^\\*\\*Good to know\\.?\\*\\*\\s*", "", d)
+        elif kind == "quote" and re.match(r"^\*\*Good to know\.?\*\*", d):
+            note = re.sub(r"^\*\*Good to know\.?\*\*\s*", "", d)
             content.append(f'<div class="good"><b>Good to know</b>{render(blocks(note))}</div>')
         else:
             content.append(render([(kind, d)]))

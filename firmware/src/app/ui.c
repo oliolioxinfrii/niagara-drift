@@ -211,6 +211,8 @@ static struct {
     uint8_t loop_scenes;               /* the loop moves scenes: each pass starts from the whole sound it began on */
     uint32_t morph_t0, morph_ms;
     uint8_t morph_pct;               /* terminal progression for a targeted transition */
+    uint8_t transition_seq_pending;  /* 100% TRANSITION: take sequence at the Scene Time endpoint */
+    uint8_t transition_seq_bank, transition_seq_slot;
     int16_t morph_from[DR_NPARAMS];
     int16_t morph_to[DR_NPARAMS];      /* the scene being morphed to, as it was when its key was pressed */
     int8_t press;                      /* the scene key held in a pressure crossfade (v0.2), or -1 */
@@ -1484,8 +1486,17 @@ static void scene_morph(void)
         if (!(ui.key_held & (1u << key)) && ui.key_mode[key] == 0)
             ui.g_amt[g] = (float)proj.par[gl_par(g)] * 0.01f;
     }
-    if (x >= 1.0f)
+    if (x >= 1.0f) {
+        /* Sound reaches its target over Scene Time; a 100% performance
+         * transition must not switch the authored pitch progression early. */
+        if (ui.morph == MENU_TRANSITION && ui.transition_seq_pending) {
+            const int bank = ui.transition_seq_bank, slot = ui.transition_seq_slot;
+            if (BANK_IS_PRESETS(bank)) { sd_stop(); sd_init(); }
+            else sd_scene_restore(project_seq_get(bank, slot));
+        }
+        ui.transition_seq_pending = 0;
         ui.morph = -1;
+    }
 }
 
 /* THE PRESSURE CROSSFADE (v0.2, option D): a scene key held is a fader into its scene. Under PR_DEAD nothing
@@ -2145,6 +2156,7 @@ static void menu_load_scene(int bank, int slot)
     }
     undo_keep();
     ui.morph = -1;                  /* cancel any old scene glide or transition */
+    ui.transition_seq_pending = 0;
     ui.press = -1;
     ui.visit = -1;
     hands_clear();
@@ -2190,12 +2202,11 @@ static void menu_start_transition(int bank, int slot)
         return;
     }
     undo_keep();
-    /* A partial timbre transition leaves the existing progression alone;
-     * 100% loads the target's sequence as an ordinary scene recall does. */
-    if (ui.menu_pct == 100) {
-        if (BANK_IS_PRESETS(bank)) { sd_stop(); sd_init(); }
-        else sd_scene_restore(project_seq_get(bank, slot));
-    }
+    /* Partial transitions keep the working progression. At 100%, the
+     * target pattern follows only when the sound has completed Scene Time. */
+    ui.transition_seq_pending = (uint8_t)(ui.menu_pct == 100);
+    ui.transition_seq_bank = (uint8_t)bank;
+    ui.transition_seq_slot = (uint8_t)slot;
     for (i = 0; i < DR_NPARAMS; i++) {
         ui.morph_from[i] = proj.par[i];
         ui.morph_to[i] = target[i];

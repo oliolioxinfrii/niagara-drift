@@ -463,10 +463,10 @@ static void vl_air(void)
         }
     }
 }
-/* Setup 2: the original planet stays 76px across, but moves to the
- * center. L and R are concentric atmospheric strata, not oscilloscopes.
- * Increasing Stereo separates the two rings; segments beyond the picture
- * boundary are deliberately clipped. Tuning ticks and A stay independent. */
+/* Setup 2: the original planet remains fixed at 76px in the center.
+ * L and R are wavy orbital traces, separated symmetrically about a fixed
+ * orbital reference radius outside the planet. Width moves them toward or
+ * away from that reference; it does not enlarge the planet. */
 static void vl_planet(void)
 {
     const int cx = 120, cy = 65, r = 38;
@@ -474,33 +474,41 @@ static void vl_planet(void)
     const int n = dr_tun_n(tuning);
     const float shift = 1200.0f * fm_log2f(1.0f + (float)proj.par[P_TUNE] / 4400.0f);
     const float stereo = vl_norm(P_WIDTH);
+    const float orbit = (float)r + 25.0f;
+    const float phase = (float)(plat_ms() % 6000u) * (6.2831853f / 6000.0f);
     static const uint16_t layers[5] = {RGB(246, 208, 62), RGB(242, 156, 47),
                                        RGB(225, 88, 43), RGB(173, 47, 39),
                                        RGB(106, 29, 36)};
     int k, i;
-    /* Two thin, slightly offset rings per channel. Their shared origin is
-     * the planet itself, while radial displacement represents stereo width.
-     * A fixed 76px planet remains visible at every setting. */
+    /* One fixed orbit reference: a small station marker to the right.
+     * Both channels start near its radius and separate in opposite
+     * directions as Stereo widens. */
+    cv_rect(cx + (int)orbit, cy - 3, 1, 7, LK_LABEL);
+    cv_rect(cx + (int)orbit - 3, cy, 7, 1, LK_LABEL);
     for (k = 0; k < 2; k++) {
-        const int base = r + 13 + (k ? 2 + (int)(25.0f * stereo) : 0);
-        for (i = 0; i < 2; i++) {
-            const int radius = base + i * 4;
-            const uint16_t ink = vl_bright(LK_DRONE[k], i ? 0.35f : 0.83f);
-            int j, px = cx, py = cy + radius;
-            for (j = 1; j <= 96; j++) {
-                const float a = 6.2831853f * (float)j / 96.0f;
-                const int x = cx + (int)((float)radius * fm_sinf(a));
-                const int y = cy + (int)((float)radius * fm_cosf(a));
-                if (x >= 7 && x <= 232 && y >= 9 && y <= 115 &&
-                    px >= 7 && px <= 232 && py >= 9 && py <= 115)
+        const float base = orbit + (k ? 1.0f : -1.0f) * (2.0f + 13.0f * stereo);
+        int strand;
+        for (strand = 0; strand < 3; strand++) {
+            int j, px = -1, py = -1;
+            const uint16_t ink = vl_bright(LK_DRONE[k], strand == 0 ? 0.92f :
+                                            strand == 1 ? 0.55f : 0.27f);
+            for (j = 0; j <= 128; j++) {
+                const float a = 6.2831853f * (float)j / 128.0f;
+                const float wiggle = (2.2f + 0.7f * (float)strand) *
+                       fm_sinf(7.0f * a + phase + (float)k * 1.6f +
+                               (float)strand * 0.55f);
+                const float rr = base + (float)strand * 2.0f + wiggle;
+                const int x = cx + (int)(rr * fm_sinf(a));
+                const int y = cy + (int)(rr * fm_cosf(a));
+                if (px >= 8 && px <= 231 && py >= 8 && py <= 115 &&
+                    x >= 8 && x <= 231 && y >= 8 && y <= 115)
                     cv_line(px, py, x, y, ink);
                 px = x; py = y;
             }
         }
-        /* The letters remain white, as in the other parameter drawings. */
         {
-            const int lx = k ? cx + base + 7 : cx - base - 7;
-            if (lx > 12 && lx < 227)
+            const int lx = cx + (k ? 1 : -1) * (int)(base + 9.0f);
+            if (lx > 14 && lx < 226)
                 text_c(lx, cy - 4, &FONT_XS, k ? "R" : "L", LK_WHITE);
         }
     }

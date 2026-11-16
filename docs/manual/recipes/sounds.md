@@ -7,7 +7,7 @@ description: Recipes for sounds on Volcano: ticks, a singing filter, hard sync, 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 Each recipe is a sound that takes more than one knob: a key and a knob together, or settings on two or three pages.
-Each sound example starts from a different Preset.
+**Every example begins from a stated factory preset.** To load one, press **SAVE**, select **Presets 1–8** or **Presets 9–16** and its numbered slot, set KNOB 3 to **LOAD**, then press SAVE. If Pitch Lock is enabled, preset recall preserves your current pitches; turn it off on an ordinary page (C♯4) if you want the preset's original register. See [Scenes](../reference/scenes.md) and [Presets](../reference/presets.md).
 
 ## Tone and texture
 
@@ -15,12 +15,14 @@ Each sound example starts from a different Preset.
 
 *A sub so low it breaks into a few clicks a second*
 
+**Start from:** **P16 Bare** (Presets 9–16, slot 8). Only drone I is sounding, and its filter is open.
+
 Take drone I down to its lowest notes and its sub four octaves under that, and the sub stops being a tone: it becomes
 a slow tick, a few clicks a second under drone II, a pulse to play against.
 
 1. Tap [[HOME]] until **Pitch** appears, and turn KNOB 1 down to drone I's lowest notes: **A0** (27.5 Hz), about 29 clicks
    from where most Presets start.
-2. Press [[EDIT]] twice for **Sub · Drive**, and tap [[G#3]], drone I's sub, until the screen says **−4 oct**. It
+2. Tap [[EDIT]] until **Sub · Drive** appears, and tap [[G#3]], drone I's sub, until the screen says **−4 oct**. It
    goes round −1, −2, ⅓, ⅕, −3, −4.
 3. Turn KNOB 1, Osc/Sb, all the way to the sub: **100**.
 4. Turn KNOB 2, Drive, up for a harder click.
@@ -38,6 +40,8 @@ a slow tick, a few clicks a second under drone II, a pulse to play against.
 ### A singing filter {#sing}
 
 *Resonance up, and the LFO moving it: a ring that swells and fades*
+
+**Start from:** **P5 Abyss** (Presets 1–8, slot 5). Its resonant filters and existing LFO sends make the effect easy to hear.
 
 Turn a filter's resonance up and it rings on the drone's notes; let the LFO move the resonance instead of the cutoff,
 and the ring swells and fades on its own.
@@ -60,6 +64,8 @@ and the ring swells and fades on its own.
 ### Hard sync sweep {#sync}
 
 *Drone II locked to drone I, its pitch swept by hand: a sweep of tone, not of note*
+
+**Start from:** **P5 Abyss** (Presets 1–8, slot 5). Both drones should be audible; if Pitch Link is enabled, turn it off on a non-LFO page before sweeping drone II's pitch.
 
 With hard sync, drone II restarts its wave on every cycle of drone I: turning drone II's pitch then changes its tone,
 not its note, a tearing, vocal, laser-like sweep.
@@ -85,18 +91,20 @@ not its note, a tearing, vocal, laser-like sweep.
 
 *Cross-FM: each drone bending the other's pitch, high and pure, into bells*
 
+**Start from:** **P16 Bare** (Presets 9–16, slot 8). Use **SEL + OCT+** to unmute drone II. For independent pitches, turn off Pitch Lock (C♯4) and Pitch Link (D♯4) on an ordinary page if enabled.
+
 Each drone's sound bends the other's pitch, FM synthesis between the two. On pure, high tones a tritone apart it rings
 into a metallic, bell-like sound; turned higher it clangs and runs wild.
 
 1. Tap [[EDIT]] until **Osc** appears, and turn KNOB 1 and KNOB 3, the X-Waves, all the way down: **sine**.
 2. Tap [[HOME]] until **Pitch** appears, and turn both drones high, a tritone apart (here C#6 and G6: the top of their
    range is about 1.6 kHz).
-3. Tap black key 11, [[F#5]], until it winks: **bend each other** (twice from off).
+3. Tap black key 11, [[F#5]], until the screen shows **bend each other**.
 4. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: about 70 rings, 85 clangs.
 
 > **Good to know.** Simple intervals (an octave, a fifth) lock into harmonies instead of bells; awkward ones (a
-> tritone, a seventh) ring metallic. Lower down, on rich waves, cross-FM only thickens and roughens. If the Swell is
-> on, switch it off ([[ARP]], then [[ARP]] again on its page) so the bells ring steadily.
+> tritone, a seventh) ring metallic. Lower down, on rich waves, cross-FM only thickens and roughens. If Swell is
+> on, hold [[ARP]] for at least 400 ms to switch it off so the bells ring steadily.
 
 > **Screenshot needed — Mods, bend each other, X-mod 70.** Regenerate this view from the Volcano v1.5 firmware.
 > **Screenshot needed — Mods, X-mod 85.** Regenerate this view from the Volcano v1.5 firmware.
@@ -107,10 +115,12 @@ into a metallic, bell-like sound; turned higher it clangs and runs wild.
 
 *Drone I's sound moving drone II's filter*
 
+**Start from:** **P3 Vespers** (Presets 1–8, slot 3), which has a prominent resonant drone-II tone.
+
 At key 11's first setting, drone I's sound moves drone II's filter, as fast as drone I sounds: drone II growls,
 buzzes and takes on drone I's pitch as a grain.
 
-1. Tap black key 11, [[F#5]], once: it lights, **I moves II's cutoff**.
+1. Tap black key 11, [[F#5]], until the screen shows **I moves II's cutoff**.
 2. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: the growl deepens.
 3. Tap [[HOME]] until **Pitch** appears, and move drone I's pitch (KNOB 1): the growl changes its grain.
 
@@ -126,11 +136,13 @@ buzzes and takes on drone I's pitch as a grain.
 
 *The finished sound, echoes and all, bending both drones*
 
+**Start from:** **P3 Vespers** (Presets 1–8, slot 3). Increase delay mix and repeats in the steps below to make feedback's effect obvious.
+
 At key 11's last setting, the finished sound, the delay's echoes included, bends both drones' pitch: a growl that
 drags and tears the pitch, and the echoes with it. It's clearest on a steady sound with plenty of echoes.
 
 1. Tap [[FX]] until **Space** appears, and turn Repeat (KNOB 1) and Mix (KNOB 2) up: more echoes for Snarl to drag.
-2. Tap black key 11, [[F#5]], three times from off: **Snarl** (it winks).
+2. Tap black key 11, [[F#5]], until the screen shows **Snarl** (the LED winks).
 3. Tap [[LFO]] until **Mods** appears, and turn KNOB 4, X-mod, up: 40 a growl, 85 a snarl.
 
 > **Good to know.** The **Snarl** gesture ([[B4]]) brings it in by pressure, with the drive and Feedback on top, and
@@ -147,13 +159,15 @@ drags and tears the pitch, and the echoes with it. It's clearest on a steady sou
 
 *OR on drone II's pitch: four notes round and round, and Wander moving the figure*
 
+**Start from:** **P13 Telegraph** (Presets 9–16, slot 5), which already uses a stepped LFO figure. Change the waveform and routing as described below.
+
 LFO II's **OR** shape adds two square waves, one five times as fast as the other: on a drone's pitch it steps round
 four notes, a figure that repeats. Wander then moves the whole figure to a new note now and then.
 
-1. Make drone II bright, so the figure stands out: press [[EDIT]] for **Osc** and turn KNOB 3, its wave, to a
+1. Make drone II bright, so the figure stands out: tap [[EDIT]] until **Osc** appears and turn KNOB 3, its wave, to a
    **saw**; then on **Drones** ([[HOME]]) turn KNOB 4, its cutoff, all the way up, KNOB 3, its level, up, and KNOB 1,
    drone I's level, down.
-2. Tap [[LFO]] until **LFO Sends** appears, and tap [[OCT+]], LFO II's wave, until the screen says **OR 5**.
+2. Open **LFO → Waves** and select **OR 5** for LFO II with KNOB 3 (or tap OCT+ until it appears). Then return to **LFO → Sends**.
 3. Turn KNOB 3, drone II's pitch send, up: 40 is about ±4 semitones.
 4. Hold [[SEL]] and turn SELECT to adjust the LFO's rate, up for a quicker figure.
 5. Tap [[SEQ]] until **Pitch moves** appears, and turn KNOB 3, Wander, up: every so often the figure starts on another
@@ -170,6 +184,8 @@ four notes, a figure that repeats. Wander then moves the whole figure to a new n
 ### A filter rhythm in time with Swell {#swell}
 
 *A square LFO on both cutoffs, locked to the Swell's breath*
+
+**Start from:** **P1 Niagara** (Presets 1–8, slot 1). Ensure the selected LFO waveform is active and Movement is above 0% so the filter sends can be heard.
 
 The Swell makes both drones breathe; lock the LFO to it and a square wave on the filters jumps on the same beat, the
 two filters in turn.
@@ -195,6 +211,8 @@ two filters in turn.
 
 *Speed mod: the LFO rushing and dragging on its own wave*
 
+**Start from:** **P1 Niagara** (Presets 1–8, slot 1). Choose an active, repeating LFO waveform on **LFO → Waves** before changing its speed modulation.
+
 Speed mod lets the LFO speed up and slow down on one of its own waves, so every wobble rushes, then drags. It's
 easiest to hear on a vibrato.
 
@@ -217,6 +235,8 @@ easiest to hear on a vibrato.
 ### Echoes that warble {#warble}
 
 *The LFO moving the delay's time: echoes bending in pitch*
+
+**Start from:** **P10 Cistern** (Presets 9–16, slot 2). Its tape delay and Swell provide an audible basis for the modulation.
 
 When the delay's time moves, its echoes bend in pitch, as tape does when it speeds up and slows down. Let an LFO move
 it, and every echo warbles; let the Swell dip the drones, and the bending echoes ring on their own in the gaps.
@@ -241,10 +261,12 @@ it, and every echo warbles; let the Swell dip the drones, and the bending echoes
 
 *The Self delay and Drive: echoes that sag, distort and crackle*
 
+**Start from:** **P10 Cistern** (Presets 9–16, slot 2). The delay is already active; change its type and drive.
+
 The **Self** delay stretches its time as its echoes get louder, so loud echoes sag and wobble; **Drive** after it
 distorts the drones and their echoes together: ghost notes and crackle.
 
-1. Press [[FX]] for **Space**, and turn Repeat (KNOB 1) up: the echoes pile up.
+1. Tap [[FX]] until **Space** appears, and turn Repeat (KNOB 1) up: the echoes pile up.
 2. Tap [[FX]] until **Details** appears. Hold [[SEL]] and turn KNOB 2 to **Self** (or **Grain**, whose own echoes shake
    its time).
 3. Turn KNOB 1, Drive, up.
@@ -260,6 +282,8 @@ distorts the drones and their echoes together: ghost notes and crackle.
 ### Freeze a chord, play over it {#freeze}
 
 *Reverb at Inf holds the chord; new notes play over it*
+
+**Start from:** **P1 Niagara** (Presets 1–8, slot 1). The sustained drones supply a chord to capture in the reverb.
 
 At its top, the reverb's Length is **Inf**: it never dies away, a freeze of what's in it. Move the drones and they
 play over the frozen chord.
@@ -281,6 +305,8 @@ play over the frozen chord.
 
 *Only the echoes rise an octave into the halo*
 
+**Start from:** **P10 Cistern** (Presets 9–16, slot 2). Its Shimmer reverb is already active; use Details to change what feeds it.
+
 The **Shimmer** reverb lifts what goes into it an octave, in two voices just apart. Send it only the echoes, and each
 echo rises into a bright halo while the drones stay dry. It shines on voices in the middle and up; on a low drone the
 octave stays low.
@@ -298,3 +324,4 @@ octave stays low.
 
 > **Audio preview pending:** Re-record this recipe from the Volcano v1.5 source after updating its host scenario.
 
+For a complete walkthrough of the separate note sequencer, see [First pitch sequence](sequencing.md); for global LFO controls and routing, see [LFO](../reference/lfo.md) and [LFO pages](../reference/lfo-pages.md).

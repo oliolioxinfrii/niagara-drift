@@ -53,7 +53,7 @@ def icon(name, cls="ic"):
 
 MENU_ICON = {"Manual": "book-open", "Recipes": "cooking-pot", "Reference": "book-open",
              "Shortcuts": "keyboard", "Help": "lifebuoy", "About": "info"}
-TAB_ICON = {"sounds": "waveform", "gestures": "hand-pointing", "scenes": "floppy-disk", "time": "timer",
+TAB_ICON = {"sounds": "waveform", "sequencing": "music-notes-simple", "gestures": "hand-pointing", "scenes": "floppy-disk", "time": "timer",
             "performing": "faders", "scratch": "plant"}
 MENU = [("manual/", "Manual", "start with the instrument and its controls"),
         ("manual/recipes/", "Recipes", "build sounds, gestures and pitch sequences"),
@@ -311,7 +311,7 @@ def onpage(groups, base, label):
 
 # ---- pages -------------------------------------------------------------------------------------------------------
 
-RECIPE_KINDS = ["sounds", "gestures", "scenes", "time", "performing", "scratch"]   # scratch: the tutorial, one walk-through
+RECIPE_KINDS = ["scratch", "sequencing", "sounds", "gestures", "scenes", "time", "performing"]   # scratch: the tutorial, one walk-through
 
 
 def page_html(rel, meta, body, current, side=""):
@@ -518,6 +518,7 @@ def check():
             if expected_notes != visible_notes:
                 bad.append(f"recipes/{md.stem}: rendered {visible_notes} of {expected_notes} screenshot placeholders")
         for label, needle in (("scratch", "Presets 9–16"),
+                              ("sequencing", "13 seconds"),
                               ("scenes", "TRANSITION"),
                               ("performing", "MIDI clock"),
                               ("time", "pitch movement")):

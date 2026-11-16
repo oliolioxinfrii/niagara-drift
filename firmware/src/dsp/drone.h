@@ -100,8 +100,8 @@ enum {
     P_REV_TYPE,                     /* Room, Hall, Cathedral, Chorus hall (DR_REV_NAME) */
     P_DLY_LFO,                      /* the delay time's LFO tap: DR_LFO_I, _II, _BOTH (a switch) */
     P_DLY_LFO_DEPTH,                /* -100..100: up to +-25 % of the time; 0 none */
-    P_LFO_LOCK,                     /* the LFO restarts at each Pulse bar (two beats) while the pulse runs (1) /
-                                     * runs free (0) (a switch) */
+    P_LFO_LOCK,                     /* legacy Swell-lock slot, retained in saved-project layout;
+                                     * no longer drives LFO restarts; C#5 is session transport */
     P_LFO_RMOD,                     /* -100..100: the LFO's own wave moving its rate, up to +-3 octaves (linear); 0 none */
     P_LFO_RMOD_SRC,                 /* which wave moves it: DR_LFO_I, _II, _BOTH */
     P_MORPH,                        /* 0..100 = 0.02 .. 30 s (x^2.5: 1 s at 25): how long a switch (a button or key) takes to move

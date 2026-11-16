@@ -276,34 +276,20 @@ static const char *const TIP_TEXT[NTIPS] = {   /* one line, the banner's width (
     "PITCH: TAP [HOME] AGAIN", "DRIVE, TIME: TAP [FX]"};   /* the pages 0.3 rearranged (2026-11-08), as the knobs */
 /* (a button or key in [ ]: the new look draws it in a box, the spec's rule 19; the old screen drops the brackets) */
 #define TIP_MS 3500u
-static int tip_seen(int t) { return proj.seen[t >> 3] >> (t & 7) & 1u; }
-static void tip(int t)
+/* VOLCANO's interface does not display automatic onboarding tips.
+ * Retain the call sites for compatibility; explicit messages and
+ * second-part announcements still use the normal message queue. */
+static void tip(int t) { (void)t; }
+static void tips_run(void)
 {
-    if (!tip_seen(t))
-        ui.tip_q |= (uint16_t)(1u << t);
-}
-static void tips_run(void)                             /* each frame: a tip waiting, the screen free */
-{
-    int t;
     if (plat_ms() < ui.msg_until + (ui.msg_next[0] ? 0u : 300u))
         return;
-    if (ui.msg_next[0]) {                              /* a message's second part, just after it */
-        char t[sizeof ui.msg_next];
-        memcpy(t, ui.msg_next, sizeof t);
-        say_c(t, 0, ui.msg_col);
-        return;
+    if (ui.msg_next[0]) {
+        char msg[sizeof ui.msg_next];
+        memcpy(msg, ui.msg_next, sizeof msg);
+        say_c(msg, 0, ui.msg_col);
     }
-    if (!ui.tip_q)
-        return;
-    for (t = 0; !(ui.tip_q >> t & 1u); t++)
-        ;
-    ui.tip_q &= (uint16_t)~(1u << t);
-    if (tip_seen(t))
-        return;
-    proj.seen[t >> 3] |= (uint8_t)(1u << (t & 7));   /* saved with the next save (no write of its own) */
-    say_c(TIP_TEXT[t], 0, K_GOLD);
-    ui.msg_tip = 1;
-    ui.msg_until = plat_ms() + TIP_MS;
+    ui.tip_q = 0; /* Ignore stale tips from an earlier firmware session. */
 }
 int ui_dirty(void) { return ui.dirty != 0; }
 

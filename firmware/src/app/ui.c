@@ -2268,7 +2268,8 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
             if (action < 0) action += 3;
             ui.menu_load = (uint8_t)action;
         }
-        if ((step = plat_enc(EN_K4)) != 0) {
+        if ((step = plat_enc(EN_K4)) != 0 && ui.menu_load == 2) {
+            /* The depth control belongs to TRANSITION only; LOAD is instant. */
             int n = (int)ui.menu_pct + (int)accel(EN_K4, step, 100);
             ui.menu_pct = (uint8_t)(n < 0 ? 0 : n > 100 ? 100 : n);
         }

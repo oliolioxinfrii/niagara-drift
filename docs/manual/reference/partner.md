@@ -31,7 +31,9 @@ Each drone has a second oscillator at a selected musical interval. Detune introd
 
 ## Sequence (page 3)
 
-VOLCANO's pitch sequencer has **one to four note events per drone**. Rather than a fixed grid of equally spaced steps, the two drones follow their own programmed pitch events around a repeating timeline.
+VOLCANO's pitch sequencer moves the **continuously sounding** drones between pitches; it does not retrigger notes like a drum-machine grid. There are **one to four event positions in a shared timeline**. Each drone may have its own pitch at those positions, and drone II can have a different phase offset when Pitch Lock and Pitch Link are off. The time between events is editable: a three-note sequence could move after 3 seconds, 6 seconds and 4 seconds rather than every four beats.
+
+**A three-note example:** Program A3 → C4 → E4 on Sequence, place their arrivals at 0, 3 and 9 seconds within a 13-second cycle on Intervals, then shape the three moves on Transitions. [Follow the complete first-sequence tutorial](../recipes/sequencing.md#first-sequence) before using the parameter table as a quick reference.
 
 | Control | Action |
 |---|---|
@@ -47,7 +49,7 @@ Press a keyboard key on this page to enter and audition a pitch. **All physical 
 
 ## Intervals (page 4)
 
-The event positions need not be equally spaced. **KNOBs 1–3** set the relative arrivals of events 2–4 (where present); **KNOB 4** changes the overall loop duration while preserving the relative positions. Drone II has its own phase offset.
+The event positions need not be equally spaced. **KNOBs 1–3** move events 2–4 (where present) without moving their neighbors; **KNOB 4** changes the overall loop duration while preserving the events' relative positions. Both drones use this spacing pattern. Drone II can have a phase offset within the same cycle.
 
 > **Screenshot needed — Intervals:** Capture SEQ page 4 with a multi-event sequence and unequal timing.
 
@@ -69,7 +71,7 @@ The final active segment always returns to **step 1**. With two steps, only KNOB
 
 - **SEL + PLAY** starts, pauses or resumes the pitch progression independently of the global PLAY fade.
 - **SEL + HOME** creates a randomized working sound and sequence, including transition shapes. Saved scenes are not overwritten.
-- **The sequence lives in RAM.** Its programmed notes and timing are not stored in scene slots; factory preset recalls reset a previously authored multistep sequence to one step.
+- **The sequence lives in RAM.** Its programmed notes, timing, phase and transition shapes are not stored in scene slots; factory preset recalls reset a previously authored multistep sequence to one step. [What a scene stores](scenes.md#what-a-scene-stores) explains the distinction.
 - **Pitch Lock** and **Pitch Link** affect how the two drones' pitches follow the programmed changes.
 
 For a short overview of the switches, see [Black keys](black-keys.md).

@@ -77,4 +77,4 @@ How fast they all move: left slower, right faster.
 - **Pairs on the panel:** each key of 9–12 pairs with the key four to its right: Tick and Weight the low end, Chord and
   Shift pitch, Snarl adds the dirt Clean takes out, Stutter and Wash time.
 - **Chord** follows the Tuning's notes. **Clean** keeps the same loudness.
-- Recipes: [Gestures](../recipes/gestures.md) · [Ticks and clicks](../recipes/sounds.md#ticks)
+- Try [Gesture recipes](../recipes/gestures.md) to hear different performance behaviors, or [Ticks and clicks](../recipes/sounds.md#ticks) to construct an effect similar to the Tick gesture.

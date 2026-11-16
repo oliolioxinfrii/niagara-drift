@@ -539,6 +539,114 @@ static void vg_air_reverb(float wet, float length, float damp, int hold,
         }
     }
 }
+/* These profiles mirror the delay's tonal/stereo/modulation distinctions
+ * in drone_fx.c. They are deterministic drawings, never sampled audio. */
+static void vg_air_delay(float wet, float repeats, float drive, int period,
+                         float scroll, uint32_t now)
+{
+    static const struct {
+        float spread, tone, wow, ping, grain, self;
+    } type_map[6] = {
+        {1.00f, 0.86f,  0.0f, 0.0f,  0.0f, 0.00f}, /* Clean */
+        {0.75f, 0.57f, 14.0f, 0.0f,  0.0f, 0.00f}, /* Wide */
+        {1.00f, 0.50f, 14.0f, 1.0f,  0.0f, 0.00f}, /* Ping-pong */
+        {1.00f, 0.39f, 30.0f, 0.0f,  0.0f, 0.00f}, /* Tape */
+        {1.00f, 0.39f, 30.0f, 0.0f, 60.0f, 0.00f}, /* Grain */
+        {1.00f, 0.39f, 30.0f, 0.0f,  0.0f, 0.25f}  /* Self */
+    };
+    static const char *const labels[6] = {"CLEAN", "WIDE", "PING", "TAPE", "GRAIN", "SELF"};
+    const int v = proj.par[P_DLY_TYPE];
+    const int type = (unsigned)v < 6u ? v : 3;
+    const float gain = fm_sqrtf(fm_sqrtf(wet)); /* readable without 100% wet */
+    const float phase = (float)(now % VL_AIR_LOOP_MS) * (6.2831853f / (float)VL_AIR_LOOP_MS);
+    const float flutter = type_map[type].wow / 30.0f;
+    const float warm = fm_clampf(drive * 1.25f, 0.0f, 1.0f);
+    const uint16_t driven_ink = lk_mix(0x83D8DBu, 0xEB6333u, warm);
+    const int scroll_step = (int)scroll;
+    const float scroll_frac = scroll - (float)scroll_step;
+    int p, x, n;
+    text_c(204, 1, &FONT_XS, labels[type], VL_AIR);
+    /* DRIVE processes the dry signal + echoes AFTER the delay. Even if
+     * Delay MIX is zero, this orange indicator remains visible. */
+    if (drive > 0.005f)
+        cv_rect(172, 13, (int)(55.0f * drive + 0.5f), 2, driven_ink);
+    cv_rect(8, 37, 224, 1, LK_RULE);
+    for (x = 10; x <= 230; x += 22)
+        cv_rect(x, 17, 1, 40, LK_RULE);
+    for (p = 0; p < 3; p++) {
+        int px = 10, py = 37 + p * 2 - 2;
+        for (x = 10; x <= 230; x++) {
+            const int pos = x - 18;
+            int center = 37 + p * 2 - 2;
+            float env = 0.0f, noise = 0.0f;
+            if (pos >= 0) {
+                /* Wide's right line precedes the left by its real .75
+                 * delay ratio; Ping alternates a left and right arrival.
+                 * Tape, Grain and Self deform the return-time slightly. */
+                float warped = (float)pos;
+                if (type == 1 && p == 2)
+                    warped += (1.0f - type_map[type].spread) * (float)period;
+                if (type >= 3)
+                    warped += flutter * 1.7f * fm_sinf(0.054f * (float)x + phase);
+                if (type == 4)
+                    warped += type_map[type].grain * 0.048f *
+                              vg_air_band((float)x + scroll, 7, 471u);
+                if (type == 5)
+                    warped += type_map[type].self * 19.0f *
+                              fm_sinf(0.040f * (float)x + phase * 0.7f);
+                warped = fm_maxf(warped, 0.0f);
+                n = (int)(warped / (float)period);
+                {
+                    const float arrival = warped - (float)n * (float)period;
+                    const float width = type == 0 ? 13.0f : type == 4 ? 12.0f : 19.0f;
+                    const float repeat_gain = 1.0f - (1.0f - repeats) *
+                        fm_clampf((float)n * 0.18f, 0.0f, 1.0f);
+                    if (arrival < width) {
+                        env = gain * (1.0f - arrival / width) * repeat_gain;
+                        if (type == 5)
+                            env *= 0.73f + 0.27f *
+                                   (0.5f + 0.5f * fm_sinf(0.065f * (float)x + phase));
+                    }
+                }
+                if (type_map[type].ping > 0.0f)
+                    center += (n & 1) ? 8 : -8;
+                else if (type == 1)
+                    center += p == 2 ? 5 : p == 0 ? -3 : 0;
+                {
+                    const uint32_t h0 = vg_hash((uint32_t)((x + p * 11 + scroll_step) * 89));
+                    const uint32_t h1 = vg_hash((uint32_t)((x + p * 11 + scroll_step + 1) * 89));
+                    const float rough = ((float)(h0 % 23u) - 11.0f) * (1.0f - scroll_frac) +
+                                        ((float)(h1 % 23u) - 11.0f) * scroll_frac;
+                    const float smooth = 10.0f * vg_air_band((float)x + scroll, 4,
+                                                               (uint32_t)(903 + p * 197));
+                    const float sharp = type == 4 ? 0.98f : type == 0 ? 0.92f :
+                                        type == 2 ? 0.79f : type == 1 ? 0.64f : 0.30f;
+                    noise = rough * sharp + smooth * (1.0f - sharp);
+                }
+            }
+            {
+                const int amp = (int)(noise * env * (type == 4 ? 1.40f : 1.28f));
+                const int yy = vg_max(18, vg_min(56, center + amp));
+                uint16_t ink = vg_dim(VL_AIR, p == 2 ? 1.0f : 0.42f + 0.20f * (float)p);
+                if (drive > 0.0f && (p == 2 || (p == 1 && vg_abs(amp) > 6)))
+                    ink = driven_ink;
+                if (x > 10 && env > 0.0f)
+                    cv_line(px, py, x, yy, ink);
+                else if (x > 10 && pos >= 0 && p == 1 && (x % 3) == 0)
+                    cv_rect(x, center, 1, 1, vg_dim(VL_AIR, 0.24f));
+                if (type == 4 && env > 0.13f && (vg_hash((uint32_t)(x * 17 + p * 331)) & 7u) == 0u)
+                    cv_rect(x, vg_max(18, vg_min(56, yy + ((x & 1) ? 3 : -3))),
+                            1, 1, vg_dim(LK_WHITE, 0.78f)); /* granular flecks */
+                px = x; py = yy;
+            }
+        }
+    }
+    for (x = 18, n = 0; x <= 229; x += period, n++) {
+        const int mark = type == 2 ? ((n & 1) ? 48 : 22) : 21;
+        cv_rect(x, mark, 1, 4, type == 2 && (n & 1) ? LK_WHITE : VL_AIR);
+        cv_rect(x, 58, 1, 2, LK_LABEL);
+    }
+}
 static void vl_air(void)
 {
     const float repeats = vl_norm(P_DLY_REPEATS), wet_delay = vl_norm(P_DLY_MIX);
@@ -549,46 +657,10 @@ static void vl_air(void)
     const int hold = proj.par[P_REV_LEN] >= 100;
     const uint32_t now = plat_ms();
     const float scroll = vl_air_scroll(now);
-    const int scroll_step = (int)scroll;
-    const float scroll_frac = scroll - (float)scroll_step;
-    int x, p;
+    int x;
     cv_text(9, 1, &FONT_XS, "DELAY / ARRIVALS", LK_LABEL);
     cv_text(9, 64, &FONT_XS, hold ? "REVERB / HELD FIELD" : "REVERB / CODA", LK_LABEL);
-    /* Preserve the original rubber-band delay rendering. */
-    cv_rect(8, 37, 224, 1, LK_RULE);
-    for (x = 10; x <= 230; x += 22)
-        cv_rect(x, 17, 1, 40, LK_RULE);
-    for (p = 0; p < 3; p++) {
-        int px = 10, py = 37 + p * 2 - 2;
-        const float gain = 0.5f * (wet_delay + fm_sqrtf(wet_delay));
-        for (x = 10; x <= 230; x++) {
-            const uint32_t h0 = vg_hash((uint32_t)((x + p * 11 + scroll_step) * 89));
-            const uint32_t h1 = vg_hash((uint32_t)((x + p * 11 + scroll_step + 1) * 89));
-            const float noise = ((float)(h0 % 23u) - 11.0f) * (1.0f - scroll_frac) +
-                                ((float)(h1 % 23u) - 11.0f) * scroll_frac;
-            const int pos = x - 18;
-            float env = 0.0f;
-            if (pos >= 0) {
-                const int arrival = pos % period, nth = pos / period;
-                const float repeat_gain = 1.0f - (1.0f - repeats) *
-                    fm_clampf((float)nth * 0.18f, 0.0f, 1.0f);
-                if (arrival < 18)
-                    env = gain * (1.0f - (float)arrival / 18.0f) * repeat_gain;
-            }
-            {
-                const int amp = (int)(noise * env * 3.20f);
-                const int yy = 37 + p * 2 - 2 + vg_max(-16, vg_min(16, amp));
-                const uint16_t ink = (vg_abs(amp) >= 15 && drive > 0.72f) ?
-                                     LK_WHITE : vg_dim(VL_AIR, p == 2 ? 1.0f : 0.42f + 0.20f * (float)p);
-                cv_line(px, py, x, yy, ink);
-                px = x; py = yy;
-            }
-        }
-    }
-    for (x = 18; x <= 229; x += period) {
-        cv_rect(x, 21, 1, 4, VL_AIR);
-        cv_rect(x, 58, 1, 2, LK_LABEL);
-    }
+    vg_air_delay(wet_delay, repeats, drive, period, scroll, now);
     cv_rect(8, 94, 224, 1, LK_RULE);
     for (x = 10; x <= 230; x += 22)
         cv_rect(x, 77, 1, 35, LK_RULE);

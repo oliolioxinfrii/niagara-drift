@@ -1,6 +1,6 @@
 # Niagara Drift
 
-> **VOLCANO development branch:** `feature/volcano-subtractive-still-gestures` provides 16 pressure-independent gestures, independent per-drone STILL clocks, per-slot sequencer saving in user banks A–F, moving cursors on the Sequence and Intervals displays, and no SEL-held key-map overlay. Hold SEL to use its modifiers; the SAVE browser remains the way to choose user banks. This is a draft, not validated on hardware. See [Volcano behavior and QA](docs/volcano-subtractive-still.md). Earlier control maps below describe historical Niagara Drift versions, not this branch.
+> **VOLCANO development branch:** `feature/volcano-subtractive-still-gestures` provides 16 pressure-independent gestures, independent per-drone STILL clocks, per-slot sequencer saving in user banks A–F, moving cursors on the Sequence and Intervals displays, and no SEL-held key-map overlay. The SAVE browser now distinguishes **LOAD** (immediate editing/startup recall) from **TRANSITION** (Scene Time performance morph to a specified percentage). Hold SEL to use its modifiers; the SAVE browser remains the way to choose user banks. This is a draft, not validated on hardware. See [Volcano behavior and QA](docs/volcano-subtractive-still.md). Earlier control maps below describe historical Niagara Drift versions, not this branch.
 
 **A drone synth for the M-VAVE FM-1.**
 

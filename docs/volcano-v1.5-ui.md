@@ -36,41 +36,57 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 | LFO | Waves, Sends, Mods | Existing informative wave/route diagrams, recolored in the Deep Mantle family |
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained. Random Start now randomizes all active transition shapes, including the loop back to step 1 |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
-| FX | Space, Details | Unchanged delay-arrival waveform above a model-driven, three-layer reverb coda. Room, Hall, Cathedral, Chorus Hall and Shimmer now have characteristic onsets and motion. DAMP removes treble texture, LENGTH changes the compressed tail, Chorus Hall adds a counter-moving strand, and Shimmer introduces an octave-up halo with an eight-second wash. The 9.24-second forward/reverse loop and icy-blue palette remain |
+| FX | Space, Details | Model-driven delay and reverb seismographs with a continuous 9.24-second forward–reverse loop. Delay modes visibly distinguish Clean, Wide, Ping-pong, Tape, Grain, and Self; DRIVE adds reddish-orange to the post-delay trace. Reverb type changes onset and motion, while DAMP strongly removes high-frequency texture even at moderate MIX. Chorus Hall splits into modulated strands and Shimmer adds an eight-second halo; the icy-blue palette remains |
 | GLO | Setup 1, Setup 2 | Setup 1 gives yellow Fade (top), orange Morph (middle), and red Scene (lower third) distinct plateau heights on a common five-minute maximum Scene axis (or a longer maximum clock-synced span). Pixel-column strokes keep all three curves and their complete plateaus continuous at native and scaled display sizes. Setup 2 retains the same-sized centered planet, with animated L/R wavy orbits converging toward or diverging from a fixed external orbital reference as Stereo changes; the built-in speaker remains on KNOB 4 |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
 
-## FX reverb seismograph (model-driven, not FFT)
+## FX delay and reverb seismographs (model-driven, not FFT)
 
-The FX picture retains a seismographic layout within the 240 × 124-pixel
-picture strip. Only its **lower, reverb trace** has changed: the upper delay
-arrivals are unchanged. This is a **parameter-derived diagram**, not a
-measurement of the device's audible spectral output.
+Both traces are **illustrated control-response diagrams**, not actual audio
+FFT bins or measured stereo waveforms. The 240 × 124-pixel picture strip and
+9.24-second cosine-eased forward/reverse motion remain unchanged.
 
-The reverb types reuse their actual DSP profile values (mirrored here in
-the visualization): Room (4 ms predelay, 0.35 network size), Hall (18 ms,
-0.75), Cathedral (42 ms, 1.0), Chorus Hall (24 ms, 0.85 and much stronger
-modulation), and Shimmer (Hall geometry with an octave-up input). The left
-part of the trace resolves the early predelay and network buildup; the rest
-uses a compressed decay representation. This is intentionally not a single
-linear time scale, because milliseconds of predelay and seconds of reverb
-would otherwise be impossible to read together.
+- **Moderate MIX readability.** Delay and reverb trace amplitudes use a
+  fourth-root display response, so their structures remain legible at typical
+  15–50% wet settings without requiring a 100% reverb or delay mix. A dry
+  (0%) setting still draws no wet waveform; the gain is continuous at zero.
+- **Delay type.** The six response profiles mirror the DSP's delay-line ratio,
+  loop tone, wow, stereo ping-pong, grain and self-modulation. Clean shows
+  crisp, even repeats; Wide offsets and separates the stereo arrivals;
+  Ping-pong alternates upper and lower echoes; Tape shows smoother, slowly
+  warped returns; Grain has fragmented, high-rate flecks; and Self exhibits
+  larger, dynamically moving echo offsets. These drawings represent the
+  algorithms qualitatively rather than pretending to show measured echoes.
+- **DRIVE (reddish orange).** The audio path is dry sound + delay, then
+  saturation, then optional reverb send. A parallel line on the delay trace
+  progressively shifts from cyan toward reddish-orange as DRIVE grows;
+  an orange intensity bar stays visible even when the delay wet mix is zero,
+  because dry audio also passes through DRIVE. When the reverb route is
+  Both, the reverb's middle layer receives a more restrained warm tint.
+  Echoes-only and Drones-only routes bypass the driven signal for the
+  reverb send, so the lower trace remains blue.
+- **Reverb type and DAMP.** Room, Hall, Cathedral, Chorus Hall, and Shimmer
+  are differentiated using the actual reverb profile's predelay, network
+  size and line modulation. The left portion resolves early reflection
+  timing while the rest presents compressed decay. Slow dark-blue body,
+  midrange diffusion and icy fine detail are separately visible at moderate
+  MIX. Increasing DAMP suppresses fine detail *quadratically* and dims its
+  color, with progressively gentler effects on the midrange trace; the low
+  body remains. This maps the perceptual effect of the DSP low-pass rather
+  than simply reducing the whole waveform's height.
+- **Chorus Hall, Shimmer and Inf.** Chorus Hall adds a counter-moving strand,
+  reflecting its greater modulation and width. Shimmer's octave-up input is
+  shown by a second fine halo that washes in over approximately eight
+  seconds and out over six. At infinite LENGTH the DSP suspends damping,
+  and the visualization holds the tail accordingly.
 
-Three overlapping blue traces represent slow body, mid-frequency diffusion
-and treble detail. DAMP progressively removes the fine trace toward the tail
-while preserving the low-frequency body; at **Inf**, the DSP disables damping
-and the visual trace also holds without decay. Chorus Hall draws an additional,
-dim counter-moving strand corresponding to its larger delay-line modulation
-and stereo width. Shimmer gradually adds a finer icy-blue halo over roughly
-eight seconds and lets it recede over six seconds. This wash is estimated
-inside the display, not read from the actual audio-buffer level.
-
-All textures remain deterministic, use the existing FX blue ramp and
-follow the same cosine-eased 9.24-second forward/reverse scroll as before.
-No audio DSP, saved-state layout or parameter mapping has been changed.
-`tests/scenarios/fx-reverb-model.omni` records screenshots for all five
-types, maximum DAMP, and infinite hold; build and hardware frame-rate
-validation are still required.
+These changes are **UI-only**: no DSP coefficients, routing, stored scene
+data or audio processing have been modified. The parameter-derived visual
+mapping is documented for interpretation, not laboratory measurement.
+`tests/scenarios/fx-algorithm-contrast.omni` captures all six delay types,
+DRIVE routing and reverb DAMP at 35% MIX. The earlier
+`fx-reverb-model.omni` still covers reverb algorithms, Shimmer and Inf.
+Web build, visual review and hardware frame-rate tests remain outstanding.
 
 ## Control behavior
 

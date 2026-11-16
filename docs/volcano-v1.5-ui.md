@@ -52,7 +52,7 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
   dark-red-to-yellow halos and a matching gradient ruler around white text. The
   halo's interpolation stays in 24-bit RGB until it is converted to RGB565, so
   intermediate values no longer acquire a spurious green tint.
-- The splash screen retains its black-sky geological silhouette and runs for 7.8 seconds. Magma rises from the bottom conduit as white lettering fades in; after the eruption develops, the lettering fades completely out over the final 1.6 seconds before the screen closes. Any button can still skip the intro. No opaque text panels.
+- The skippable splash takes **14 seconds**, with an initially unlit, text-free volcano. Magma rises from the bottom after one second; the version line (`VOLCANO ` + build version) fades in during the ascent. The eruption starts at about 5.1 seconds, followed by the large `VOLCANO` title at about 6.3 seconds; the former `M-VAVE FM-1` subtitle is omitted. The version fades out from 8.75–10.75 seconds, and the title begins fading halfway through that interval (9.75–11.75 seconds). Finally, the complete geological illustration fades to the dark sky between 12 and 14 seconds before HOME appears. All text is alpha-blended into the artwork rather than dimmed toward black, and **any button/key still skips startup**.
 
 ## ENV visual mappings
 

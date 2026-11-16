@@ -1,0 +1,52 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+# Volcano: subtractive gestures and independent STILL clocks
+
+Status: **draft feature branch**, not validated on an FM-1. The v1.5 UI merge is the base; this change does not alter the main branch.
+
+## White-key map
+
+| Key | Drone I, keys 1–4 | Key | Drone II, keys 5–8 |
+|---|---|---|---|
+| 1 | STRIP | 5 | STRIP |
+| 2 | DARK | 6 | DARK |
+| 3 | STILL | 7 | STILL |
+| 4 | TAIL | 8 | TAIL |
+
+The remaining eight white keys keep the established gestures, in physical order: **9 Tick, 10 Chord, 11 Snarl, 12 Stutter, 13 Weight, 14 Shift, 15 Clean, 16 Wash**. On the sequencer's note-entry view, the lower keys remain note-entry keys rather than gestures. The legacy scene-pad test mode also retains its scene-key mapping.
+
+* **STRIP** reduces the partner, sub and noise contributions, leaving the main oscillator at full depth. The mixer crossfade shifts toward the main oscillator so the sub contribution is reduced.
+* **DARK** moves the effective X-WAVE output toward sine and reduces drive and Character harmonic generation. It does not add another filter.
+* **STILL** slows the LFO, Swell and sequencer *progression* for one drone, from normal speed at 0% to zero speed at 100%. Oscillator audio, effects, Drift, Wander and Age are not frozen.
+* **TAIL** scales the selected drone's contribution into the common dry/effect bus toward silence. Existing shared delay and reverb buffers continue ringing; tails cannot be separated by source after entering shared effects.
+
+These four depth values per drone are **session/performance state** in this first draft; unlike the existing eight gesture latches, they are not yet part of saved scenes.
+
+## Common key action
+
+All 16 gesture keys are independent of pressure/velocity. Holding a key increases the corresponding amount linearly, from its current value, at **100% per Morph Time** (the PRESETS encoder currently also adjusts Morph Time). The amount stops at 100%. Releasing a held key retains its exact amount; no second latch action or SEL modifier is required.
+
+A short tap of an already active, stationary key begins a linear return to zero; tapping during a return pauses it; tapping once more resumes the return. A press lasting longer than 220 ms resumes increasing from its present value. A short press from zero retains its new, possibly small, amount. Pressed keys use a short tap-recognition delay when they are already active to distinguish a new hold from a tap. The on-screen header reports a percentage at every stage, without a separate “latched” label.
+
+The existing eight gestures retain saved latches in `P_GL_0...P_GL_7`. Their motion-loop control events remain available. The PRESETS encoder's former separate Gesture Time control is replaced by access to the shared Morph Time setting in this draft; the existing `proj.mtime` field remains for backwards compatibility.
+
+## STILL clock model
+
+The common master clocks continue running. For each drone and each of the three systems (LFO, Swell, sequencer), the effective time is a *local clock* derived from the master plus an independently accumulated phase error. That means both drones may freeze simultaneously without referencing each other. Their programmed LFO rate, Swell rate, sequence timing, and phase settings remain unchanged.
+
+For a STILL depth `s` between zero and one, local speed is `(1-s)` times master speed while the key is held or stationary at a nonzero depth. Return to zero initiates cubic Hermite correction of the local-to-master phase error. Both the error and its time derivative reach zero by the time the gesture returns to zero. The elapsed correction duration is therefore proportional to the remaining STILL depth and uses Morph Time.
+
+Cubic phase catch-up may temporarily move *faster* than the master to make up a phase deficit; this draft does **not** implement an independent maximum catch-up speed. When a user pauses a return, the phase correction pauses as a new stationary offset. Master LFO resets preserve the audible local phase while STILL is active. Random LFO shapes require independent per-drone random history, implemented without audio buffers.
+
+The LFO wave/modulation screens, Swell graph and sequencer score show separate colored drone progress markers. They use the local clocks that control audio, not independent animation timers.
+
+## Verification before merging
+
+- Run `CC="cc -D_DEFAULT_SOURCE -Wl,--no-as-needed -lm" sh tests/run_tests.sh`, including the new `still_test`. Fix all regressions in legacy scenarios and render golden files.
+- Build the web emulator and compare the waveform displays against the sounds at 0%, 50% and 100% STILL; test both drones frozen simultaneously and independently returning.
+- Check rapid taps, repeated holds, pauses mid-return, 100% saturation and a very short Morph Time; verify program/scenes and Motion Loop behavior.
+- Check MIDI-clock sync and Swell-locked LFO restart while STILL holds and while rejoining; examine random LFO waveforms and sharp-step sequencing.
+- Record dry/wet WAVs and measure spectral changes for STRIP/DARK and effect tails for TAIL, including cross-FM and feedback.
+- Run `./build.sh`, `tools/budget.py` and hardware `tools/fm1_cpu.py`; ensure flash, .data+.bss, pool headroom and interrupt CPU budget are within FM-1 limits.
+- Check physical key debounce, latency, visual legibility and frame rate on the M-VAVE FM-1 before a merge.
+
+No firmware build, host suite, or hardware measurement has been completed by this change alone.

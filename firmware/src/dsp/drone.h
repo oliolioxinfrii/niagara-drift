@@ -279,7 +279,7 @@ void dr_panic(void);                           /* silence now, no fade */
 void dr_duck(int on);                          /* the output dips out (20 ms) or back (30 ms): around a flash write */
 void dr_lfo_reset(void);                       /* the LFO back to the start of its cycle (the DS-2's RESET) */
 /* Global transport shared by LFO I and II. STOP winds their phases and
- * both Swell envelopes back to zero at the current LFO rate, then pauses. */
+ * both Swell envelopes back to zero at the current LFO rate, then runs forward. */
 enum { DR_LFO_RUN, DR_LFO_PAUSE, DR_LFO_STOPPING };
 void dr_lfo_transport_set(int state);         /* command on the audio queue; not a saved preset parameter */
 extern volatile uint8_t dr_lfo_transport;     /* last command's running/paused/stopping state */

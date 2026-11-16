@@ -85,5 +85,10 @@ for s in tests/scenarios/*.omni; do
     mkdir -p "build/scenarios/$n"
     run "scenario-$n" build/host/omni_host "$s" "build/scenarios/$n"
 done
+# Intervals is static while the sequencer is stopped. Its first entry must
+# render the same pixels as a later entry, with no leftover Sequence traces.
+run seq-intervals-first-entry-display cmp -s \
+    build/scenarios/seq-intervals-first-entry/intervals-first.png \
+    build/scenarios/seq-intervals-first-entry/intervals-return.png
 [ $FAIL -eq 0 ] && echo "all tests passed" || echo "TESTS FAILED"
 exit $FAIL

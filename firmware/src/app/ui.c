@@ -2897,7 +2897,7 @@ void ui_init(void)
 #if defined(OM_HOST) && !defined(OM_WEB) && !defined(OM_SPLASH)
 #define SPLASH_MS 0u
 #else
-#define SPLASH_MS 3500u
+#define SPLASH_MS 5600u
 #endif
 static uint32_t sp_hash(uint32_t x)
 {
@@ -2915,6 +2915,15 @@ static int sp_rock_height(int x)
             return PY[j-1] + (PY[j] - PY[j-1]) * (x - PX[j-1]) / (PX[j] - PX[j-1]);
     return PY[11];
 }
+/* Fade the titles and magma together without introducing opaque panels. */
+static uint16_t sp_dim(uint16_t c, float amount)
+{
+    const float f = fm_clampf(amount, 0.0f, 1.0f);
+    const int r = (int)((float)((c >> 11) & 31u) * f);
+    const int g = (int)((float)((c >> 5) & 63u) * f);
+    const int b = (int)((float)(c & 31u) * f);
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
 static void draw_splash(uint32_t ms)
 {
     static const uint16_t BED[11] = {
@@ -2926,11 +2935,16 @@ static void draw_splash(uint32_t ms)
     const uint16_t SKY = RGB(7, 7, 9), DARK = RGB(111, 18, 25),
                    LAVA = RGB(255, 175, 45), SULFUR = RGB(255, 222, 80),
                    PAPER = RGB(255, 243, 227);
-    /* 3.5 s startup: vent lights, the plume grows, then incandescent
-     * ejecta appear. The geological silhouette and strata never move. */
-    const int drift = (int)((ms / 120u) % 9u);
-    const int ascent = (int)fm_minf(30.0f, (float)ms / 82.0f);
-    const int sparks = (int)fm_minf(18.0f, (float)ms / 170.0f);
+    /* 5.6 s: fade lettering and magma in together, ascend from the basal
+     * conduit, break through the vent, then develop a broad incandescent
+     * spray. The terrain silhouette and geological bands remain static. */
+    const float fade = fm_clampf((float)ms / 1800.0f, 0.0f, 1.0f);
+    const float travel = fm_clampf((float)ms / 3400.0f, 0.0f, 1.0f);
+    const int lava_front = 236 - (int)(134.0f * travel);
+    const uint32_t erupt_ms = ms > 3100u ? ms - 3100u : 0u;
+    const int ascent = (int)fm_minf(30.0f, (float)erupt_ms / 68.0f);
+    const int sparks = (int)fm_minf(38.0f, (float)erupt_ms / 58.0f);
+    const float drift = (float)(ms % 800u) / 800.0f;
     int half, band, i, j;
     for (half = 0; half < 2; half++) {
         const int y0 = 120 * half;
@@ -2975,61 +2989,79 @@ static void draw_splash(uint32_t ms)
                         (j % 5 == 0 ? BED[band < 10 ? band + 1 : 10] : DARK));
             }
         }
-        /* A steep, slightly wandering vent and incandescent fractured rock. */
-        for (band = 0; band < 5; band++) {
-            const int x = 111 + band * 2;
-            cv_line(x, 105 - y0, 116 + band + (band & 1 ? -4 : 2), 184 - y0,
-                    band % 3 == 0 ? SULFUR : band & 1 ? LAVA : BED[5]);
-            cv_line(116 + band, 184 - y0, 110 + 3 * band, 236 - y0,
-                    band == 2 ? SULFUR : BED[5]);
+        /* The magma starts at the bottom of the visible cross-section.
+         * Its advancing head travels upward; no static full-height lava
+         * stroke is visible before it reaches the summit. */
+        if (ms > 0u) {
+            for (i = 236; i > lava_front; i -= 2) {
+                const int y1 = i - 2 < lava_front ? lava_front : i - 2;
+                const int x0 = 118 + (int)(2.5f * fm_sinf((float)i * 0.078f));
+                const int x1 = 118 + (int)(2.5f * fm_sinf((float)y1 * 0.078f));
+                cv_line(x0 - 2, i - y0, x1 - 2, y1 - y0,
+                        sp_dim(BED[5], fade * 0.85f));
+                cv_line(x0, i - y0, x1, y1 - y0,
+                        sp_dim(SULFUR, fade));
+                cv_line(x0 + 2, i - y0, x1 + 2, y1 - y0,
+                        sp_dim(LAVA, fade * 0.90f));
+            }
+            if (travel > 0.0f)
+                cv_rect(116, lava_front - y0, 5, 2, sp_dim(PAPER, fade));
         }
-        /* Eruption grows upward across the startup interval. The plume is
-         * several interlocking strands, not a rigid translating triangle. */
-        for (band = 0; band < 11; band++) {
-            int px = 114 + band / 2, py = 103;
-            for (i = 1; i <= ascent; i++) {
-                const float t = (float)i / 30.0f;
-                const int x = 114 + band / 2 +
-                              (int)(29.0f * t * t +
-                              7.0f * fm_sinf((float)i * 0.39f + (float)band * 0.41f +
-                                             (float)drift * 0.16f));
-                const int y = 103 - (int)(108.0f * t);
-                const uint16_t ink = band % 5 == 0 ? SULFUR :
-                                     band & 1 ? DARK : RGB(252, 87, 35);
-                cv_line(px, py - y0, x, y - y0, ink);
-                px = x; py = y;
+        /* Eruption happens only after the conduit approaches the crater.
+         * The trailing strands undulate independently while growing. */
+        if (erupt_ms) {
+            for (band = 0; band < 13; band++) {
+                int px = 115 + band / 3, py = 103;
+                for (i = 1; i <= ascent; i++) {
+                    const float t = (float)i / 30.0f;
+                    const int x = 115 + band / 3 +
+                                  (int)(34.0f * t * t +
+                                  (5.0f + 3.0f * t) *
+                                  fm_sinf((float)i * 0.41f +
+                                          (float)band * 0.47f + drift * 4.0f));
+                    const int y = 103 - (int)(108.0f * t);
+                    const uint16_t ink = band % 6 == 0 ? SULFUR :
+                                         band % 3 == 0 ? LAVA : DARK;
+                    cv_line(px, py - y0, x, y - y0, ink);
+                    px = x; py = y;
+                }
+            }
+            /* Repeated births create a propagating spray rather than
+             * a static dust cloud. Particle sources are deterministic. */
+            for (i = 0; i < 340; i++) {
+                const uint32_t h = sp_hash((uint32_t)(i * 199u + 71u));
+                const uint32_t birth = (uint32_t)((i * 31) % 2250);
+                if (erupt_ms >= birth && erupt_ms - birth < 1450u) {
+                    const float age = (float)(erupt_ms - birth) / 1450.0f;
+                    const float vx = (float)((int)(h % 137u) - 68);
+                    const int x = 118 + (int)(vx * age +
+                             14.0f * fm_sinf(3.0f * age + (float)(h & 7u)));
+                    const int y = 99 - (int)(113.0f * age) +
+                                  (int)(16.0f * age * age);
+                    if (x > 0 && x < 239 && y >= 0 && y < 103) {
+                        const uint16_t ink = i % 13 == 0 ? PAPER :
+                                             i % 3 == 0 ? SULFUR : LAVA;
+                        cv_rect(x, y - y0, (h & 31u) == 0u ? 2 : 1, 1, ink);
+                    }
+                }
+            }
+            /* A few larger ejecta, distinct from the fine ash spray. */
+            for (i = 0; i < sparks; i++) {
+                const uint32_t h = sp_hash((uint32_t)(i * 137u + 31u));
+                const float u = (float)((erupt_ms + (uint32_t)(i * 91)) % 1200u) / 1200.0f;
+                const int x = 118 + (int)(((float)((int)(h % 115u) - 54)) * u);
+                const int y = 99 - (int)(96.0f * u) + (int)(20.0f * u * u);
+                if (x > 0 && x < 238 && y >= 0)
+                    cv_rect(x, y - y0, (h & 7u) == 0u ? 3 : 2, 2,
+                            i % 4 == 0 ? PAPER : SULFUR);
             }
         }
-        /* A deterministic moving particle field, progressively released
-         * upward. No RNG state, retained sprites, or audio-thread work. */
-        for (i = 0; i < (int)fm_minf(190.0f, (float)ms / 17.0f); i++) {
-            const uint32_t h = sp_hash((uint32_t)(i * 199 + 71));
-            const int flight = (int)((ms / 34u + (h >> 9) % 70u) % 112u);
-            const int y = 103 - flight;
-            const int x = 117 + (int)((h >> 15) % 66u) - 25 + flight / 5;
-            if (x > 0 && x < 240 && y < 103 && y >= 0 &&
-                flight <= ascent * 4 + 3)
-                cv_rect(x, y - y0, (h & 31u) == 0u ? 2 : 1, 1,
-                        i % 11 == 0 ? SULFUR : i % 3 ? DARK : LAVA);
-        }
-        /* Hot fragments arc from the vent once the eruption is established. */
-        for (i = 0; i < sparks; i++) {
-            const int x = 116 + ((i * 19) % 37) - 18 +
-                          (int)(6.0f * fm_sinf((float)ms * 0.004f + (float)i));
-            const int y = 97 - ((i * 17 + (int)(ms / 45u)) % 65);
-            cv_line(117, 102 - y0, x, y - y0,
-                    i % 3 == 0 ? SULFUR : LAVA);
-            cv_rect(x, y - y0, 2, 2, i % 4 == 0 ? PAPER : SULFUR);
-        }
-        /* The smaller legends have dark backing at constant positions so
-         * they remain readable even as the animated eruption crosses them. */
-        cv_rect(16, 87 - y0, 139, 18, SKY);
-        cv_rect(16, 86 - y0, 72, 1, SULFUR);
-        cv_rect(10, 207 - y0, 221, 24, SKY);
-        cv_rect(10, 207 - y0, 221, 1, DARK);
-        cv_text(18, 53 - y0, &FONT_L, "VOLCANO", PAPER);
-        cv_text(21, 90 - y0, &FONT_S, "M-VAVE FM-1", PAPER);
-        cv_text(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER);
+        /* White typography fades in concurrently with magma. Nothing
+         * obscures the lava or the film-grain texture with black boxes. */
+        const uint16_t lettering = sp_dim(PAPER, fade);
+        cv_text(18, 53 - y0, &FONT_L, "VOLCANO", lettering);
+        cv_text(21, 90 - y0, &FONT_S, "M-VAVE FM-1", lettering);
+        cv_text(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, lettering);
         cv_blit(0, (uint32_t)y0);
     }
 }

@@ -1,14 +1,31 @@
-# Niagara Drift
+# Volcano
 
 **A drone synthesizer for the M-VAVE FM-1.**
 
-Niagara Drift replaces the FM-1's stock sound engine with two continuously
-sounding drones that can be tuned, shaped, and set in motion. This custom
-fork includes the **VOLCANO v1.5** interface, with animated visualizations
-of the instrument's sound and controls.
+Volcano is a custom firmware based on [Niagara Drift](https://github.com/evanyerburgh/niagara-drift)
+by Evan Yerburgh, replacing the FM-1's stock sound engine with two drones
+that you can tune, shape, and set in motion.
 
-Niagara Drift was created by [Evan Yerburgh](https://github.com/evanyerburgh/niagara-drift).
-This repository is a custom fork, not an official upstream release.
+The inspiration for these changes came about while I was using Niagara Drift,
+which I want to give huge credit to—it's an amazing firmware. It immediately
+made me think of the score for *Fire of Love* (2022) by Nicolas Godin.
+It's an excellent documentary, which you should watch if you haven't!
+In particular, I was thinking of the piece "Acid Lake," with its beautiful,
+foreboding, and powerful drone sequence.
+
+That desire to create a sequence in the drones led me to modify (and visually
+change) the firmware into what it is now. The sequencer itself is much less
+traditional than what you'd find in a grid-style sequencer; instead, it
+allows up to four steps, each with individually controlled spacing and
+progression.
+
+This firmware, like Niagara Drift, is not intended to be an all-in-one
+instrument; it is already demanding enough on the FM-1! As such, to create
+the rest of the arrangements and elements from the soundtrack, I recommend
+connecting the FM-1 to another instrument or recording setup. You can do
+this with a 3.5 mm audio cable, or with USB-C for digital audio recording
+through a compatible host. If using USB-C, turn the built-in speaker off
+under **GLO → Setup 2 → Speaker**.
 
 ## Highlights
 
@@ -26,7 +43,7 @@ This repository is a custom fork, not an official upstream release.
   browser.
 - **Effects.** Stereo delay, reverb, drive, and feedback extend the drones
   from subtle movement to sustained textures.
-- **VOLCANO interface.** Geological, waveform, and orbital displays make
+- **Volcano interface.** Geological, waveform, and orbital displays make
   modulation, sound shaping, scene selection, and stereo settings visible.
 
 ## Getting started
@@ -34,7 +51,7 @@ This repository is a custom fork, not an official upstream release.
 The FM-1's buttons open groups of sound controls. Turn **SELECT** to move
 between pages in the current group; turn the four encoders above the
 buttons to change the displayed parameters. **SAVE** opens the scene
-browser. Hold **HOME** to view the VOLCANO activity atlas.
+browser. Hold **HOME** to view the Volcano activity atlas.
 
 For a complete explanation of the controls, see the
 [manual](docs/manual/index.md). Its
@@ -42,12 +59,12 @@ For a complete explanation of the controls, see the
 while [recipes](docs/manual/recipes/index.md) demonstrate ways to build
 sounds. Some legacy manual pages still describe controls that changed in
 v1.4/v1.5; consult [v1.4 controls](docs/v1.4-controls.md) and the
-[VOLCANO v1.5 specification](docs/volcano-v1.5-ui.md) for those changes
+[Volcano v1.5 specification](docs/volcano-v1.5-ui.md) for those changes
 until the manual is brought up to date.
 
 ## Installing
 
-**This fork does not currently provide a published firmware download.**
+**Volcano does not currently have a published firmware download.**
 Build the desired revision locally following [BUILDING.md](BUILDING.md).
 The resulting `build/omni.fwsc` package can be installed using
 [Slipway](https://discodave-glitch.github.io/slipway/app/) or the bundled
@@ -57,7 +74,7 @@ Installing custom firmware replaces the FM-1's stock firmware. Before
 installing, review the [backup, recovery, and troubleshooting
 instructions](docs/manual/help.md). The
 [upstream online emulator](https://evanyerburgh.github.io/niagara-drift/)
-runs the original project rather than this fork; instructions for building
+runs Niagara Drift rather than Volcano; instructions for building
 the local emulator are in [BUILDING.md](BUILDING.md).
 
 ## Documentation and development
@@ -65,11 +82,12 @@ the local emulator are in [BUILDING.md](BUILDING.md).
 - [Manual](docs/manual/index.md) — recipes, controls, shortcuts, and help
 - [Building and testing](BUILDING.md) — toolchain, simulator, emulator, and firmware
 - [Changelog](CHANGELOG.md) — release and development history
-- [Issues](https://github.com/oliolioxinfrii/niagara-drift/issues) — problems specific to this fork
+- [Issues](https://github.com/oliolioxinfrii/niagara-drift/issues) — problems specific to Volcano
 
 ## Credits and license
 
-Niagara Drift builds on work from
+Volcano is based on Niagara Drift by Evan Yerburgh. The underlying
+firmware draws on work from
 [Felucca](https://github.com/hugelton/Felucca),
 [X0X](https://github.com/charlesvestal/fm1-x0x),
 [FoMni](https://github.com/charlesvestal/fm1-fomni),
@@ -81,5 +99,5 @@ The original inspiration includes the Stylophone CPM DS-2,
 Moog Subharmonicon, and Soma Lyra-8.
 
 Licensed under GPL-3.0-only, except for the MPL-2.0 components identified
-in [LICENSING.md](LICENSING.md). Niagara Drift is not affiliated with or
+in [LICENSING.md](LICENSING.md). Volcano is not affiliated with or
 endorsed by M-VAVE or the makers of the instruments that inspired it.

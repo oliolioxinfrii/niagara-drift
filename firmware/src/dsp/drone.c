@@ -2904,7 +2904,10 @@ static void pulse_run(uint32_t n)
         swell_stop_local[0] <= 0.0f && swell_stop_local[1] <= 0.0f &&
         swell_stop_master <= 0.0f) {
         int g;
-        dr_lfo_transport = DR_LFO_PAUSE;
+        /* Rubber-band turnaround: on reaching zero, resume forward motion
+         * immediately, without an extra tap or a stationary hold. */
+        dr_lfo_transport = DR_LFO_RUN;
+        swell_transport_hold = 0;
         ph = 0.0f;
         for (g = 0; g < DR_NGROUPS; g++) {
             memset(&sub_clock[g][SUB_LFO], 0, sizeof(sub_clock[g][SUB_LFO]));

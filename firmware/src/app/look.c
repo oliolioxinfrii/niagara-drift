@@ -1831,15 +1831,18 @@ static void lk_pic_setup1(void)
      * maximum possible clock-synced scene span if that is longer.
      * Fade and Morph must NOT use their own 60s/30s maxima. */
     const float scene_max = dr_time_s(P_SCENE_T, 100);
+    /* dr_ext_spb stores samples per beat, not seconds. Four beats/bar. */
     const float clock_max = dr_ext_spb > 0.0f ?
-                            dr_ext_spb * (float)DR_BARS_N[DR_NBARS - 1] : 0.0f;
+                            dr_ext_spb * (4.0f / DR_SR) *
+                            (float)DR_BARS_N[DR_NBARS - 1] : 0.0f;
     const float domain = fm_maxf(scene_max, clock_max);
     int r, i;
     frac[0] = dr_time_s(P_FADE, proj.par[P_FADE]) / domain;
     frac[1] = dr_time_s(P_MORPH, proj.par[P_MORPH]) / domain;
     frac[2] = dr_ext_spb > 0.0f ?
-              dr_ext_spb * (float)DR_BARS_N[(unsigned)proj.par[P_SCENE_BARS] < DR_NBARS ?
-                                                     proj.par[P_SCENE_BARS] : DR_NBARS - 1] / domain :
+              dr_ext_spb * (4.0f / DR_SR) *
+              (float)DR_BARS_N[(unsigned)proj.par[P_SCENE_BARS] < DR_NBARS ?
+                                                    proj.par[P_SCENE_BARS] : DR_NBARS - 1] / domain :
               dr_time_s(P_SCENE_T, proj.par[P_SCENE_T]) / domain;
     for (r = 0; r < 3; r++)
         frac[r] = fm_clampf(frac[r], 0.0f, 1.0f);

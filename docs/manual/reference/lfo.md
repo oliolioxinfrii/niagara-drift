@@ -7,11 +7,11 @@ intro: One clock, two waves, each with a shape, level and bypass
 
 ## LFO
 
-Niagara Drift has two LFO waveforms (I and II) on a shared clock. Either waveform can be routed to either drone's pitch, X-Wave, cutoff or resonance.
+Volcano has two LFO waveforms (I and II) on a shared clock. Either waveform can be routed to either drone's pitch, X-Wave, cutoff or resonance.
 
 ## Controls
 
-- **SELECT** sets the shared LFO rate (or cycle division when following MIDI clock).
+- **Hold [[SEL]] and turn SELECT** to set the shared LFO rate (or cycle division when following MIDI clock).
 - **ALGORITHM** controls Movement, which scales the LFO sends together from 0% to 200%.
 - **Tap [[OCT-]]** or [[OCT+]] to advance LFO I or II to the next waveform. The Off entry is no longer part of the rotation.
 - **Hold [[OCT-]]** or [[OCT+]] for at least 400 ms to bypass or restore LFO I or II, preserving the shape and level.

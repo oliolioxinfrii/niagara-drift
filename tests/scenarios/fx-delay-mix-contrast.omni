@@ -1,0 +1,29 @@
+# Delay MIX visibility regression: preserve the algorithm's ping-pong
+# geometry while making both amplitude and brightness reflect wet mix.
+# DRIVE's indicator is unchanged and no type names appear inside graphs.
+notips
+page 15
+expect view 15
+set 94 2                      # Ping-pong
+set 61 67                     # Repeat: enough echoes for comparison
+set 98 0                      # Drive off
+set 63 65                     # Reverb remains present, independent of delay MIX
+set 62 0
+wait 200
+shot ping-mix-0.png
+set 62 12
+wait 200
+shot ping-mix-12.png
+set 62 52
+wait 200
+shot ping-mix-52.png
+set 62 100
+wait 200
+shot ping-mix-100.png
+set 98 63                     # Orange DRIVE gauge still has its own position
+wait 200
+shot ping-drive-gauge-no-type-labels.png
+page 16
+expect view 16
+wait 200
+shot details-no-type-labels.png

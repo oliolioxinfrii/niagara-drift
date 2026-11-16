@@ -6,6 +6,24 @@ pressure sensitivity, and factory preset recalls reset the RAM-only sequencer to
 The new drawings are composed at native **240 × 240 pixels** by the existing RGB565
 strip renderer; no photograph, full-screen framebuffer, or additional DSP layer is required.
 
+## Startup wordmark and LFO transport
+
+The 14-second geological startup animation is unchanged except for the
+**VOLCANO** wordmark: it now uses a rounded geometric **Comfortaa Bold**
+bitmap, generated at 34px with 4px of additional letter tracking (about
+50% more apparent space than the default setting). It is centered, vibrant
+red, and wherever a molten-red/orange/yellow plume pixel is behind a letter,
+the letter takes a contrasting color from the same red-to-yellow heat palette,
+not a literal RGB invert. Its independent fade remains intact. Only the seven
+letters of the logo are stored as a compact 2-bit bitmap; no full font file is
+required at runtime. Comfortaa is by Johan Aakerlund under SIL OFL 1.1.
+
+C#5 now uses CD-like global LFO transport: tap to pause/resume at the current
+phase, hold 500ms for a continuous rewind toward phase zero of both LFO
+waveforms and both Swell progressions at the LFO's rate, ending paused.
+The legacy LFO-to-Swell lock is retired; saved-sound parameter indices remain
+unchanged. See [Volcano transport details](volcano-subtractive-still.md).
+
 ## Design contract
 
 - Persistent near-black background and predominantly warm-white text.

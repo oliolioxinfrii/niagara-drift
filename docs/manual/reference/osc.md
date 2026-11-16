@@ -20,7 +20,7 @@ Each drone's waveform, its sub-oscillator and its drive.
 
 ## Osc
 
-<img class="shot" src="../../img/screen-osc.png" width="240" alt="The Osc page: each drone's waveform on the sine to square scale, and its pulse width">
+> **Screenshot needed — Osc:** `build/scenarios/volcano-ui/mantle-osc.png`.
 
 | Knob | What it does |
 |---|---|
@@ -29,7 +29,7 @@ Each drone's waveform, its sub-oscillator and its drive.
 
 ## Sub · Drive
 
-<img class="shot" src="../../img/screen-source.png" width="240" alt="The Sub · Drive page: each drone's osc and sub lanes, shaped by the drive, and its sub's octave">
+> **Screenshot needed — Sub · Drive:** `build/scenarios/volcano-ui/mantle-drive.png`.
 
 | Knob | What it does |
 |---|---|
@@ -41,7 +41,7 @@ Each drone's waveform, its sub-oscillator and its drive.
 
 A black key steps each drone's sub through octaves and subharmonics: [[G#3]] for drone I, [[G#4]] for drone II.
 
-<img src="../../img/black-keys-sub.png" width="560" alt="The black keys with the two sub keys picked out: G#3 for drone I, G#4 for drone II">
+> **Screenshot needed — Sub switches:** A v1.5 keyboard capture marking the two Sub keys.
 
 ## Good to know
 
@@ -50,5 +50,4 @@ A black key steps each drone's sub through octaves and subharmonics: [[G#3]] for
 - **The sub's octave** shows beside each drone's name ("-1 oct"): −1, −2, ⅓, ⅕, −3, −4.
 - **Sub waves:** Sine is the deepest on headphones and the least on a small speaker; Saw the brightest. A change
   glides.
-- **The pictures:** on Osc, each drone's wave; on Sub · Drive, each drone's osc and sub lanes, as loud as their share,
-  shaped by the drive.
+- **VOLCANO's Osc page** displays the waveforms and oscillator blends directly; **Sub · Drive** displays the oscillator/subharmonic proportions and drive response, using the Mantle palette.

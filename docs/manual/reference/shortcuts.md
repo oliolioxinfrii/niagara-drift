@@ -37,7 +37,7 @@ Every combination of keys, and every hold and tap, in one place.
 | hold [[ARP]] | toggle Swell on/off without changing pages |
 | tap [[ARP]] | open Swell page 1 or cycle between its two pages |
 | tap [[C#5]] (outside SEQ note-entry) | pause or resume both LFO waves at exactly their current phase; Swell continues independently |
-| hold [[C#5]] for 500 ms (outside SEQ note-entry) | stop the LFO by smoothly returning both LFO and Swell progressions to phase zero at the current LFO rate; remain paused until tapped |
+| hold [[C#5]] for 500 ms (outside SEQ note-entry) | rewind both LFO and Swell progressions smoothly to phase zero at the current LFO rate, then automatically resume forward motion |
 | tap [[OCT−]] or [[OCT+]] | select the next active waveform for LFO I or LFO II |
 | hold [[OCT−]] or [[OCT+]] for 400 ms | bypass or restore that LFO, retaining its waveform and level |
 | tap [[REC]] three times | record your moves, loop them, stop |

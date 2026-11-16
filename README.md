@@ -1,113 +1,115 @@
-# Niagara Drift
+# Niagara Drift · VOLCANO v1.5
 
-**A drone synth for the M-VAVE FM-1.**
+**A two-drone synthesizer for the M-VAVE FM-1.**
 
-> **VOLCANO v1.5 graphical preview branch:** `feature/volcano-v1.5-ui` keeps
-> the v1.4 engine and page controls while introducing the geological layer UI,
-> new wake screen, HOME-held activity atlas, and Orbit/Planet overlays.
-> See [the v1.5 UI specification](docs/volcano-v1.5-ui.md). This branch has not
-> yet been verified in the user's web emulator or on an FM-1; the screenshots
-> and some earlier release descriptions below still document Niagara Drift.
+VOLCANO v1.5 gives Niagara Drift a geological interface. The instrument's
+two always-on drones retain the v1.4 synthesis engine, modulation, sequencing,
+scenes, and effects; the display now shows the sound through animated volcanic
+strata, oscilloscopic and filter-response traces, ash and smoke, orbital scene
+navigation, and a planetary stereo display.
 
+This is a [custom fork](https://github.com/oliolioxinfrii/niagara-drift)
+of [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift),
+not an official upstream firmware release. This README describes
+[`feature/volcano-v1.5-ui`](https://github.com/oliolioxinfrii/niagara-drift/tree/feature/volcano-v1.5-ui).
+The v1.5 interface was subsequently merged into `main`; development and
+bug fixes may continue on other branches.
 
-> **Custom Niagara Drift fork (v1.3).** The `main` branch includes the tested
-> two-drone pitch sequencer alongside the expanded Swell, three-page LFO, keyboard
-> gestures, and UI improvements. This is **not** an official Niagara Drift release;
-> the original project is [evanyerburgh/niagara-drift](https://github.com/evanyerburgh/niagara-drift).
+![Illustrated VOLCANO v1.5 FM-1 navigation and control map](docs/img/panel-v15.svg)
 
-> **Experimental v1.4 branch:** This branch changes SELECT navigation, the
-> SAVE browser, per-segment sequencer curves, and per-slot scene naming. Keys 1–8 are
-> reserved (unassigned) outside SEQ note entry; the controls illustrated
-> below describe the stable **v1.3** layout. For the v1.4 control map,
-> including **SAVE = yes**, **HOME = back**, and **REC = rename** inside
-> the SAVE browser, see [v1.4 controls](docs/v1.4-controls.md).
-> **Not yet verified on hardware. Do not install until the host and web
-> emulator regression tests pass.**
+*VOLCANO v1.5 control map (illustration; the center display is a schematic
+geological atlas, not an emulator screenshot). The physical panel labels appear
+above each control, and its usual function appears below. Drone I is yellow;
+Drone II is lava red. White keys 1–8 are reserved on normal pages and enter
+notes on the sequencer's note-entry page; keys 9–16 control gestures.*
 
-Niagara Drift is open-source firmware that turns the M-VAVE
-FM-1 into a drone synthesizer: two always-on drones you tune, shape and move rather than play note by
-note.
+### Navigating VOLCANO
 
-![The FM-1 with what every control does in Niagara Drift written on it](docs/img/panel.png)
+- **SELECT encoder:** turn to cycle through pages within the active button's
+  page family. Hold **SEL** while turning SELECT to adjust the LFO rate.
+  Press a page button to open its family, then tap again to cycle its pages.
+- **HOME:** Drones and Pitch. Hold HOME for 400 ms to view the five-layer
+  activity atlas temporarily; release to return to the previous view.
+  **SEL + HOME** generates a randomized sound and sequencer.
+- **SAVE:** open the orbital scene browser. **KNOB 1** selects a bank,
+  **KNOB 2** a slot, **KNOB 3** Save / Load / Transition, and **KNOB 4**
+  the transition percentage. Press **SAVE** to confirm, **HOME** to go back,
+  and **REC** to rename a user slot. Presets cannot be overwritten.
+- **Page families:** ENV Life / Tone; EDIT Osc / Sub · Drive;
+  LFO Waves / Sends / Mods; SEQ Partner / Pitch moves / Sequence /
+  Intervals / Transitions; ARP Swell / Swell shape; FX Space / Details;
+  GLO Setup 1 / Setup 2.
+- **Keys:** the black keys control oscillator, filter, link, and LFO
+  functions (with context-sensitive LFO routing on the LFO pages).
+  The last eight white keys activate Tick, Chord, Snarl, Stutter,
+  Weight, Shift, Clean, and Wash. The first eight white keys are
+  not scene recall buttons in v1.5.
 
-*Your FM-1 with Niagara Drift installed: what each knob, button and key now does. Amber is drone I,
-teal drone II, lilac the LFO. The black keys are switches (lit = on; on the LFO pages they set the
-LFO's routing, and cross-mod lets drone I move drone II's filter, or the drones and their sound bend each other's pitch); white keys 1–8 hold scenes, in
-eight banks you pick with SEL and the gesture keys; keys 9–12 and the top four are gestures. The page buttons' pages, each tap the next: HOME
-Drones, Pitch · ENV Life, Tone · EDIT Osc, Sub · Drive · SEQ Partner, Pitch moves,
-Sequence, Intervals · LFO Waves, Sends, Mods · ARP Swell, Swell shape · FX Space, Details ·
-GLO Setup 1, 2, Speaker.*
+### Five layers of the interface
 
-**Status:** The v1.3 release-candidate firmware (`FM-1_8010300`) built successfully with the
-JieLi toolchain, passed the complete WSL host, OTA, and WebAssembly test suite, and was tested
-on a physical FM-1 in November 2026. Slight lag has been observed when Sequence, Swell, and
-LFO all run at very short timescales; its cause has not yet been profiled. The
-[creator's online emulator](https://evanyerburgh.github.io/niagara-drift/) runs upstream code,
-**not this fork**. For this exact source use the local web emulator
-(`sh web/emu/build.sh`, then `python3 -m http.server 8765 --directory build/emu`).
+The page colors identify *interface contexts*, not independent sound engines:
+**Atmosphere** (cyan: FX), **Surface** (sulfur yellow: HOME), **Crust**
+(orange: SEQ and ARP), **Mantle** (orange-red: EDIT and ENV), and
+**Deep Mantle** (red: LFO). SAVE uses a separate orbital memory browser;
+GLO includes time settings and the stereo-orbit planet.
+
+The activity atlas reflects effects, drone levels, rhythmic movement,
+feedback and drift, and LFO modulation. It is a visual representation
+of instrument state rather than a geophysical measurement.
+
+**Status:** The v1.5 UI was merged into `main` on November 16, 2026;
+the merge commit reports a successful host test suite and installation
+on a physical FM-1. The older [v1.5 design specification](docs/volcano-v1.5-ui.md)
+retains its pre-verification status text. Check the branch and commit you
+intend to build, particularly while subsequent fixes are in progress.
+The [upstream online emulator](https://evanyerburgh.github.io/niagara-drift/)
+runs the original project, **not this fork**. Build the local emulator with
+`sh web/emu/build.sh`, then serve `build/emu` to inspect this source.
 
 ## What it does
 
-- **16 Presets** to start from, each a different side of the instrument and each moving over a minute: Niagara,
-  Embers, Vespers, Dreamhouse, Abyss, Seance, Sonar and Sibyl on keys 1–8 of the Presets bank; Howl, Cistern, Piston,
-  Ashram, Telegraph, Tape, Falling and Bare on keys 1–8 of the second.
-- **Eight gestures**, each several settings moving together on top of your sound: **Weight**, **Shift**, **Clean** and
-  **Wash** on the top keys, in while you hold and out as slowly as you held; **Tick**, **Chord**, **Snarl** and
-  **Stutter** on keys 9–12, as deep as you press. Tap any of them in to stay.
-- **Scenes**: 8 on the white keys in each of six banks (48 of yours), plus the Presets' two, recalled gliding over the
-  Scene time, or **crossfaded into by pressing the key harder**; a **motion loop** that records your knob moves, gestures and scenes.
-- **It moves on its own**: the LFO, the Swell, **Drift**, **Wander** (drone II's slow random melody on a scale) and
-  **Age** (tape wear) keep it breathing without a hand on it.
-- **Two drones**, each a main oscillator that blends sine → triangle → saw → square (X-WAVE), a
-  partner oscillator at an interval (tempered or just) with detune, a sub one to four octaves down
-  (the lowest two click under a low drone) or a subharmonic (⅓, ⅕ of the pitch), and a white or pink noise, into its own self-oscillating
-  filter (low-, band- or high-pass) with drive. Pitch is free between notes, from 2 Hz to 1.6 kHz.
-- **Links** between them: pitch link, hard sync, and cross-mod: drone I's sound moving drone II's cutoff, or each
-  drone's sound bending the other's pitch (cross-FM, as on the Lyra-8).
-- **The Ultra LFO**, after the DS-2's: one rate, two waves of ten shapes each (one of them truly
-  random, two the Lyra-8's stepped AND and OR), routed to each drone's pitch or X-WAVE and cutoff or resonance, alone or summed. It can
-  move its own rate and lock to the Swell.
-- **Movement** (ALGORITHM): all the LFO's depths down or up together, from still to double.
-- **The Swell**: both drones breathing in time, from a slow soft swell to a hard rhythmic gate, with swing.
-- **Sequence**: a looping, keyboard-authored progression of 1–4 pitches per drone, with independent
-  event positions, linked-pitch behavior, a phase offset for drone II, and a proportional timing
-  display. Its pitch motion follows the programmed tuning; the loop can last up to four minutes.
-- **Effects**: a stereo delay of six types (Clean, Wide, Ping-pong, Tape, and the Lyra-8-like Grain and Self, whose
-  own echoes move their time; the LFO can warble it too), a drive
-  after it (the drones and their echoes distorted together, as on the Lyra-8), into a reverb of five (Room, Hall,
-  Cathedral, Chorus hall, Shimmer) whose length goes to Inf, a freeze.
-- **Feedback** (the finished sound fed back into the drones) and **Character** (clean to vintage).
-- **Drift**: the drones are never quite still; pitch, cutoff, timbre, level and detune slowly wander.
-- **Morph**: buttons and keys never jump: the sound moves to a new setting over a time you set.
+- **Two always-on drones:** each blends sine, triangle, saw, and square
+  oscillator shapes with a partner oscillator, sub oscillator or
+  subharmonic, noise, a resonant filter, and drive. Pitch is continuously
+  adjustable between notes.
+- **Motion and modulation:** independent drone controls, two LFO waveforms
+  with routing and depth, Swell envelopes, Drift, Wander, Age, pitch
+  linking, hard sync, and cross-modulation.
+- **Sixteen factory presets and 48 user scenes:** browse two immutable
+  preset banks and six writable user banks using SAVE. Each user scene
+  slot can have its own name. Load a scene, save a new one, or transition
+  partway toward it over the Scene time.
+- **Eight playable gestures:** Tick, Chord, Snarl, Stutter, Weight,
+  Shift, Clean, and Wash affect several parameters at once. The
+  first four respond to pressure; the latter four to holds and taps.
+- **Pitch sequencing:** one to four pitches per drone, independently
+  positioned events, drone II phase offset, and a separate Transitions
+  page for shaping the movement between pitches.
+- **Effects and feedback:** stereo delay, drive after the delay, reverb,
+  Feedback, Character, and a Motion Loop for recording and repeating
+  manual changes.
+- **VOLCANO visualizations:** volcanic strata on HOME, a plume and ash
+  observatory on ENV, warm oscillator and sequencer graphics, a
+  geological activity atlas on HOME hold, orbital scene navigation,
+  and planet/orbit stereo visualization on GLO.
 
+### Sequencing in v1.5
 
-### Sequencing in v1.3
+SEQ cycles through **Partner**, **Pitch moves**, **Sequence**,
+**Intervals**, and **Transitions**. The Sequence page edits up to
+four notes per drone. Intervals adjusts when events occur within
+the loop, and Transitions adjusts the shape of the four successive
+pitch changes (including the return to step 1).
 
-SEQ cycles through **Partner**, **Pitch moves**, **Sequence**, and **Intervals**:
-
-- **Sequence (page 3):** KNOB 1 selects the step; SEL + KNOB 1 retunes it on the selected
-  tuning grid; KNOB 2 selects drone I or II; KNOB 3 chooses 1–4 steps; KNOB 4 offsets drone
-  II's progression phase. Press a keyboard key on this page to enter and audition a note.
-  The animated amber and teal curves show the pitch paths; step 1 follows HOME → Pitch.
-- **Intervals (page 4):** KNOBs 1–3 move the arrival of steps 2–4, where those steps exist.
-  KNOB 4 scales the total loop length without changing the relative positions of the events.
-  Both drone timelines fill the display; drone II's markers reflect its phase offset.
-- **Transport:** SEL + PLAY starts, pauses, or resumes the pitch progression at its current
-  position, without changing the global audio level. Ordinary PLAY controls the instrument's
-  fade; the sequencer resets its pitch only after the global fade-out reaches silence.
-- **Random Start:** SEL + HOME randomizes the sound and a new 2–4-step sequence, including
-  the note pitches, step spacing, overall duration (20–240 seconds), and drone II phase.
-  Consecutive notes, including the loop return, differ by no more than one octave. Pitch
-  Lock and Pitch Link keep drone II coupled to drone I.
-
-The sequencer is kept in RAM, independently of scenes and the Motion Loop. Its notes and
-timing are not saved with a scene. The Speaker setting and improved waveform/ARP LED
-brightness from the earlier Swell/UI work are also included.
+**SEL + PLAY** controls pitch-sequencer transport without changing the
+global PLAY fade. **SEL + HOME** randomizes the working sound and
+sequence, including transition shapes. The sequencer is held in RAM;
+its notes and timing are not stored in scene slots.
 
 ## Installing this custom build
 
 This fork's installer package is built locally; the original creator's website and GitHub releases
-serve **their** firmware, not this fork. To build the exact source on `main` or a feature branch,
+serve **their** firmware, not this fork. To build the exact source on this branch,
 see [BUILDING.md](BUILDING.md):
 
 ```sh
@@ -115,11 +117,9 @@ see [BUILDING.md](BUILDING.md):
 tests/run_tests.sh
 ```
 
-The installable file is `build/omni.fwsc`; a versioned release-candidate build produces
-`build/niagara-drift-1.3-rc1.fwsc`. Keep a previously working package and a
-stock-firmware recovery route. The v1.3 candidate can be built and tested together using
-`sh tools/sequence_release_candidate.sh` (with the JieLi toolchain, AC79 SDK, and Emscripten
-available). To install on a physical FM-1, use
+The installable file is `build/omni.fwsc`. Keep a previously working package and a
+stock-firmware recovery route. For the firmware build you need the JieLi toolchain and AC79 SDK;
+see [BUILDING.md](BUILDING.md). To install on a physical FM-1, use
 [Slipway](https://discodave-glitch.github.io/slipway/app/) to select the local `.fwsc`
 package, or use the bundled CLI (`pip install mido python-rtmidi`):
 
@@ -169,8 +169,10 @@ tests/run_tests.sh      # the instrument, the platform pieces, the app in a simu
 ```
 
 `build/host/omni_host SCRIPT OUTDIR` runs the whole app on a computer from a script
-(`tests/scenarios/*.omni`), writing audio and screenshots. `python3 tools/make_screens.py` remakes the pictures of the pages
-above (`docs/img/page-*.png`) from `tests/scenarios/pages.omni`. The manual's pages are Markdown in `docs/manual`;
+(`tests/scenarios/*.omni`), writing audio and screenshots. `python3 tools/make_screens.py` regenerates the host-simulator page images
+(`docs/img/page-*.png`) from `tests/scenarios/pages.omni`. The v1.5
+control map at the top of this README is the separate, editable
+`docs/img/panel-v15.svg` illustration. The manual's pages are Markdown in `docs/manual`;
 `python3 tools/make_manual.py OUT` makes them into the site's pages (the emulator's build does), and
 `python3 tools/make_manual.py --renders` remakes each recipe's screens and sound from its script in
 `docs/manual/renders`.

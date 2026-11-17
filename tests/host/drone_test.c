@@ -2142,6 +2142,53 @@ int main(void)
         }
     }
 
+    {   /* Same two drones, four GHOST algorithms. Every mode must produce
+         * an objectively different output, not merely a changed UI label. */
+        static float mode_audio[DR_NGHOSTMODES][8192];
+        int m, k, separate = 1;
+        for (m = 0; m < DR_NGHOSTMODES; m++) {
+            dry_init();
+            dr_set(P_FADE, 0);
+            dr_set(P_DRIFT, 0);
+            dr_set(P_WIDTH, 0);
+            dr_set(P_PULSE, 1);
+            dr_set(P_PULSE_RATE, 65);
+            dr_set(P_PULSE_DEPTH, 90);
+            dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_DRIVE, 0);
+            dr_set(P_CHAR, 0);
+            for (k = 0; k < 2; k++) {
+                dr_set(DR_GP(k, GP_PARTNER), 0);
+                dr_set(DR_GP(k, GP_MIX), 0);
+                dr_set(DR_GP(k, GP_WAVE), 0);
+                dr_set(DR_GP(k, GP_RESO), 0);
+                dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                dr_set(DR_GP(k, GP_LEVEL), 80);
+            }
+            dr_set(DR_GP(0, GP_PITCH), 4100);
+            dr_set(DR_GP(1, GP_PITCH), 5900);
+            dr_set(P_GHOST, 100);
+            dr_ghost_mode_set(m);
+            dr_play(1);
+            run(secs(3.0f));
+            capture(mode_audio[m], 8192, 0);
+            separate &= dr_ghost_mode_get() == m;
+        }
+        for (m = 1; m < DR_NGHOSTMODES; m++) {
+            float delta = 0.0f;
+            for (k = 0; k < 8192; k++) {
+                float x = mode_audio[m][k] - mode_audio[0][k];
+                delta += x * x;
+            }
+            printf("    GHOST mode %d vs original, difference RMS %.6f\n",
+                   m, (double)sqrtf(delta / 8192.0f));
+            separate &= delta > 0.00001f;
+        }
+        check("GHOST four mode algorithms all change the audible output", separate);
+        dr_init();
+        check("GHOST mode resets to Original on startup", dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

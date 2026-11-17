@@ -5,9 +5,11 @@
 uint32_t plat_ms(void) { return fm1_ms; }
 uint32_t plat_us(void) { return MQ_NOW_US(); }
 
+/* UI input and note keys must come from the same scan snapshot. */
+static uint32_t look_keys;
 uint32_t plat_buttons(void)
 {
-    uint32_t raw = fm1_in.buttons, out = 0, i;
+    uint32_t raw = fm1_input_held(&look_keys), out = 0, i;
     for (i = 0; i < NB; i++)
         if (raw & (1u << panel.btn[i]))
             out |= 1u << i;
@@ -18,7 +20,7 @@ int plat_headphones(void) { return fm1_jack_phones(); }
 static volatile uint8_t fm1_speaker_muted;
 void plat_speaker_mute(int mute) { fm1_speaker_muted = (uint8_t)(mute != 0); }
 int plat_speaker_muted(void) { return fm1_speaker_muted != 0; }
-uint32_t plat_keys(void) { return fm1_in.notes & ((1u << NKEYS) - 1u); }
+uint32_t plat_keys(void) { return look_keys & ((1u << NKEYS) - 1u); }
 
 int32_t plat_enc(int role)
 {

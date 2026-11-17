@@ -3002,12 +3002,11 @@ static void clean_hold(float *l, float *r, uint32_t k)
 }
 
 /* ---------------------------------------------------------- GHOST ---
- * Four web-emulator tests. Original is the two-source cross-only cubic/
- * quadratic intermodulation; Sub/Octave shift that exact interaction,
- * and Spectral uses a selected-peak FFT analysis + additive product synthesis.
- * A shared moderate dynamic compressor evens each mode's level before
- * mixing with the untouched two parent drones and existing shared FX.
- * SEL+PRESETS selects a RAM-only mode; scene format unchanged.
+ * Three web-emulator comparative modes: original cubic/quadratic
+ * intermodulation, an excited damped modal body, and a cross-only
+ * two-dimensional wave terrain. New modes are independent alternatives
+ * to Original, not post-processing of its nonlinear output.
+ * SEL+PRESETS chooses a RAM-only mode. Parent voices and scenes unchanged.
  */
 typedef struct {
     float in[2][2], power[2], pair_dc, low_dc, out_lp;
@@ -3018,17 +3017,10 @@ static volatile uint8_t ghost_mode_req;         /* main loop -> audio render */
 static uint8_t ghost_mode_now, ghost_mode_prev;
 static float ghost_mode_fade = 1.0f;
 
-/* Overlap-add grain shifter: +12 and -12 semitones from one shared buffer.
- * Both are true time-scale-preserving resamplings, with potential grain
- * coloration. This 4096-float scratch buffer is simulator-only for now. */
-#define GH_OCT_GRAIN 2048u
-#define GH_OCT_RING 4096u
-static float ghost_oct_ring[GH_OCT_RING];
-static uint32_t ghost_oct_write, ghost_oct_phase;
-
-/* A separate browser-only STFT voice; the DSP unit is built by emcc using
- * drone.c alone, so this implementation is included as one translation unit. */
-#include "ghost_fft.c"
+/* Batch 1 modes use separate state, tuning and gain calibration.
+ * This browser-only module is included in the DSP's single C compilation
+ * unit, just as the previous FFT experiment was. */
+#include "ghost_batch1.c"
 /* One envelope follows the selected GHOST output across mode switches.
  * Attack ~16ms, release ~375ms at 44.1kHz. */
 static float ghost_comp_power;
@@ -3044,9 +3036,7 @@ static void ghost_clear(void)
 {
     dr_memset(&ghost, 0, sizeof ghost);
     ghost.gain = 1.0f;
-    dr_memset(ghost_oct_ring, 0, sizeof ghost_oct_ring);
-    ghost_oct_write = ghost_oct_phase = 0;
-    ghost_fft_reset();
+    ghost_batch1_reset();
     ghost_comp_power = 0.0f;
     ghost_mode_now = ghost_mode_prev = ghost_mode_req;
     ghost_mode_fade = 1.0f;
@@ -3093,31 +3083,6 @@ static void ghost_gain(uint32_t n)
     ghost.power[1] = fm_flush(ghost.power[1]);
     ghost.out_power = fm_flush(ghost.out_power);
 }
-static float ghost_down_read(uint32_t ph)
-{
-    /* Delay increases 0.5 sample per output, so the read head travels
-     * forward 0.5 sample per output. Interpolate odd half-sample positions. */
-    const uint32_t d = 512u + ph / 2u;
-    const float a = ghost_oct_ring[(ghost_oct_write - d) & (GH_OCT_RING - 1u)];
-    if (!(ph & 1u)) return a;
-    return 0.5f * (a + ghost_oct_ring[(ghost_oct_write - d - 1u) & (GH_OCT_RING - 1u)]);
-}
-static void ghost_pitch_pair(float x, float *up, float *down)
-{
-    /* For the +12 head, reading distance decreases one sample per output:
-     * source moves at 2x speed. For -12 it grows by 0.5: source at 0.5x.
-     * Hann windows at phases 0 and pi ensure smooth grain overlap. */
-    const uint32_t p = ghost_oct_phase;
-    const uint32_t q = (p + GH_OCT_GRAIN / 2u) & (GH_OCT_GRAIN - 1u);
-    const float w = 0.5f - 0.5f * fm_cosf(FM_TWO_PI * (float)p / (float)GH_OCT_GRAIN);
-    const float a = ghost_oct_ring[(ghost_oct_write - (128u + GH_OCT_GRAIN - p)) & (GH_OCT_RING - 1u)];
-    const float b = ghost_oct_ring[(ghost_oct_write - (128u + GH_OCT_GRAIN - q)) & (GH_OCT_RING - 1u)];
-    *up = w * a + (1.0f - w) * b;
-    *down = w * ghost_down_read(p) + (1.0f - w) * ghost_down_read(q);
-    ghost_oct_ring[ghost_oct_write] = x;
-    ghost_oct_write = (ghost_oct_write + 1u) & (GH_OCT_RING - 1u);
-    ghost_oct_phase = (ghost_oct_phase + 1u) & (GH_OCT_GRAIN - 1u);
-}
 static float ghost_compress(float x)
 {
     /* Mild upward levelling below -18.4dBFS and 2:1 downwards above.
@@ -3160,15 +3125,24 @@ static void ghost_run(uint32_t n)
         ghost_mode_now = ghost_mode_req;
         ghost_mode_fade = 0.0f;
     }
+    /* Retune modal resonances to the two performed drone pitches once
+     * per audio block. The low-rate change is intentional: this is an
+     * acoustically resonant object, not a separate sequenced oscillator. */
+    ghost_body_tune();
     for (j = 0; j < n; j++) {
-        const float u = xbuf[j] * pgain[0][j] * t0, v = ybuf[j] * pgain[1][j] * t1;
-        const float full = ghost_signal(u, v);
-        float up, down, modes[DR_NGHOSTMODES], out;
-        ghost_pitch_pair(full, &up, &down);
-        modes[DR_GHOST_ORIGINAL] = full;
-        modes[DR_GHOST_SUB] = down;
-        modes[DR_GHOST_OCTAVE] = up;
-        modes[DR_GHOST_SPECTRAL] = ghost_fft_sample(u, v);
+        const float u = xbuf[j] * pgain[0][j] * t0;
+        const float v = ybuf[j] * pgain[1][j] * t1;
+        const float original = ghost_signal(u, v);
+        /* Both experiments use only the filtered copies of the original
+         * audible drones, never Original's already intermodulated output. */
+        const float uu = ghost.in[0][1], vv = ghost.in[1][1];
+        const float body = ghost_body_sample(uu, vv);
+        const float terrain = ghost_terrain_sample(uu, vv);
+        float modes[DR_NGHOSTMODES], out;
+        ghost_batch1_levels(body, terrain);
+        modes[DR_GHOST_ORIGINAL] = original;
+        modes[DR_GHOST_BODY] = ghost_batch1_level(body, 0u);
+        modes[DR_GHOST_TERRAIN] = ghost_batch1_level(terrain, 1u);
         out = modes[ghost_mode_now];
         if (ghost_mode_fade < 1.0f) {
             ghost_mode_fade = fm_minf(ghost_mode_fade + 1.0f / (0.08f * DR_SR), 1.0f);
@@ -3179,6 +3153,7 @@ static void ghost_run(uint32_t n)
         mixr[j] += out;
     }
     ghost_gain(n);
+    ghost_batch1_gain_update(n);
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 

@@ -8,7 +8,7 @@
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
  *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   GHOST level (SEL+ALGORITHM: MOVEMENT)
- *   PRESETS        MORPH TIME: gesture depth and clock return timing
+ *   PRESETS        MORPH TIME: gesture depth and clock return timing; SEL+PRESETS cycles GHOST tests
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
  *   MASTER         volume      SAVE   saves
@@ -2536,8 +2536,23 @@ static void input(void)
             global_turn(EN_ALGO, P_GHOST, "GHOST", e);
         }
     }
-    if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */
-        global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
+    if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: experimental GHOST type */
+        if (ui.btn >> B_SEL & 1u) {
+            static const char *const GMODE[DR_NGHOSTMODES] = {
+                "ORIGINAL", "UPPER", "SUSTAINED", "OCTAVE MIX"
+            };
+            int m = (dr_ghost_mode_get() + (int)(e % DR_NGHOSTMODES) + DR_NGHOSTMODES) % DR_NGHOSTMODES;
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            dr_ghost_mode_set(m);
+            scopy(ui.glab[0], "GHOST TYPE");
+            scopy(ui.glab[1], GMODE[m]);
+            ui.glab_until = plat_ms() + 1500u;
+            ui.act_t = plat_ms();
+        } else {
+            global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
+        }
+    }
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
             const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;

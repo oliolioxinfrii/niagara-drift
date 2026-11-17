@@ -102,6 +102,31 @@ If the experimental build exceeds the RAM-code region, use the default settings.
 The browser emulator and host tests do not measure FM-1 instruction-cache speed;
 verify DSP headroom on physical hardware after a successful firmware build.
 
+### Frasil-inspired kernel experiments
+
+The headroom development branch has independent DSP alternatives informed by Frasil
+(Styves Goupil). The original Volcano equations and an unoptimized fallback remain
+available; Frasil source code has **not** been copied. The default host/firmware
+source enables staged colour-noise rendering, stable-mode filter output paths,
+and BLEP-free runs between oscillator edges. Recursive sine generators and
+dynamic voice shedding have **not** been transplanted.
+
+| Switch | Default | Effect |
+| --- | --- | --- |
+| `OM_NOISE_CHUNK` | 1 | Generate the coloured noise in 16-sample chunks before the main oscillator/filter loop, reducing register pressure |
+| `OM_FILTER_SPECIALIZE` | 1 | Output only the active LP/BP/HP filter response once a mode morph is complete |
+| `OM_OSC_RUNS` | 1 | Omit polyBLEP evaluation only in provably edge-free 16-sample oscillator runs (never with audio-rate FM, SNARL or hard sync) |
+| `OM_BLEP_RECIP` | 0 | Experimental reuse of `1/dt` at stable edge-bearing ticks, after changing division to multiplication; may differ by float ULPs |
+
+Use `OM_NOISE_CHUNK=0 OM_FILTER_SPECIALIZE=0 OM_OSC_RUNS=0 ./build.sh` to
+restore the reference audio path for FM-1 timing comparisons, or disable one
+switch at a time to isolate its contribution. The compiler and linker still
+enforce the 32 KiB RAM-code budget. To compare host-generated WAV outputs,
+run `python3 tools/dsp_compare.py`. It checks the byte-for-byte output of
+every listening scene against the reference path. Any differences should
+be investigated before deploying a new firmware build.
+
+
 
 The build also generates `build/gen/` (the font). It fails if a soft-double routine is linked
 (a `double` crept in) and checks the image, RAM and pool sizes.

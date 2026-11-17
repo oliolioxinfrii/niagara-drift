@@ -1,5 +1,6 @@
 # Volcano: the former pressure-sensitive keys now use hold duration only.
 notips
+set 70 0
 set 52 0
 tap PLAY
 wait 100

@@ -3004,7 +3004,7 @@ static void clean_hold(float *l, float *r, uint32_t k)
 /* ---------------------------------------------------------- GHOST ---
  * Four web-emulator tests. Original is the two-source cross-only cubic/
  * quadratic intermodulation; Sub/Octave shift that exact interaction,
- * and Difference isolates its low-frequency quadratic interaction.
+ * and Spectral uses a selected-peak FFT analysis + additive product synthesis.
  * A shared moderate dynamic compressor evens each mode's level before
  * mixing with the untouched two parent drones and existing shared FX.
  * SEL+PRESETS selects a RAM-only mode; scene format unchanged.
@@ -3026,9 +3026,9 @@ static float ghost_mode_fade = 1.0f;
 static float ghost_oct_ring[GH_OCT_RING];
 static uint32_t ghost_oct_write, ghost_oct_phase;
 
-/* Difference-only mode is deliberately sparse and bass-focused, unlike
- * Original's broad cubic products. No additional oscillator is involved. */
-static float ghost_diff_lp[2], ghost_diff_dc;
+/* A separate browser-only STFT voice; the DSP unit is built by emcc using
+ * drone.c alone, so this implementation is included as one translation unit. */
+#include "ghost_fft.c"
 /* One envelope follows the selected GHOST output across mode switches.
  * Attack ~16ms, release ~375ms at 44.1kHz. */
 static float ghost_comp_power;
@@ -3046,7 +3046,7 @@ static void ghost_clear(void)
     ghost.gain = 1.0f;
     dr_memset(ghost_oct_ring, 0, sizeof ghost_oct_ring);
     ghost_oct_write = ghost_oct_phase = 0;
-    ghost_diff_lp[0] = ghost_diff_lp[1] = ghost_diff_dc = 0.0f;
+    ghost_fft_reset();
     ghost_comp_power = 0.0f;
     ghost_mode_now = ghost_mode_prev = ghost_mode_req;
     ghost_mode_fade = 1.0f;
@@ -3118,19 +3118,6 @@ static void ghost_pitch_pair(float x, float *up, float *down)
     ghost_oct_write = (ghost_oct_write + 1u) & (GH_OCT_RING - 1u);
     ghost_oct_phase = (ghost_oct_phase + 1u) & (GH_OCT_GRAIN - 1u);
 }
-static float ghost_difference(void)
-{
-    /* The difference tone does not require tracking oscillator pitches.
-     * Multiplying the two band-limited post-filter waveforms yields
-     * sum and difference products. Two ~245Hz low-pass poles isolate
-     * the lowest interactions; a slow DC remover rejects zero offset.
-     * Unlike Original this has NO cubic spectral expansion. */
-    const float xy = ghost.in[0][1] * ghost.in[1][1];
-    ghost_diff_lp[0] += 0.035f * (xy - ghost_diff_lp[0]);
-    ghost_diff_lp[1] += 0.035f * (ghost_diff_lp[0] - ghost_diff_lp[1]);
-    ghost_diff_dc += 0.00020f * (ghost_diff_lp[1] - ghost_diff_dc);
-    return fm_clampf(7.0f * (ghost_diff_lp[1] - ghost_diff_dc), -0.75f, 0.75f);
-}
 static float ghost_compress(float x)
 {
     /* Mild upward levelling below -18.4dBFS and 2:1 downwards above.
@@ -3181,7 +3168,7 @@ static void ghost_run(uint32_t n)
         modes[DR_GHOST_ORIGINAL] = full;
         modes[DR_GHOST_SUB] = down;
         modes[DR_GHOST_OCTAVE] = up;
-        modes[DR_GHOST_DIFFERENCE] = ghost_difference();
+        modes[DR_GHOST_SPECTRAL] = ghost_fft_sample(u, v);
         out = modes[ghost_mode_now];
         if (ghost_mode_fade < 1.0f) {
             ghost_mode_fade = fm_minf(ghost_mode_fade + 1.0f / (0.08f * DR_SR), 1.0f);
@@ -3192,9 +3179,6 @@ static void ghost_run(uint32_t n)
         mixr[j] += out;
     }
     ghost_gain(n);
-    ghost_diff_lp[0] = fm_flush(ghost_diff_lp[0]);
-    ghost_diff_lp[1] = fm_flush(ghost_diff_lp[1]);
-    ghost_diff_dc = fm_flush(ghost_diff_dc);
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 

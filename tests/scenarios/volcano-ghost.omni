@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# GHOST modes: PRESETS Morph unchanged; SEL+PRESETS cycles four transient test calculations.
+# GHOST modes: PRESETS Morph unchanged; SEL+PRESETS cycles three transient test calculations.
 notips
 expect par112 0
 expect par75 50
@@ -13,15 +13,13 @@ expect ghostmode 1
 spin PRESET 1
 expect ghostmode 2
 spin PRESET 1
-expect ghostmode 3
-spin PRESET 1
 expect ghostmode 0
 spin PRESET -1
-expect ghostmode 3
-spin PRESET -4
 expect ghostmode 2
+spin PRESET -4
+expect ghostmode 1
 spin PRESET 8
-expect ghostmode 3
+expect ghostmode 2
 release SEL
 spin ALGO 25
 expect par112 25

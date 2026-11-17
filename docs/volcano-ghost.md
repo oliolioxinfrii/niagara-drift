@@ -19,6 +19,23 @@ sequencer, scenes and existing UI behavior remain unchanged.
 - The GHOST source is derived from the two *audible post-filter drones*
   including their Swell and TAIL attenuation. No independent drone oscillator,
   note track, sequencer, pitch knob or output effect is introduced.
+- **SEL + white Key 1 (F3)** toggles **GHOST ONLY** / **FULL MIX** as a
+  temporary emulator listening diagnostic (not a stored project parameter).
+  GHOST ONLY scales **only the already generated parent-drone contributions**
+  to the stereo output mix to zero over ~12 ms, then adds the unchanged GHOST
+  signal. Parent oscillators, filtered audio sent to GHOST, pitch sequencer,
+  Swell, modulation, and TAIL still run. On switching back, the normal mix
+  fades back over ~12 ms. The shortcut takes precedence over white Key 1's
+  usual STRIP I gesture when SEL is held; it does not modify that gesture.
+  The sequencer's note-entry page retains its own keyboard behavior, and
+  this diagnostic shortcut is unavailable there. Restarting resets to
+  FULL MIX. If GHOST level is zero, GHOST ONLY intentionally gives silence.
+- **Shared FX caveat:** GHOST ONLY removes direct parent input *before* the
+  existing shared effects. Previously generated parent delay/reverb tails
+  will take time to disappear; this is not a separate GHOST effects bus.
+  With global FEEDBACK active, the changed output mix can also affect the
+  feedback signal returned to the parent engine. For a controlled comparison,
+  disable FEEDBACK and, if necessary, lower common FX or allow tails to decay.
 
 ## Batch 1: comparison modes
 
@@ -73,6 +90,25 @@ This is deliberately different from using an ordinary waveshaper on
 A 1-pole low-pass and slow DC remover shape the output.
 This mode has no independent generator or preset sequence.
 
+## Wave Terrain computational cost (not yet benchmarked)
+
+Wave Terrain evaluates `F(x,y)`, `F(x,0)`, and `F(0,y)` once per audio
+sample. Each surface evaluation contains two sine calls and one cosine call,
+so **nine trigonometric fastmath calls per sample** plus two `tanh` calls
+for the input coordinates. At 44.1 kHz, this is approximately **396,900
+sine/cosine calls + 88,200 tanh calls per second**, excluding arithmetic,
+filtering, level calibration, and common compression. Each individual
+trigonometric implementation uses `fastmath.h` approximations rather than
+external `libm`, so a function-call count is **not** a CPU percentage or
+instruction count.
+
+The current experimental render loop computes all three modes even when
+only one is selected. Resonant Body additionally updates eight complex
+resonators every sample, while its pitch-dependent trigonometric
+coefficients are recalculated only once per 256-sample audio block. No
+hardware CPU or RAM budget has been measured for Batch 1. This is
+deliberate: browser listening comes before code optimization.
+
 ## Listening protocol and validation
 
 Use the *same* drone parameters and GHOST amount when comparing modes. Start
@@ -86,7 +122,9 @@ to an identically initialized GHOST-off control, not merely to Original. It
 checks a minimum measured difference-RMS, distinct mode outputs, the
 dependency on both parents, and resetting to Original. The browser scenario
 `tests/scenarios/volcano-ghost.omni` checks mode cycling and existing
-knob mappings. Numerical amplitude checks are not perceptual listening tests.
+knob mappings. The host regression additionally checks GHOST-only output
+monitoring by comparing full mix, parents removed with GHOST zero, and
+GHOST-only with Wave Terrain active. Numerical amplitude checks are not perceptual listening tests.
 
 **Status:** source integration and test cases committed, but the latest
 revision has **not yet been compiled or validated by the existing host test

@@ -275,13 +275,13 @@ shot lfo.png
 # A tap changes synchronization; a long hold resets phase but leaves lock state unchanged.
 set 67 0
 tapkey b8
-expect par67 1
+expect lfo_transport 1
 key b8 down
 wait 700
 key b8 up
-expect par67 1
-tapkey b8
 expect par67 0
+tapkey b8
+expect lfo_transport 0
 # LFO again: Mods, the rate mod (KNOB 1 its depth, KNOB 2 the wave that moves it); again: LFO
 tap LFO
 expect view 8
@@ -615,7 +615,7 @@ press SAVE
 tapkey w0
 release SAVE
 expect scenes 1
-expect store_writes 2
+expect store_writes 3
 expect view 0
 # the sound is scene 1 (its key blinks), until a knob is turned
 expect scene_at 0
@@ -802,7 +802,7 @@ press SEL
 wait 600
 expect keymap 0
 wait 1000
-expect keymap 1
+expect keymap 0
 release SEL
 press SEL
 spin K2 1

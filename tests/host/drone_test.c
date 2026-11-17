@@ -2142,7 +2142,7 @@ int main(void)
         }
     }
 
-    {   /* Batch 1: each mode must yield its own audible relational signal.
+    {   /* Batch 1 + 2: each mode must yield its own audible relational signal.
          * Compare against a bit-identically initialized GHOST-off control,
          * not just against Original (silence also differs from Original).
          * Then turn drone II off, verify no spurious GHOST excitation. */
@@ -2187,7 +2187,7 @@ int main(void)
                 }
             }
             const float effect_rms = sqrtf(effect / 8192.0f);
-            printf("    GHOST Batch 1 mode %d effect RMS %.6f (%5.1f %% of dry)\n",
+            printf("    GHOST mode %d effect RMS %.6f (%5.1f %% of dry)\n",
                    m, (double)effect_rms,
                    (double)(100.0f * effect_rms/(dry_rms+1e-9f)));
             /* Strong enough to measure as a real contributor and not just
@@ -2226,14 +2226,14 @@ int main(void)
                     const float d = one_parent[1][k] - one_parent[0][k];
                     absent += d*d;
                 }
-                printf("    GHOST Batch 1 mode %d one-parent RMS %.8f\n",
+                printf("    GHOST mode %d one-parent RMS %.8f\n",
                        m, (double)sqrtf(absent/8192.0f));
                 dependent &= absent < 1e-7f;
             }
         }
-        check("GHOST all Batch 1 modes measurably present at 100", audible);
-        check("GHOST Batch 1 modes independently affect sound", independent);
-        check("GHOST all Batch 1 modes require BOTH drones", dependent);
+        check("GHOST all five modes measurably present at 100", audible);
+        check("GHOST five algorithms independently affect sound", independent);
+        check("GHOST all five modes require BOTH drones", dependent);
         dr_init();
         check("GHOST mode resets to Original on startup",
               dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
@@ -2308,6 +2308,41 @@ int main(void)
         dr_init();
         check("GHOST output monitoring does not persist after restart",
               !dr_ghost_monitor_get() && !dr_ghost_mute_get());
+    }
+
+    {   /* Resonant Body level still has a true zero, and 100 produces
+         * more output than 50 after the gain-boost change. In both cases
+         * the drones remain active but are removed from the audible mix. */
+        float levels[3];
+        int m, k;
+        for (m = 0; m < 3; ++m) {
+            dry_init();
+            dr_set(P_FADE, 0); dr_set(P_DRIFT, 0); dr_set(P_WIDTH, 0);
+            dr_set(P_PULSE, 0); dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_DRIVE, 0); dr_set(P_CHAR, 0);
+            for (k = 0; k < 2; ++k) {
+                dr_set(DR_GP(k, GP_PARTNER), 0);
+                dr_set(DR_GP(k, GP_MIX), 0);
+                dr_set(DR_GP(k, GP_WAVE), 0);
+                dr_set(DR_GP(k, GP_RESO), 0);
+                dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                dr_set(DR_GP(k, GP_LEVEL), 80);
+            }
+            dr_set(DR_GP(0, GP_PITCH), 4100);
+            dr_set(DR_GP(1, GP_PITCH), 5900);
+            dr_set(P_GHOST, m == 0 ? 0 : m == 1 ? 50 : 100);
+            dr_ghost_mode_set(DR_GHOST_BODY);
+            dr_ghost_monitor_set(1);
+            dr_play(1);
+            run(secs(3.0f));
+            levels[m] = rms();
+        }
+        printf("    Resonant Body GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\\n",
+               (double)levels[0], (double)levels[1], (double)levels[2]);
+        check("Resonant Body remains silent at zero and grows toward 100",
+              levels[0] < 0.000001f &&
+              levels[1] > 0.0005f &&
+              levels[2] > 1.25f * levels[1]);
     }
 
     check("output finite throughout", finite_ok);

@@ -2239,13 +2239,13 @@ int main(void)
               dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
     }
 
-    {   /* Temporary direct-parent output monitor must not mute the sources
-         * that drive GHOST. Test both ghost-only silence at GHOST=0 and
-         * audible ghost-only output at GHOST>0. */
-        static float rendered[3][8192];
+    {   /* Complementary GHOST output monitors: both drones must continue
+         * playing. Only their stereo contribution or GHOST's is removed.
+         * GHOST amount is unchanged when its output is muted. */
+        static float rendered[6][8192];
+        float level[6];
         int m, k;
-        float level[3];
-        for (m = 0; m < 3; ++m) {
+        for (m = 0; m < 6; ++m) {
             dry_init();
             dr_set(P_FADE, 0);
             dr_set(P_DRIFT, 0);
@@ -2264,27 +2264,50 @@ int main(void)
             }
             dr_set(DR_GP(0, GP_PITCH), 4100);
             dr_set(DR_GP(1, GP_PITCH), 5900);
-            dr_set(P_GHOST, m == 2 ? 75 : 0);
+            dr_set(P_GHOST, m < 2 ? 0 : 75);
             dr_ghost_mode_set(DR_GHOST_TERRAIN);
-            check("GHOST monitor resets off on initialization",
-                  dr_ghost_monitor_get() == 0);
-            dr_ghost_monitor_set(m != 0);
-            check("GHOST monitor getter reflects requested mix",
-                  dr_ghost_monitor_get() == (m != 0));
+            check("GHOST monitors reset off on initialization",
+                  !dr_ghost_monitor_get() && !dr_ghost_mute_get());
+            /* 0: dry full, 1: parents removed / GHOST 0,
+             * 2: GHOST alone, 3: both removed,
+             * 4: parents alone with GHOST level still 75,
+             * 5: full sound with GHOST level 75. */
+            dr_ghost_monitor_set(m == 1 || m == 2 || m == 3);
+            dr_ghost_mute_set(m == 3 || m == 4);
+            check("GHOST monitor getters track independent output gates",
+                  dr_ghost_monitor_get() == (m == 1 || m == 2 || m == 3) &&
+                  dr_ghost_mute_get() == (m == 3 || m == 4));
             dr_play(1);
             run(secs(2.0f));
             capture(rendered[m], 8192, 0);
             level[m] = rms_of(rendered[m], 8192);
         }
-        printf("    GHOST monitor full / muted-source / ghost-only RMS: %.7f / %.7f / %.7f\n",
-               (double)level[0], (double)level[1], (double)level[2]);
-        check("GHOST-only monitor suppresses parents without muting their generation",
-              level[0] > 0.01f &&
-              level[1] < 0.000001f &&
-              level[2] > 0.002f);
+        {
+            float difference_dry = 0.0f, difference_ghost = 0.0f;
+            for (k = 0; k < 8192; ++k) {
+                const float dry = rendered[4][k] - rendered[0][k];
+                const float ghost = rendered[5][k] - rendered[4][k];
+                difference_dry += dry*dry;
+                difference_ghost += ghost*ghost;
+            }
+            difference_dry = sqrtf(difference_dry / 8192.0f);
+            difference_ghost = sqrtf(difference_ghost / 8192.0f);
+            printf("    GHOST monitor full dry / ghost-only / both-muted / parents-only / full+ghost RMS:"
+                   " %.6f / %.6f / %.6f / %.6f / %.6f\n",
+                   (double)level[0], (double)level[2], (double)level[3],
+                   (double)level[4], (double)level[5]);
+            check("GHOST-only monitor removes direct parents but retains GHOST",
+                  level[0] > 0.01f && level[1] < 0.000001f &&
+                  level[2] > 0.002f);
+            check("GHOST mute eliminates only GHOST output, including in solo",
+                  level[3] < 0.000001f && level[4] > 0.01f &&
+                  difference_dry < 1e-6f);
+            check("GHOST-on is audible again at the SAME preset level (75)",
+                  difference_ghost > 0.01f * level[0]);
+        }
         dr_init();
-        check("GHOST monitor is transient and returns to full mix on restart",
-              dr_ghost_monitor_get() == 0);
+        check("GHOST output monitoring does not persist after restart",
+              !dr_ghost_monitor_get() && !dr_ghost_mute_get());
     }
 
     check("output finite throughout", finite_ok);

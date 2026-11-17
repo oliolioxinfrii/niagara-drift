@@ -267,9 +267,10 @@ void dr_param_text(int i, int v, char *buf);   /* the value as the screen shows 
 /* commands (main loop -> render) */
 /* Simulator comparison: transient GHOST algorithms, not stored in scenes.
  * The voice must derive from both audible drones, never a third oscillator.
- * 0 original; 1 original shifted down one octave;
- * 2 original shifted up one octave; 3 sparse FFT spectral products. */
-enum { DR_GHOST_ORIGINAL, DR_GHOST_SUB, DR_GHOST_OCTAVE, DR_GHOST_SPECTRAL, DR_NGHOSTMODES };
+ * 0 Original (cubic/quadratic cross-intermodulation)
+ * 1 Resonant Body (8 driven, damped, pitch-related modes)
+ * 2 Wave Terrain (non-separable 2D cross-dependent surface). */
+enum { DR_GHOST_ORIGINAL, DR_GHOST_BODY, DR_GHOST_TERRAIN, DR_NGHOSTMODES };
 void dr_ghost_mode_set(int mode);
 int dr_ghost_mode_get(void);
 void dr_init(void);

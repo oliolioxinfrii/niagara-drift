@@ -2311,6 +2311,14 @@ static void lk_pic_seq_shape(void);
 
 static void lk_pic(void)
 {
+    static uint8_t morph_picture_drawn;
+    const int morphing = ui.morph >= 0;
+    /* Hold the existing picture during scene interpolation. The header,
+     * controls, input and audio continue updating at their normal rates. */
+    if (!morphing)
+        morph_picture_drawn = 0;
+    else if (morph_picture_drawn && ui.sig[1])
+        return;
     const int msg = plat_ms() < ui.msg_until;
     uint32_t h = hash(hash(2166136261u, 0x4C50u | (uint32_t)msg | (uint32_t)lit(0) << 1 | (uint32_t)lit(2) << 2 |
                                             (ui.btn >> B_SEL & 1u) << 3 | (uint32_t)ui.view << 4),
@@ -2335,6 +2343,8 @@ static void lk_pic(void)
     if (h == ui.sig[1] && (still || ui.frame % SCOPE_EVERY))
         return;
     ui.sig[1] = h;
+    if (morphing)
+        morph_picture_drawn = 1;
     cv_begin(240, LK_PIC_H, LK_BG);
     switch (ui.view) {
     case V_PLAY2: lk_pic_drones1(); break;

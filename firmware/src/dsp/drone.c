@@ -1005,6 +1005,10 @@ static void ghost_clear(void);                   /* the third-order cross-intera
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
 static float ghost_parent_mix = 1.0f;
+/* Independent diagnostic: keep GHOST synthesis live but suppress only its
+ * direct contribution to the shared stereo mix (SEL+white Key 2). */
+static volatile uint8_t ghost_mute_req;
+static float ghost_output_mix = 1.0f;
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
 void dr_init(void)
@@ -1072,6 +1076,8 @@ void dr_init(void)
     dr_ghost_mode_set(DR_GHOST_ORIGINAL);
     ghost_monitor_req = 0u;
     ghost_parent_mix = 1.0f;
+    ghost_mute_req = 0u;
+    ghost_output_mix = 1.0f;
     ghost_clear();
     q_r = q_w;
 }
@@ -3038,6 +3044,8 @@ void dr_ghost_mode_set(int mode)
 int dr_ghost_mode_get(void) { return (int)ghost_mode_req; }
 void dr_ghost_monitor_set(int ghost_only) { ghost_monitor_req = ghost_only ? 1u : 0u; }
 int dr_ghost_monitor_get(void) { return (int)ghost_monitor_req; }
+void dr_ghost_mute_set(int muted) { ghost_mute_req = muted ? 1u : 0u; }
+int dr_ghost_mute_get(void) { return (int)ghost_mute_req; }
 
 static void ghost_clear(void)
 {
@@ -3155,7 +3163,17 @@ static void ghost_run(uint32_t n)
             ghost_mode_fade = fm_minf(ghost_mode_fade + 1.0f / (0.08f * DR_SR), 1.0f);
             out = modes[ghost_mode_prev] + (out - modes[ghost_mode_prev]) * ghost_mode_fade;
         }
-        out = ghost_compress(out) * amount;
+        /* The SEL+Key2 diagnostic is an OUTPUT bypass only: all three
+         * synthesis modes, their state and the saved GHOST amount continue
+         * unchanged. Crossfade 12 ms to make direct A/B listening click-free. */
+        {
+            const float target = ghost_mute_req ? 0.0f : 1.0f;
+            const float step = 1.0f / (0.012f * DR_SR);
+            ghost_output_mix = target < ghost_output_mix ?
+                fm_maxf(ghost_output_mix - step, target) :
+                fm_minf(ghost_output_mix + step, target);
+        }
+        out = ghost_compress(out) * amount * ghost_output_mix;
         mixl[j] += out;
         mixr[j] += out;
     }

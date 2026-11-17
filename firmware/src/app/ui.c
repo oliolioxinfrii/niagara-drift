@@ -2539,7 +2539,7 @@ static void input(void)
     if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: experimental GHOST type */
         if (ui.btn >> B_SEL & 1u) {
             static const char *const GMODE[DR_NGHOSTMODES] = {
-                "ORIGINAL", "UPPER", "SUSTAINED", "OCTAVE MIX"
+                "ORIGINAL", "ORIG + OCT", "SUB + OCT", "FOCUSED"
             };
             /* A web drag may deliver 4, 8, etc. detents in one event.
              * Using e % 4 silently maps those gestures to *no change*.

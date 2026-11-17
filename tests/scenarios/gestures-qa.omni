@@ -1,6 +1,7 @@
 # Volcano gesture QA: key release is always a latch; no SEL modifier.
 notips
 set 52 0
+set 70 0
 set 74 0
 tap PLAY
 set 55 0

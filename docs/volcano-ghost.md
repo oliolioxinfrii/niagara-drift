@@ -25,9 +25,9 @@ G2 = u*v - Pxy
 E  = 9.0*G3 + 0.50*G2
 ```
 
-A fixed soft limiting curve bounds `E`. A high-pass and low-pass remove subsonic DC and constrain the final spectrum. Only the result is mixed, after multiplying by GHOST level. This is not a pitched third oscillator and has no independently tuned resonator.
+A polynomial soft limiter bounds `E` without a per-sample division. A high-pass and low-pass remove subsonic DC and constrain the final spectrum. The GHOST prototype now measures its slow output power and the two parents' power, then applies a bounded, 2-second-slewed gain calibration (target roughly 45% of the parents' combined RMS at level 100, subject to limiting and a 32x maximum gain). This is intended to keep cubic products audible on quieter patches while retaining faster beats and swells; it is **not** a spectral peak picker or third oscillator. Only the result is mixed, after multiplying by GHOST level.
 
-Current filtering is two cascaded one-poles on **each private input copy**, then a high-pass and a low-pass on GHOST. Filtering reduces but does **not eliminate** aliases from nonlinear multiplication. The two source filters and the output filter are provisional until high-frequency alias tests and listening renders exist. The present level coefficients are likewise exploratory.
+Current filtering is two cascaded one-poles on **each private input copy**, then a high-pass and a low-pass on GHOST. Filtering reduces but does **not eliminate** aliases from nonlinear multiplication. The two source filters and the output filter are provisional until high-frequency alias tests and listening renders exist. The coefficients and loudness calibration are exploratory and require render-based verification; the first uncalibrated version was reported inaudible on P1 NIAGARA with external headphones and an audio interface.
 
 The original drone samples are untouched by the new processing. When GHOST is zero, the nonlinear stage bypasses all per-sample work.
 

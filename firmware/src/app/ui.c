@@ -7,7 +7,7 @@
  *   KNOB 1-2       drone I's two values on the page shown, KNOB 3-4 drone II's; the Drones page (HOME):
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
- *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
+ *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   GHOST level (SEL+ALGORITHM: MOVEMENT)
  *   PRESETS        MORPH TIME: gesture depth and clock return timing
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
@@ -503,7 +503,7 @@ static void depth_hint(int p)
     if (tap < 0 || !proj.par[p])
         return;
     if (proj.par[P_MOVE] == 0)
-        say_c("MOVEMENT 0%", "ALGORITHM", K_LFO);
+        say_c("MOVEMENT 0%", "SEL + ALGORITHM", K_LFO);
     else if ((tap == DR_LFO_I && !w1) || (tap == DR_LFO_II && !w2) || (tap == DR_LFO_BOTH && !w1 && !w2))
         say_c(tap == DR_LFO_II ? "LFO II OFF" : "LFO I OFF", tap == DR_LFO_II ? "tap [OCT+]" : "tap [OCT-]", K_LFO);
 }
@@ -2527,8 +2527,15 @@ static void input(void)
                 }
         }
     }
-    if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */
-        global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
+    if ((e = plat_enc(EN_ALGO)) != 0) {              /* ALGORITHM: GHOST; SEL restores MOVEMENT */
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
+        } else {
+            global_turn(EN_ALGO, P_GHOST, "GHOST", e);
+        }
+    }
     if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */
         global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
     for (i = 0; i < 4; i++)

@@ -2074,6 +2074,68 @@ int main(void)
         check("Random: an init repeats the sequence; a seed (the first PLAY) makes a new one", same0 && !same1);
     }
 
+    {   /* GHOST: identical on/off renders establish that the new signal is
+         * relational and that 0 leaves the original rendering untouched. */
+        static float original[16384], with_ghost[16384], missing_parent[16384];
+        float diff = 0.0f, absent_diff = 0.0f;
+        int pass, k;
+        for (pass = 0; pass < 3; pass++) {
+            float *target = pass == 0 ? original : pass == 1 ? with_ghost : missing_parent;
+            dry_init();
+            dr_set(P_FADE, 0);
+            dr_set(P_DRIFT, 0);
+            dr_set(P_WIDTH, 0);
+            dr_set(P_PULSE, 0);
+            dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_DRIVE, 0);
+            dr_set(P_CHAR, 0);
+            for (k = 0; k < 2; k++) {
+                dr_set(DR_GP(k, GP_PARTNER), 0);
+                dr_set(DR_GP(k, GP_MIX), 0);
+                dr_set(DR_GP(k, GP_WAVE), 0);
+                dr_set(DR_GP(k, GP_RESO), 0);
+                dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                dr_set(DR_GP(k, GP_LEVEL), k == 1 && pass == 2 ? 0 : 80);
+            }
+            dr_set(DR_GP(0, GP_PITCH), 4100); /* F2 */
+            dr_set(DR_GP(1, GP_PITCH), 5900); /* B3: nontrivial cubic products */
+            dr_set(P_GHOST, pass == 0 ? 0 : 100);
+            dr_play(1);
+            run(secs(2.0f));
+            capture(target, 16384, 0);
+        }
+        /* Compare to a second drone-II-muted rendering with GHOST off. */
+        for (k = 0; k < 16384; k++) {
+            float delta = with_ghost[k] - original[k];
+            diff += delta * delta;
+        }
+        dry_init();
+        dr_set(P_FADE, 0); dr_set(P_DRIFT, 0); dr_set(P_WIDTH, 0);
+        dr_set(P_PULSE, 0); dr_set(P_FEEDBACK, 0); dr_set(P_DLY_DRIVE, 0); dr_set(P_CHAR, 0);
+        for (k = 0; k < 2; k++) {
+            dr_set(DR_GP(k, GP_PARTNER), 0); dr_set(DR_GP(k, GP_MIX), 0);
+            dr_set(DR_GP(k, GP_WAVE), 0); dr_set(DR_GP(k, GP_RESO), 0);
+            dr_set(DR_GP(k, GP_CUTOFF), 1000);
+            dr_set(DR_GP(k, GP_LEVEL), k ? 0 : 80);
+        }
+        dr_set(DR_GP(0, GP_PITCH), 4100);
+        dr_set(DR_GP(1, GP_PITCH), 5900);
+        dr_set(P_GHOST, 0);
+        dr_play(1);
+        run(secs(2.0f));
+        for (k = 0; k < 16384; k++) {
+            int j;
+            if ((k & 255) == 0) dr_render(buf, 256, 3277);
+            j = k & 255;
+            float d = missing_parent[k] - (float)buf[2 * j] / FS;
+            absent_diff += d * d;
+        }
+        printf("    GHOST on/off delta RMS %.6f; one-parent delta RMS %.6f\n",
+               (double)sqrtf(diff / 16384.0f), (double)sqrtf(absent_diff / 16384.0f));
+        check("GHOST generates a signal only when both source drones are audible",
+              diff > 1e-5f && absent_diff < 1e-7f);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

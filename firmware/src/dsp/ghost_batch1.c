@@ -115,10 +115,12 @@ static void ghost_batch1_gain_update(uint32_t n)
     const float slew = fm_minf((float)n / (0.55f * DR_SR), 1.0f);
     unsigned i;
     for (i = 0u; i < 2u; ++i) {
-        /* At maximum GHOST level, aim around 40% of parents' combined RMS,
-         * while respecting source dependence and bounding gain. */
+        /* Resonant Body formerly targeted 40% of parent RMS; make it more
+         * audible in full mix (68%) while keeping terrain at 40%.
+         * The knob still multiplies by exact zero at GHOST level 0. */
         const float rms = fm_sqrtf(gh_exp_power[i] + 1e-6f);
-        const float target = fm_clampf(0.40f * parent / rms, 0.18f, 32.0f);
+        const float target = fm_clampf((i == 0u ? 0.68f : 0.40f) * parent / rms,
+                                       0.18f, i == 0u ? 48.0f : 32.0f);
         gh_exp_gain[i] += slew * (target - gh_exp_gain[i]);
         gh_exp_power[i] = fm_flush(gh_exp_power[i]);
     }

@@ -56,6 +56,16 @@
 #ifndef OM_FILTER_SPECIALIZE
 #define OM_FILTER_SPECIALIZE 1
 #endif
+/* A phase increment is constant during a control tick unless audio-rate
+ * pitch modulation or hard sync is active. In that ordinary case, detect
+ * entire short runs with no saw/pulse discontinuity and skip their BLEP
+ * evaluation. Experimental reciprocal reuse is independently selectable. */
+#ifndef OM_OSC_RUNS
+#define OM_OSC_RUNS 1
+#endif
+#ifndef OM_BLEP_RECIP
+#define OM_BLEP_RECIP 0
+#endif
 
 /* Freestanding STILL clock memory operations. The compiler barrier prevents
  * conversion into implicit libc calls in the embedded toolchain. */
@@ -2096,6 +2106,93 @@ static float depth_amt(int d)
 
 #include "drone_fx.c"                    /* the effects: they use the LFO, sat() and depth_amt() above */
 
+#if OM_OSC_RUNS
+/* When no saw or pulse edge is within the next control tick, BLEP is
+ * identically zero. Leave a two-step guard for accumulated float rounding.
+ * This is the run-ahead idea used by Frasil's CHOEUR, adapted for Volcano's
+ * variable X-WAVE and 16-sample pitch controls. */
+static inline int osc_edge_free(int wi, float wf, float ph, float dt, float pw, uint32_t count)
+{
+    const int saw = wi == DR_SAW || (wf > 0.0f && wi + 1 == DR_SAW);
+    const int square = wi == DR_SQUARE || (wf > 0.0f && wi + 1 == DR_SQUARE);
+    float guard, end;
+    if ((!saw && !square) || dt <= 0.0f || dt > 0.05f || count == 0u)
+        return 0;
+    guard = 2.0f * dt + 0.00001f;
+    end = ph + dt * (float)count;
+    if (ph <= guard || end >= 1.0f - guard)
+        return 0;
+    /* A pulse also has a second edge at pw. Sine/triangle are unaffected. */
+    if (square && ph <= pw + guard && end >= pw - guard)
+        return 0;
+    return 1;
+}
+
+/* Match osc()'s arithmetic when both BLEP returns are exactly zero. */
+static inline float osc_noedge(int wave, float ph, float dt, float pw)
+{
+    (void)dt;
+    switch (wave) {
+    case DR_SINE: return OSC_SINE_K * fm_sin_turns(ph);
+    case DR_TRI: {
+        float t = ph + 0.25f;
+        return OSC_TRI_K * (1.0f - 4.0f * fm_fabsf((t >= 1.0f ? t - 1.0f : t) - 0.5f));
+    }
+    case DR_SAW: return 1.0f - 2.0f * ph;
+    default: return OSC_SQ_K * ((ph < pw ? 1.0f : -1.0f) + (1.0f - 2.0f * pw));
+    }
+}
+static inline float xosc_noedge(int wi, float wf, float ph, float dt, float pw)
+{
+    float o = osc_noedge(wi, ph, dt, pw);
+    if (wf > 0.0f)
+        o += (osc_noedge(wi + 1, ph, dt, pw) - o) * wf;
+    return o;
+}
+#if OM_BLEP_RECIP
+/* The reciprocal is calculated once at an edge-bearing control tick; audio-
+ * rate FM continues using the reference BLEP with its exact sample increment.
+ * Inverse multiplication may differ from division by a few float ULPs. */
+static inline float blep_inv(float t, float dt, float idt)
+{
+    if (t < dt) {
+        t *= idt;
+        return t + t - t * t - 1.0f;
+    }
+    if (t > 1.0f - dt) {
+        t = (t - 1.0f) * idt;
+        return t * t + t + t + 1.0f;
+    }
+    return 0.0f;
+}
+static inline float osc_inv(int wave, float ph, float dt, float pw, float idt)
+{
+    switch (wave) {
+    case DR_SINE: return OSC_SINE_K * fm_sin_turns(ph);
+    case DR_TRI: {
+        float t = ph + 0.25f;
+        return OSC_TRI_K * (1.0f - 4.0f * fm_fabsf((t >= 1.0f ? t - 1.0f : t) - 0.5f));
+    }
+    case DR_SAW: return 1.0f - 2.0f * ph + blep_inv(ph, dt, idt);
+    default: {
+        float t2 = ph + 1.0f - pw;
+        if (t2 >= 1.0f)
+            t2 -= 1.0f;
+        return OSC_SQ_K * ((ph < pw ? 1.0f : -1.0f) +
+               blep_inv(ph, dt, idt) - blep_inv(t2, dt, idt) + (1.0f - 2.0f * pw));
+    }
+    }
+}
+static inline float xosc_inv(int wi, float wf, float ph, float dt, float pw, float idt)
+{
+    float o = osc_inv(wi, ph, dt, pw, idt);
+    if (wf > 0.0f)
+        o += (osc_inv(wi + 1, ph, dt, pw, idt) - o) * wf;
+    return o;
+}
+#endif
+#endif
+
 /* the X-WAVE: wave wi blended with the next by wf (0..1) */
 static inline float xosc(int wi, float wf, float ph, float dt, float pw)
 {
@@ -2539,6 +2636,22 @@ static DR_RAM_CODE void render_group(int g, uint32_t n)
         gstep = (gend - gf) * (1.0f / (float)CR);
         lend = lv + (lvl * fm_exp2f(dw * 0.4f * v->wn[2]) - lv) * 0.06f;   /* ~6 ms: a Level turn never clicks */
         lstep = (lend - lv) * (1.0f / (float)CR);
+#if OM_OSC_RUNS
+        /* Frequency is constant across this tick only without audio-rate
+         * SNARL/cross-FM, hard sync and (for partner) phase correction. */
+        const int stable_main = fnk <= 0.0f && xpd <= 0.0f && !sync;
+        const int stable_partner = stable_main && !plock;
+        const uint32_t nrun = je - j0;
+        const int main_noedge = stable_main &&
+                              osc_edge_free(wi, wf, ph, inc, pw, nrun);
+        const int partner_noedge = stable_partner && v->pg > 0.0f &&
+                                 osc_edge_free(wi, wf, pph, pinc, pw, nrun);
+#if OM_BLEP_RECIP
+        const float main_idt = stable_main && !main_noedge ? 1.0f / inc : 0.0f;
+        const float partner_idt = stable_partner && v->pg > 0.0f && !partner_noedge ?
+                                  1.0f / pinc : 0.0f;
+#endif
+#endif
 #if OM_NOISE_CHUNK
         /* Frasil's breath-noise staging, adapted to Volcano's six-pole colour.
          * One short run before the oscillator/filter hot loop reduces live
@@ -2623,7 +2736,16 @@ static DR_RAM_CODE void render_group(int g, uint32_t n)
                 cp *= q;
                 cs *= q;
             }
-            x = xosc(wi, wf, ph, ci, pw);
+#if OM_OSC_RUNS
+            if (main_noedge)
+                x = xosc_noedge(wi, wf, ph, ci, pw);
+#if OM_BLEP_RECIP
+            else if (stable_main)
+                x = xosc_inv(wi, wf, ph, ci, pw, main_idt);
+#endif
+            else
+#endif
+                x = xosc(wi, wf, ph, ci, pw);
             if (sync) {                         /* band-limit the restart (a polyBLEP of its jump) */
                 x += v->sync_next;
                 v->sync_next = 0.0f;
@@ -2639,7 +2761,20 @@ static DR_RAM_CODE void render_group(int g, uint32_t n)
                 }
             }
             if (v->pg > 0.0f)                   /* the partner, as loud as it's faded in */
-                x = (x * mlk + v->pg * (1.0f - strip) * v->ig * plk * xosc(wi, wf, pph, cp, pw)) * og;
+            {
+                float partner_wave;
+#if OM_OSC_RUNS
+                if (partner_noedge)
+                    partner_wave = xosc_noedge(wi, wf, pph, cp, pw);
+#if OM_BLEP_RECIP
+                else if (stable_partner)
+                    partner_wave = xosc_inv(wi, wf, pph, cp, pw, partner_idt);
+#endif
+                else
+#endif
+                    partner_wave = xosc(wi, wf, pph, cp, pw);
+                x = (x * mlk + v->pg * (1.0f - strip) * v->ig * plk * partner_wave) * og;
+            }
             else
                 x *= og * mlk;
             if (sg > 0.0f)

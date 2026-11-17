@@ -7,9 +7,26 @@ Status: **experimental**. Created from `main` on `feature/volcano-ghost-intermod
 
 - **ALGORITHM** sets GHOST level (0–100, default 0).
 - **SEL + ALGORITHM** retains the previous **MOVEMENT** setting.
-- No independent pitch, waveform, sequence, gesture, or GHOST tone visualization.
+- **PRESETS** still sets Morph Time. **SEL + PRESETS** cycles four experimental GHOST algorithms; the chosen mode appears briefly in the top bar.
+- The test mode is RAM-only: it starts on **Original** after restarting and is not saved in scenes or presets. GHOST amount is still saved.
+- No independent source oscillator, user pitch parameter, new page, or GHOST tone visualization.
 - GHOST belongs to the sound and user-scene presets. Format 45 projects and A–F scene banks migrate to format 46 with GHOST initialized to zero.
 - GHOST enters the existing stereo mix *before* the shared delay, drive, and reverb; it has no separate effects path. TAIL gates new interaction excitation and allows existing common FX tails to ring.
+
+## Four GHOST listening modes (browser simulator)
+
+Hold **SEL** and turn **PRESETS**. The four modes cycle in both directions, with an approximately 80 ms transition. Leave ALGORITHM at the same GHOST amount for a controlled comparison.
+
+| Mode | Processing | What it tests |
+| --- | --- | --- |
+| **Original** | Existing cubic/quadratic interaction, using each drone's Swell envelope | The stuttering/snarl-like baseline |
+| **Upper** | Original interaction through an additional two-pole, approximately 250 Hz high-pass | Whether existing upper combination tones are perceptually distinct without pitch shifting |
+| **Sustained** | Compute the interaction before Swell attenuation, then apply a faster-attack, approximately 1 s-release joint Swell envelope | Whether reduced amplitude pumping produces a more continuous third voice |
+| **Octave Mix** | Original interaction blended with a time-preserving, grain-overlap **+12 semitone pitch-shifted** copy | Whether an actual octave-up layer establishes a separate upper register |
+
+The Upper filter is a provisional fixed cutoff, not a note tracker. The Sustained interaction **still requires both source drone waveforms**; its envelope simply does not follow both swells instantaneously. The Octave Mix uses two overlap-add delay grains (2048 samples each), so audible grain coloration is possible and is part of the comparison. All four modes share Volcano's stereo delay, drive and reverb.
+
+**Simulator only for now:** The extra 4096-float octave buffer and dual processing paths are deliberate exploratory costs. Hardware RAM/CPU and anti-aliasing have not been verified. This branch should not yet be built or flashed as release firmware.
 
 ## DSP experiment
 
@@ -29,9 +46,11 @@ A polynomial soft limiter bounds `E` without a per-sample division. A high-pass 
 
 Current filtering is two cascaded one-poles on **each private input copy**, then a high-pass and a low-pass on GHOST. Filtering reduces but does **not eliminate** aliases from nonlinear multiplication. The two source filters and the output filter are provisional until high-frequency alias tests and listening renders exist. The coefficients and loudness calibration are exploratory and require render-based verification; the first uncalibrated version was reported inaudible on P1 NIAGARA with external headphones and an audio interface.
 
-The original drone samples are untouched by the new processing. When GHOST is zero, the nonlinear stage bypasses all per-sample work.
+The original drone samples are untouched by the new processing. At GHOST zero, the nonlinear test modes do not contribute to the output. Mode selection does not alter the saved-project layout (format 46).
 
 ## Validation checklist
+
+For this stage, prioritize the browser emulator and relative listening comparisons; do not treat FM-1 CPU measurements as gating the experiment.
 
 - Run `sh tests/run_tests.sh` and the host/web emulator.
 - Run `sh host/build_host.sh`; render both GHOST-off and GHOST-on versions of the factory P1 NIAGARA patch for at least 60 seconds.

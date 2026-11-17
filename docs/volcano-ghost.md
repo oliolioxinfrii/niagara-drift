@@ -1,146 +1,134 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
-# Volcano GHOST — relational synthesis experiments
+# Volcano GHOST — relational synthesis listening experiments
 
-Status: **browser-emulator experiment only**. Draft PR #8 on
-`feature/volcano-ghost-intermodulation`. Do not merge or flash to FM-1
-hardware before full testing and budget assessment. The parent drone engine,
-sequencer, scenes and existing UI behavior remain unchanged.
+**Status: browser-only experiment, draft PR #8.** Branch:
+`feature/volcano-ghost-intermodulation`. Do not merge or flash the
+M-VAVE FM-1 before hardware timing, antialiasing, and full system checks.
+The two parent drones, their sequencing and modulation, saved-project
+schema, common FX, and other panel assignments are unchanged.
 
-## Playing
+## Panel controls (Batch 2)
 
-- **ALGORITHM** sets GHOST level (0–100). It is saved in sounds and scenes,
-  defaults to 0 for migrated projects, and enters the existing stereo
-  delay/drive/reverb bus before the shared effects.
-- **SEL + ALGORITHM** remains MOVEMENT. **PRESETS** remains MORPH TIME.
-- **SEL + PRESETS** cycles three comparison modes: `ORIGINAL`,
-  `RESONANT BODY`, `WAVE TERRAIN`, in either direction. A ~80 ms crossfade
-  reduces mode-switch clicks. The comparison mode is RAM-only and resets to
-  Original on restart; it does not change the stored project format.
-- The GHOST source is derived from the two *audible post-filter drones*
-  including their Swell and TAIL attenuation. No independent drone oscillator,
-  note track, sequencer, pitch knob or output effect is introduced.
-- **SEL + white Key 1 (F3)** toggles **GHOST ONLY** / **FULL MIX** as a
-  temporary emulator listening diagnostic (not a stored project parameter).
-  GHOST ONLY scales **only the already generated parent-drone contributions**
-  to the stereo output mix to zero over ~12 ms, then adds the unchanged GHOST
-  signal. Parent oscillators, filtered audio sent to GHOST, pitch sequencer,
-  Swell, modulation, and TAIL still run. On switching back, the normal mix
-  fades back over ~12 ms. The shortcut takes precedence over white Key 1's
-  usual STRIP I gesture when SEL is held; it does not modify that gesture.
-  On the sequencer's note-entry page, SEL + F3 toggles the monitor and does
-  not enter an F3 note; all other note keys behave as before. Restarting
-  resets to FULL MIX. If GHOST level is zero, GHOST ONLY intentionally gives silence.
-- **SEL + white Key 2 (G3)** toggles **GHOST MUTED** / **GHOST ON**,
-  independently of the Key 1 monitor. The GHOST engine, resonance state,
-  and saved ALGORITHM amount all continue unaffected. Only GHOST's direct
-  output contribution fades to zero or back over ~12 ms. In ordinary
-  FULL MIX, this provides instant A/B listening to the same two parent
-  drones with and without GHOST at a fixed specified level. In GHOST ONLY,
-  muting GHOST produces silence (after common effects tails have decayed).
-  This temporary switch also works on the sequencer note-entry page without
-  entering G3, and SEL+G3 does not trigger Key 2's ordinary DARK I gesture.
-  It is neither saved in scenes nor carried across restart.
-- **Shared FX caveat:** Both monitoring shortcuts remove only pre-FX
-  audio contributions, not previously generated tails. GHOST ONLY removes direct parent input *before* the
-  existing shared effects. Previously generated parent delay/reverb tails
-  will take time to disappear; this is not a separate GHOST effects bus.
-  With global FEEDBACK active, the changed output mix can also affect the
-  feedback signal returned to the parent engine. For a controlled comparison,
-  disable FEEDBACK and, if necessary, lower common FX or allow tails to decay.
+- **ALGORITHM** now controls **MOVEMENT** (0–100, existing overall LFO
+  movement-depth scaling). This is a *control swap*, not a change to the
+  meaning or time constants of MOVEMENT.
+- **SEL + ALGORITHM** now controls saved **GHOST level** (0–100).
+  A level of zero mutes new GHOST excitation and output; scene persistence
+  and old projects retain their parameter values.
+- **PRESETS** remains MORPH TIME.
+- **SEL + PRESETS** cycles five temporary comparison types:
+  `ORIGINAL`, `RESONANT BODY`, `WAVE TERRAIN`, `HETERODYNE`,
+  `CROSS-SYNTH`. The type is RAM-only, resets to Original on restart,
+  and crossfades over approximately 80 ms.
+- **SEL + white Key 1 (F3)** toggles **GHOST ONLY / FULL MIX** by
+  removing just the parent drones' contribution to the pre-effects mix.
+  Parent synthesis and GHOST excitation continue running.
+- **SEL + white Key 2 (G3)** independently toggles **GHOST MUTED /
+  GHOST ON**, leaving its algorithm and saved level alone. The two
+  diagnostics each crossfade over about 12 ms, reset at restart, and do
+  not trigger their ordinary STRIP/DARK gestures or sequencer note entry.
 
-## Batch 1: comparison modes
+**Effects caveat:** Neither monitor makes a separate FX bus. Existing
+delay and reverb tails continue temporarily and global FEEDBACK can
+receive the changed monitored mix. Disable FEEDBACK and allow FX tails
+to decay for reliable A/B tests.
 
-| Mode | Sound-generation principle | What to evaluate |
+## Comparison algorithms
+
+| Mode | Principle | Listening objective |
 | --- | --- | --- |
-| **Original** | Existing cross-only cubic and quadratic intermodulation, 2-pole private low-pass inputs, and slow adaptive gain calibration | Reference low warble, full broad-spectrum interaction |
-| **Resonant Body** | Eight damped complex resonances **driven by cross-products of the two parent signals**, tuned to pitch-related sum/difference frequencies and one inharmonic cavity mode | A response that accumulates energy and decays: is a coherent, spatially suggestive body audible without becoming another autonomous oscillator? |
-| **Wave Terrain** | The filtered parent waveforms become X/Y coordinates on a curved, non-separable 2D surface. Its *mixed finite difference* isolates the genuinely cross-dependent portion | Geometrical nonlinear timbres, irregular contours and changes in sound due to the *relationship* between the two trajectories |
+| Original | Existing cubic/quadratic intermodulation (unchanged) | Reference: complex warbling and broad nonlinear products |
+| Resonant Body | Eight damped modes driven by quadratic/cubic cross-products, with pitch-related and one inharmonic resonance | Sympathetic vibrations and a coherent sustained presence |
+| Wave Terrain | Non-separable curved 2-D wave surface; mixed finite difference removes either source's isolated contribution | Relational nonlinear colors, restrained harmonic transformation |
+| **Heterodyne** | **NEW:** three pitch-tracked complex partial filters on each parent, then selected products `x_i * conj(y_j)` | A small set of identifiable, often low difference-frequency tones without the equivalent upper sum products |
+| **Cross-Synth** | **NEW:** two twelve-band spectral filterbanks; each parent's band excitation is recolored by the other parent's measured spectral envelopes, then both directions are combined | Spectral transplantation and evolving harmonic structure, not simply polynomial distortion |
 
-Original's algorithm and the preexisting moderate GHOST-only compressor
-(~16 ms attack, ~375 ms release, soft-knee 2:1 above ~−18.4 dBFS, capped
-+3.5 dB low-level boost) are retained. Each new mode has an **independent**
-RMS detector and gain factor, slowly targeting ~40% of the two parents'
-combined RMS at GHOST 100 (limits 0.18×–32×), then passes through the same
-compressor and the same saved GHOST amount. This allows moderate-level
-comparison without requiring that one weak algorithm be turned to 100 just
-to become measurable. Actual perceived loudness is **not** guaranteed matched.
+The new Batch 2 implementation is `firmware/src/dsp/ghost_batch2.c`,
+included by the existing `drone.c` compilation unit. No extra
+independently pitched GHOST oscillator is present. Both modes are
+generated from the two performed, post-filter parent signals.
 
-### Resonant Body
+### Resonant Body loudness change
 
-A parent-audio cross-excitation
-`(u*v - DC(u*v)) + 0.55*(u*u*v+v*v*u)` excites eight damped complex
-resonators. Frequencies depend on the two *performed* parent pitches:
-`|f0-f1|`, `f0+f1`, `|2f0-f1|`, `|2f1-f0|`,
-`2f0+f1`, `f0+2f1`, `|3f0-2f1|`, and
-`0.727*(f0+f1)`. They are clamped to 25–2900 Hz.
-E-fold decay times range approximately 0.16–0.42 s.
-Drones excite the bank continually; when either parent ceases, new
-excitation vanishes, but the modal state can ring out briefly. It therefore
-has a *finite memory*, not independent note generation. Unlike the older
-Focused mode, Resonant Body does **not** add one resonator on top of Original
-intermodulation: the body itself is the entire new GHOST voice.
+Resonant Body's bounded adaptive calibration now targets approximately
+**68%** of the parents' combined RMS at GHOST 100, instead of
+**40%**. Its maximum gain bound rises from 32× to 48×.
+Wave Terrain remains at 40%; the existing GHOST compressor
+is retained. This is a *nominal electrical level target*,
+not a guaranteed perceived loudness increase: compression and
+soft saturation can reduce the realized difference. All modes still
+multiply by the saved 0–100 GHOST amount, so **GHOST = 0 is mute**.
 
-### Wave Terrain
+### Batch 2: selective heterodyning
 
-Let `F(x,y)` be a curved two-dimensional surface with nonlinear ridges and
-valleys, where `x=tanh(2.8*u)` and `y=tanh(2.8*v)`. Both parent signal
-amplitudes traverse the surface at audio rate; the relative slow parent
-power bends one ridge.
+The complex narrow-band filters track harmonics 1, 2, and 3 of each
+performed drone fundamental. Their bandwidths are approximately 4.5%
+of center frequency (minimum 7 Hz), and they are driven by their
+respective source audio, not by an independent third voice.
+Five chosen cross-products are reconstructed using the real part of
+`X_i * conjugate(Y_j)`. This selects **difference** components,
+unlike direct real-signal multiplication, which produces sums as well.
+A slow DC rejection removes near-zero differences. If the drones are
+in exact unison and both contain only their fundamentals, the result
+can be weak by construction; harmonics and detuning create additional
+relationships. The goal is musical selectivity, not always-on noise.
 
-The emitted value is proportional to:
+### Batch 2: reciprocal cross-synthesis
 
-```text
-G(x,y) = F(x,y) - F(x,0) - F(0,y) + F(0,0)
+The two post-filter drones enter 12 topology-preserving state-variable
+bandpass filters per input, centered between ~35 Hz and ~2.4 kHz.
+Each band tracks the magnitude envelope of its own source.
+The bandpass output from drone I is weighted by the **spectral envelope
+of drone II**, and vice versa. A modest broad-band energy-dependent
+pedestal allows interaction when the two sources have disjoint partials;
+the contribution is still gated by the *other* source's measured
+presence. This is a **filterbank spectral-envelope cross-synthesis**,
+not an FFT-bin multiplication, granular pitch shift, or convolution.
+It is designed to avoid the near-inaudibility of the earlier sparse
+FFT experiment.
+
+Both new modes have independent RMS detectors and bounded
+source-relative gain calibration (nominal 56% and 48% of the parents'
+combined RMS at full GHOST level) before the shared GHOST compressor.
+The two drones and the sequencer are untouched.
+
+## Validation and status
+
+`tests/host/drone_test.c` now checks all five modes for an output
+difference relative to a GHOST-off reference, distinct results, and
+a requirement for two active parents. It also checks Resonant Body
+levels 0, 50 and 100, and both isolated output-monitor shortcuts.
+`tests/scenarios/volcano-ghost.omni` checks five-mode selector
+wraparound, the swapped ALGORITHM assignments, saved GHOST level, and
+independent monitor toggles.
+
+The algorithms are intentionally **not optimized**: all five DSP paths
+are computed while GHOST is active, so crossfades can transition
+immediately and every mode's calibrator has a stable history.
+The earlier `ghost_fft.c` remains an unreferenced experiment and is
+not compiled.
+
+The source, test assertions and docs are committed. Full C host
+tests, scenarios, and the Emscripten web build must still be run on
+the user's Ubuntu machine; there is no verified full CI or rendered
+audio result for this revision. A passing compile does not establish
+musical efficacy, and browser CPU does not establish FM-1 headroom.
+
+### Ubuntu/WSL runbook
+
+```bash
+cd ~/niagara-drift
+source .venv/bin/activate
+source ~/emsdk/emsdk_env.sh
+git status -sb
+git fetch origin
+git switch feature/volcano-ghost-intermodulation
+git pull --ff-only
+sh tests/run_tests.sh
+rm -f build/emu/omni.wasm
+sh web/emu/build.sh
+python3 -m http.server 8766 --directory build/emu
 ```
 
-By construction, `G(x,0)=G(0,y)=0`: either parent alone produces no
-cross-dependent output (aside from the transient filter decay).
-This is deliberately different from using an ordinary waveshaper on
-`u+v` or letting drone I modulate drone II.
-
-A 1-pole low-pass and slow DC remover shape the output.
-This mode has no independent generator or preset sequence.
-
-## Wave Terrain computational cost (not yet benchmarked)
-
-Wave Terrain evaluates `F(x,y)`, `F(x,0)`, and `F(0,y)` once per audio
-sample. Each surface evaluation contains two sine calls and one cosine call,
-so **nine trigonometric fastmath calls per sample** plus two `tanh` calls
-for the input coordinates. At 44.1 kHz, this is approximately **396,900
-sine/cosine calls + 88,200 tanh calls per second**, excluding arithmetic,
-filtering, level calibration, and common compression. Each individual
-trigonometric implementation uses `fastmath.h` approximations rather than
-external `libm`, so a function-call count is **not** a CPU percentage or
-instruction count.
-
-The current experimental render loop computes all three modes even when
-only one is selected. Resonant Body additionally updates eight complex
-resonators every sample, while its pitch-dependent trigonometric
-coefficients are recalculated only once per 256-sample audio block. No
-hardware CPU or RAM budget has been measured for Batch 1. This is
-deliberate: browser listening comes before code optimization.
-
-## Listening protocol and validation
-
-Use the *same* drone parameters and GHOST amount when comparing modes. Start
-around GHOST 25–60, with relatively stable parent tones. Compare unison,
-near-unison, a fifth, widely separated pitches, and slowly modulated
-sequenced passages. Because the two new modes can sound significantly
-different from Original, do not judge the algorithms only at 100.
-
-For **test validation**, `tests/host/drone_test.c` now compares each mode
-to an identically initialized GHOST-off control, not merely to Original. It
-checks a minimum measured difference-RMS, distinct mode outputs, the
-dependency on both parents, and resetting to Original. The browser scenario
-`tests/scenarios/volcano-ghost.omni` checks mode cycling and existing
-knob mappings. The host regression additionally checks GHOST-only output
-monitoring by comparing full mix, parents removed with GHOST zero, and
-GHOST-only with Wave Terrain active. Numerical amplitude checks are not perceptual listening tests.
-
-**Status:** source integration and test cases committed, but the latest
-revision has **not yet been compiled or validated by the existing host test
-suite or the Emscripten web build**. The experimental code deliberately
-prioritizes sound exploration over FM-1 memory/CPU efficiency; hardware
-anti-aliasing, denormal and cost tests are still required. The previous
-`ghost_fft.c` experiment remains in the branch as an unreferenced
-historical test module; it is **not compiled** in Batch 1.
+The browser is at `http://localhost:8766/`. Hard refresh after
+rebuilding. Do **not** build or flash hardware as part of this experiment.

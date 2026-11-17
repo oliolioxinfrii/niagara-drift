@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# GHOST modes: PRESETS Morph unchanged; SEL+PRESETS cycles three transient test calculations.
+# Browser experiment: five GHOST algorithms and swapped ALGORITHM controls.
 notips
 expect par112 0
 expect par75 50
@@ -9,37 +9,46 @@ expect ghostmute 0
 spin PRESET 1
 expect ghostmode 0
 press SEL
-# Multi-detent browser drags must not wrap to the same mode.
+# A multi-detent browser drag should count as one mode selection.
 spin PRESET 4
 expect ghostmode 1
 spin PRESET 1
 expect ghostmode 2
 spin PRESET 1
+expect ghostmode 3
+spin PRESET 1
+expect ghostmode 4
+spin PRESET 1
 expect ghostmode 0
 spin PRESET -1
-expect ghostmode 2
+expect ghostmode 4
 spin PRESET -4
-expect ghostmode 1
+expect ghostmode 3
 spin PRESET 8
-expect ghostmode 2
+expect ghostmode 4
 release SEL
+
+# ALGORITHM controls MOVEMENT (75); SEL+ALGORITHM controls GHOST (112).
 spin ALGO 25
-expect par112 25
-expect par75 50
+expect par75 75
+expect par112 0
 press SEL
-spin ALGO 7
-expect par75 57
-expect par112 25
+spin ALGO 40
+expect par112 40
+expect par75 75
 release SEL
 spin ALGO -10
-expect par112 15
-expect par75 57
+expect par75 65
+expect par112 40
 spin ALGO -15
-expect par112 0
-# Saved sound parameter survives project serialization.
-spin ALGO 70
+expect par75 50
+press SEL
+spin ALGO 30
 expect par112 70
-# SEL+white Key1 is the existing parent-output monitor; Key2 removes GHOST.
+expect par75 50
+release SEL
+
+# Both monitoring shortcuts must preserve the saved GHOST level.
 press SEL
 tapkey w0
 expect ghostmonitor 1
@@ -55,15 +64,15 @@ expect ghostmute 0
 tapkey w1
 expect ghostmute 1
 release SEL
-# An ordinary tap of Key2 must not toggle the diagnostic.
 tapkey w1
 expect ghostmute 1
 expect par112 70
+
 save
 wait 150
 reboot
 expect par112 70
-expect par75 57
+expect par75 50
 expect ghostmode 0
 expect ghostmonitor 0
 expect ghostmute 0

@@ -84,6 +84,25 @@ connections when many containers start at once.
 Build option: `OM_CDC=1` adds Felucca's USB serial function (off by default: one plain
 MIDI interface).
 
+### Volcano DSP headroom branch: FM-1 RAM execution
+
+On `perf/volcano-dsp-headroom`, the FM-1 firmware build normally runs the drone
+rendering hot loop from executable RAM rather than flash (Niagara Drift 0.3.1,
+Evan Yerburgh). The extra effects hot loop is **not enabled by default**: Volcano
+has a larger DSP implementation, and the combined RAM code must fit into the
+FM-1's 32 KiB RAM-code region. The build checks the linked image.
+
+```sh
+./build.sh                          # default: OM_RAM_CODE=1, OM_RAM_FX_CODE=0
+OM_RAM_CODE=0 ./build.sh            # comparison / fallback: both loops from flash
+OM_RAM_FX_CODE=1 ./build.sh         # experimental: also move FX loop to RAM if it fits
+```
+
+If the experimental build exceeds the RAM-code region, use the default settings.
+The browser emulator and host tests do not measure FM-1 instruction-cache speed;
+verify DSP headroom on physical hardware after a successful firmware build.
+
+
 The build also generates `build/gen/` (the font). It fails if a soft-double routine is linked
 (a `double` crept in) and checks the image, RAM and pool sizes.
 

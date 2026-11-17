@@ -263,7 +263,7 @@ def build_app():
 
 
 def symv_safe(syms, name):
-    m = re.search(r"^([0-9a-f]+) .*\\s" + name + r"$", syms, re.M)
+    m = re.search(r"^([0-9a-f]+) .*\s" + name + r"$", syms, re.M)
     return int(m.group(1), 16) if m else 0
 
 

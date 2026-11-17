@@ -1002,6 +1002,9 @@ static float fade_rate(void)                      /* per sample: 0.05 s * 1200^(
 
 static void fx_clear(void);                      /* drone_fx.c, included below */
 static void ghost_clear(void);                   /* the third-order cross-interaction, below */
+/* Browser-only direct-parent output monitor. Source generation remains live. */
+static volatile uint8_t ghost_monitor_req;
+static float ghost_parent_mix = 1.0f;
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
 void dr_init(void)
@@ -1067,6 +1070,8 @@ void dr_init(void)
     spk_f = SPK_CUT;
     fx_clear();
     dr_ghost_mode_set(DR_GHOST_ORIGINAL);
+    ghost_monitor_req = 0u;
+    ghost_parent_mix = 1.0f;
     ghost_clear();
     q_r = q_w;
 }
@@ -3031,6 +3036,8 @@ void dr_ghost_mode_set(int mode)
         ghost_mode_req = (uint8_t)mode;
 }
 int dr_ghost_mode_get(void) { return (int)ghost_mode_req; }
+void dr_ghost_monitor_set(int ghost_only) { ghost_monitor_req = ghost_only ? 1u : 0u; }
+int dr_ghost_monitor_get(void) { return (int)ghost_monitor_req; }
 
 static void ghost_clear(void)
 {
@@ -3203,6 +3210,21 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                 }
                 v->pitch = v->ps1 = v->ps2 = v->st = t;
                 v->slide = v->lslide = 0.0f;
+            }
+        }
+        /* Diagnostic GHOST-only monitor: suppress only the drones' stereo
+         * contribution, NOT their voice generation, xbuf/ybuf, envelopes,
+         * modulation, sequencer, or GHOST excitation. A 12-ms crossfade
+         * prevents a click when SEL+Key1 changes monitor mode. */
+        {
+            const float target = ghost_monitor_req ? 0.0f : 1.0f;
+            const float step = 1.0f / (0.012f * DR_SR);
+            for (j = 0; j < k; ++j) {
+                ghost_parent_mix = target < ghost_parent_mix ?
+                    fm_maxf(ghost_parent_mix - step, target) :
+                    fm_minf(ghost_parent_mix + step, target);
+                mixl[j] *= ghost_parent_mix;
+                mixr[j] *= ghost_parent_mix;
             }
         }
         ghost_run(k);                             /* into the same stereo space and FX */

@@ -617,7 +617,7 @@ static void fx_run(float *l, float *r, uint32_t n)
     static float in_m[BLK], wet_m[BLK];  /* the drones into the delay, and its echoes, mono (the routes' sends) */
     const int route = (unsigned)par[P_DLY_ROUTE] < DR_NROUTE ? par[P_DLY_ROUTE] : 0;
     float rw0[DR_NROUTE], drw[DR_NROUTE];
-    float pgain;
+    float pgain, wow_lfo = 0.0f;
     int mono = 0;
     uint32_t j;
     if (!rv.ready)
@@ -667,9 +667,11 @@ static void fx_run(float *l, float *r, uint32_t n)
         if (!(j % CR)) {
             dly_ph1 = advance(dly_ph1, 0.55f * (float)CR / DR_SR);
             dly_ph2 = advance(dly_ph2, 3.3f * (float)CR / DR_SR);
+            /* Both phases remain fixed for CR samples. */
+            wow_lfo = 0.75f * fm_sin_turns(dly_ph1) + 0.25f * fm_sin_turns(dly_ph2);
         }
         {
-            float w = 0.75f * fm_sin_turns(dly_ph1) + 0.25f * fm_sin_turns(dly_ph2), m = 0.0f, e = 0.0f;
+            float m = 0.0f, e = 0.0f;
             /* GRAIN, SELF: its own echoes move its time. What they follow runs whatever the type (Evan, 2026-10-25:
              * switched to Self, it lurched for a second, its loudness's mean starting from where it was left) */
             self_s += (dly_olp[0] - self_s) * 0.04f;
@@ -690,8 +692,8 @@ static void fx_run(float *l, float *r, uint32_t n)
                 m = self_s;
                 e = self_e2 - self_es;
             }
-            wa = pa->wow * w + (dly_ga * m + dly_t * dly_sa * e);   /* (summed as before the crossfade: */
-            wq = qa->wow * w + (dly_ga * m + dly_t * dly_sa * e);   /* a steady type reads exactly as it did) */
+            wa = pa->wow * wow_lfo + (dly_ga * m + dly_t * dly_sa * e);   /* (summed as before the crossfade: */
+            wq = qa->wow * wow_lfo + (dly_ga * m + dly_t * dly_sa * e);   /* a steady type reads exactly as it did) */
         }
         if (dly_xf < 1.0f)
             dly_xf = fm_minf(dly_xf + DLY_XSTEP, 1.0f);

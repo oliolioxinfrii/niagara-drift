@@ -24,21 +24,31 @@ static int vg_min(int x, int y) { return x < y ? x : y; }
 static int vg_max(int x, int y) { return x > y ? x : y; }
 static uint16_t vg_dim(uint16_t c, float f) { return vl_bright(c, f); }
 
-/* Smooth between signed control points, without sampling a sine wave. */
-static int vg_interpolate(const int8_t *p, int n, int u, int w)
-{
-    const int scaled = u * (n - 1), idx = vg_min(scaled / w, n - 2);
-    const int t = scaled - idx * w;
-    const int f = t * t * (3 * w - 2 * t) * 100 / (w * w * w);
-    return ((int)p[idx] * (100 - f) + (int)p[idx + 1] * f) / 100;
-}
+/* Exact integer samples of the two fixed cubic section curves.
+ * The drawing's remaining displacement depends on live parameters. */
+static const int8_t VG_FOLD_BASE[2][105] = {
+    {
+        0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -2, -1, -1,
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -2, -2, -3,
+        -3, -4, -4, -4, -4, -5, -5, -5, -5, -6, -6, -7, -7, -8, -8,
+        -8, -8, -9, -9, -9, -9, -10, -10, -10, -11, -11, -11, -11, -12, -11,
+        -11, -10, -9, -8, -7, -5, -4, -3, -3, -3, -3, -2, -1, -1, 0,
+        0, 1, 2, 3, 4, 4, 5, 4, 4, 4, 4, 4, 3, 3, 3,
+        3, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1
+    },
+    {
+        2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+        0, 0, -1, -1, -2, -3, -3, -3, -3, -4, -4, -4, -4, -5, -5,
+        -5, -6, -6, -6, -6, -7, -6, -6, -5, -5, -4, -3, -2, -2, -1,
+        -1, -1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 5, 5, 6, 6,
+        6, 6, 7, 8, 8, 9, 9, 10, 10, 10, 11, 10, 10, 10, 10,
+        10, 9, 9, 9, 9, 9, 9, 8, 8, 7, 6, 5, 4, 2, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -2
+    }
+};
 static int vg_fold(int u, int band, int drone, int strength)
 {
-    static const int8_t A[2][10] = {
-        {0, -2, -1, -5, -9, -12, -3, 5, 3, 1},
-        {2, 1, -4, -7, -1, 6, 11, 9, 0, -2}
-    };
-    const int t = vg_interpolate(A[drone], 10, u, 104);
+    const int t = VG_FOLD_BASE[drone][u];
     const int fault = drone ? 67 : 58;
     const int distance = vg_abs(u - fault);
     const int roll = distance < 29 ? (29 - distance) * strength / 12 : 0;
@@ -75,11 +85,26 @@ static void vg_section(int drone, int x0, int top, int w, int n, int buckle, flo
 
 /* A hand-drawn irregular volcanic profile is sampled through smooth short
  * segments. All nested layers share it, avoiding unrelated zigzags. */
-static int vg_ridge(int u)
-{
-    static const int8_t Y[13] = {78, 74, 76, 70, 67, 63, 54, 42, 47, 56, 69, 72, 75};
-    return vg_interpolate(Y, 13, u, 238);
-}
+/* Fixed ridge profile sampled at each integer x coordinate. */
+static const uint8_t VG_RIDGE[239] = {
+    78, 78, 77, 77, 77, 77, 77, 76, 76, 76, 76, 75, 75, 75, 74,
+    74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74,
+    75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 76, 75, 75, 75, 75,
+    74, 74, 74, 73, 73, 72, 72, 71, 71, 71, 70, 70, 70, 70, 70,
+    70, 69, 69, 69, 69, 69, 69, 69, 68, 68, 68, 68, 67, 67, 67,
+    67, 67, 67, 67, 67, 67, 66, 66, 66, 66, 66, 65, 65, 65, 65,
+    64, 64, 64, 63, 63, 63, 63, 63, 63, 63, 63, 62, 62, 62, 61,
+    61, 60, 59, 59, 58, 57, 57, 56, 55, 55, 54, 54, 54, 54, 54,
+    54, 53, 53, 52, 52, 51, 50, 49, 48, 48, 47, 46, 45, 44, 43,
+    43, 42, 42, 42, 42, 42, 42, 42, 42, 42, 43, 43, 43, 44, 44,
+    44, 45, 45, 46, 46, 46, 46, 46, 46, 47, 47, 47, 47, 48, 48,
+    49, 49, 50, 51, 51, 52, 53, 53, 54, 54, 55, 55, 55, 55, 56,
+    56, 56, 57, 57, 58, 59, 60, 61, 61, 63, 63, 64, 65, 66, 67,
+    67, 68, 68, 68, 69, 69, 69, 69, 69, 69, 69, 69, 70, 70, 70,
+    70, 71, 71, 71, 71, 71, 71, 71, 71, 72, 72, 72, 72, 72, 72,
+    72, 73, 73, 73, 73, 73, 74, 74, 74, 74, 74, 74, 74, 75
+};
+static int vg_ridge(int u) { return VG_RIDGE[u]; }
 static void vg_ground(int x0, int w, int base, int depth, float brightness)
 {
     int layer, i;

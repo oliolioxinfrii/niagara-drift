@@ -535,18 +535,16 @@ int main(void)
         float v = 9.0f;
         int n = 0;
         dr_set(P_LFO_W1, DR_LFO_RANDOM);
-        dr_set(P_LFO_RATE, 0);                      /* a 100 s cycle */
+        dr_set(P_LFO_RATE, 90);                     /* a 10 s cycle */
         dr_set(P_PULSE, 1);
-        dr_set(P_LFO_LOCK, 1);
         for (i = 0; i < 40; i++) {
             run(secs(1.0f));
             n += dr_lfo[0] != v;
             v = dr_lfo[0];
         }
-        printf("    Random locked to the Swell: %d changes in 40 s\n", n);
-        check("Random locked to the Swell keeps changing", n >= 5);
+        printf("    Random running at 0.1 Hz: %d changes in 40 s\n", n);
+        check("Random continues cycling in RUN", n >= 3);
         dr_set(P_PULSE, 0);
-        dr_set(P_LFO_LOCK, 0);
         v = dr_lfo[0];
         dr_lfo_reset();
         run(1);

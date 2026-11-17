@@ -2239,6 +2239,54 @@ int main(void)
               dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
     }
 
+    {   /* Temporary direct-parent output monitor must not mute the sources
+         * that drive GHOST. Test both ghost-only silence at GHOST=0 and
+         * audible ghost-only output at GHOST>0. */
+        static float rendered[3][8192];
+        int m, k;
+        float level[3];
+        for (m = 0; m < 3; ++m) {
+            dry_init();
+            dr_set(P_FADE, 0);
+            dr_set(P_DRIFT, 0);
+            dr_set(P_WIDTH, 0);
+            dr_set(P_PULSE, 0);
+            dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_DRIVE, 0);
+            dr_set(P_CHAR, 0);
+            for (k = 0; k < 2; k++) {
+                dr_set(DR_GP(k, GP_PARTNER), 0);
+                dr_set(DR_GP(k, GP_MIX), 0);
+                dr_set(DR_GP(k, GP_WAVE), 0);
+                dr_set(DR_GP(k, GP_RESO), 0);
+                dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                dr_set(DR_GP(k, GP_LEVEL), 80);
+            }
+            dr_set(DR_GP(0, GP_PITCH), 4100);
+            dr_set(DR_GP(1, GP_PITCH), 5900);
+            dr_set(P_GHOST, m == 2 ? 75 : 0);
+            dr_ghost_mode_set(DR_GHOST_TERRAIN);
+            check("GHOST monitor resets off on initialization",
+                  dr_ghost_monitor_get() == 0);
+            dr_ghost_monitor_set(m != 0);
+            check("GHOST monitor getter reflects requested mix",
+                  dr_ghost_monitor_get() == (m != 0));
+            dr_play(1);
+            run(secs(2.0f));
+            capture(rendered[m], 8192, 0);
+            level[m] = rms_of(rendered[m], 8192);
+        }
+        printf("    GHOST monitor full / muted-source / ghost-only RMS: %.7f / %.7f / %.7f\n",
+               (double)level[0], (double)level[1], (double)level[2]);
+        check("GHOST-only monitor suppresses parents without muting their generation",
+              level[0] > 0.01f &&
+              level[1] < 0.000001f &&
+              level[2] > 0.002f);
+        dr_init();
+        check("GHOST monitor is transient and returns to full mix on restart",
+              dr_ghost_monitor_get() == 0);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

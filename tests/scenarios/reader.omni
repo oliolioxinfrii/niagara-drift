@@ -33,10 +33,10 @@ said to_Preset_2_EMBERS
 # SEL held: the key map, then a key touched
 press SEL
 wait 600
-said Keys,_SEL_held
+expect keymap 0
 key b2 down
 wait 300
-said A#3:_drone_1_Filter,_band-pass._Press_for_high-pass
+expect par9 1
 key b2 up
 release SEL
 wait 300

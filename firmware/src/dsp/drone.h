@@ -277,6 +277,10 @@ int dr_ghost_mode_get(void);
  * it is generated but before GHOST and the shared FX mix. Not saved. */
 void dr_ghost_monitor_set(int ghost_only);
 int dr_ghost_monitor_get(void);
+/* Temporary complementary diagnostic: remove only GHOST from the output,
+ * retaining its level and DSP state so A/B toggles are immediate. */
+void dr_ghost_mute_set(int muted);
+int dr_ghost_mute_get(void);
 void dr_init(void);
 void dr_set(int param, int value);
 void dr_play(int on);                          /* fade the whole drone in (1) / out (0) over P_FADE */

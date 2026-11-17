@@ -27,9 +27,9 @@ sequencer, scenes and existing UI behavior remain unchanged.
   Swell, modulation, and TAIL still run. On switching back, the normal mix
   fades back over ~12 ms. The shortcut takes precedence over white Key 1's
   usual STRIP I gesture when SEL is held; it does not modify that gesture.
-  The sequencer's note-entry page retains its own keyboard behavior, and
-  this diagnostic shortcut is unavailable there. Restarting resets to
-  FULL MIX. If GHOST level is zero, GHOST ONLY intentionally gives silence.
+  On the sequencer's note-entry page, SEL + F3 toggles the monitor and does
+  not enter an F3 note; all other note keys behave as before. Restarting
+  resets to FULL MIX. If GHOST level is zero, GHOST ONLY intentionally gives silence.
 - **Shared FX caveat:** GHOST ONLY removes direct parent input *before* the
   existing shared effects. Previously generated parent delay/reverb tails
   will take time to disappear; this is not a separate GHOST effects bus.

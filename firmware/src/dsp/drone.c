@@ -8,11 +8,33 @@
  * needs an exp2 or a tan (pitch, glide, cutoff) is computed every CR samples, the control rate. */
 #include "drone.h"
 #include "fastmath.h"
-#include <string.h>                 /* memset/memcpy: local STILL clock state */
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define CR 16u                                  /* control rate: one update every 16 samples */
 #define BLK 256u
+
+/* Freestanding STILL clock memory operations. The compiler barrier prevents
+ * conversion into implicit libc calls in the embedded toolchain. */
+static void *dr_memset(void *dst, int value, unsigned n)
+{
+    unsigned char *p = (unsigned char *)dst;
+    for (unsigned i = 0; i < n; ++i) {
+        p[i] = (unsigned char)value;
+        BARRIER();
+    }
+    return dst;
+}
+
+static void *dr_memcpy(void *dst, const void *src, unsigned n)
+{
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+    for (unsigned i = 0; i < n; ++i) {
+        d[i] = s[i];
+        BARRIER();
+    }
+    return dst;
+}
 
 /* the partner's intervals, each tempered and then just (pure ratios: 2/3, 3/4, 6/5, 5/4, 4/3, 3/2, 3; a just one
  * doesn't beat, Detune still can), so Tuning is the Interval knob's (Evan, 2026-10-18); octaves and unison are both */
@@ -1019,10 +1041,10 @@ void dr_init(void)
     swell_transport_hold = 0;
     lfo_stop_speed = 0.0f;
     swell_stop_master = 0.0f;
-    memset(lfo_stop_local, 0, sizeof lfo_stop_local);
-    memset(swell_stop_local, 0, sizeof swell_stop_local);
-    memset(sub_depth, 0, sizeof sub_depth);
-    memset(sub_clock, 0, sizeof sub_clock);
+    dr_memset(lfo_stop_local, 0, sizeof lfo_stop_local);
+    dr_memset(swell_stop_local, 0, sizeof swell_stop_local);
+    dr_memset(sub_depth, 0, sizeof sub_depth);
+    dr_memset(sub_clock, 0, sizeof sub_clock);
     swell_master_prev = 0.0f;
     lfo_local_reset();
     dr_lfo_dr_ph[0] = dr_lfo_dr_ph[1] = 0.0f;
@@ -1687,9 +1709,9 @@ static float lfo_local_prev_ph[DR_NGROUPS];
 static void lfo_local_reset(void)
 {
     int g;
-    memset(lfo_local_active, 0, sizeof lfo_local_active);
-    memset(lfo_local_s, 0, sizeof lfo_local_s);
-    memset(lfo_local_rnd, 0, sizeof lfo_local_rnd);
+    dr_memset(lfo_local_active, 0, sizeof lfo_local_active);
+    dr_memset(lfo_local_s, 0, sizeof lfo_local_s);
+    dr_memset(lfo_local_rnd, 0, sizeof lfo_local_rnd);
     for (g = 0; g < DR_NGROUPS; g++)
         lfo_local_prev_ph[g] = 0.0f;
     lfo_local_seed[0] = 0xB5297A4Du;
@@ -1938,7 +1960,7 @@ static void lfo_run(uint32_t n)
                 int wv;
                 dr_lfo_dr_ph[g] = ph;
                 if (active && !lfo_local_active[g]) {
-                    memcpy(lfo_local_rnd[g], lfo_rnd, sizeof lfo_rnd);
+                    dr_memcpy(lfo_local_rnd[g], lfo_rnd, sizeof lfo_rnd);
                     lfo_local_s[g][0] = lfo_s[0];
                     lfo_local_s[g][1] = lfo_s[1];
                     lfo_local_prev_ph[g] = ph;
@@ -2910,8 +2932,8 @@ static void pulse_run(uint32_t n)
         swell_transport_hold = 0;
         ph = 0.0f;
         for (g = 0; g < DR_NGROUPS; g++) {
-            memset(&sub_clock[g][SUB_LFO], 0, sizeof(sub_clock[g][SUB_LFO]));
-            memset(&sub_clock[g][SUB_SWELL], 0, sizeof(sub_clock[g][SUB_SWELL]));
+            dr_memset(&sub_clock[g][SUB_LFO], 0, sizeof(sub_clock[g][SUB_LFO]));
+            dr_memset(&sub_clock[g][SUB_SWELL], 0, sizeof(sub_clock[g][SUB_SWELL]));
             lfo_local_active[g] = 0;
         }
         swell_master_prev = 0.0f;

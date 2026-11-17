@@ -535,18 +535,16 @@ int main(void)
         float v = 9.0f;
         int n = 0;
         dr_set(P_LFO_W1, DR_LFO_RANDOM);
-        dr_set(P_LFO_RATE, 0);                      /* a 100 s cycle */
+        dr_set(P_LFO_RATE, 90);                     /* a 10 s cycle */
         dr_set(P_PULSE, 1);
-        dr_set(P_LFO_LOCK, 1);
         for (i = 0; i < 40; i++) {
             run(secs(1.0f));
             n += dr_lfo[0] != v;
             v = dr_lfo[0];
         }
-        printf("    Random locked to the Swell: %d changes in 40 s\n", n);
-        check("Random locked to the Swell keeps changing", n >= 5);
+        printf("    Random running at 0.1 Hz: %d changes in 40 s\n", n);
+        check("Random continues cycling in RUN", n >= 3);
         dr_set(P_PULSE, 0);
-        dr_set(P_LFO_LOCK, 0);
         v = dr_lfo[0];
         dr_lfo_reset();
         run(1);
@@ -1296,28 +1294,62 @@ int main(void)
         check("random LFO: Wave II glides (no jumps)", jump < 0.2f);
     }
 
-    {   /* the LFO locked to the pulse: with the pulse at 2 a second (a bar, two beats: 1 s) and the LFO at
-         * ~0.05 Hz, the LFO starts over each bar, so its phase never passes ~1 s of it; free, it runs on */
-        float mx[2];
-        int lk, b;
+    {   /* The global LFO transport is a performance action, not a saved
+         * Swell-lock parameter. Pause retains both LFO positions; stop
+         * reverses both LFO and Swell phases at the LFO rate to exactly zero. */
+        float ph, p0, p1, last_lfo, last_swell0, last_swell1;
+        int k, smooth = 1;
         dry_init();
-        dr_set(P_PULSE_RATE, 67);                       /* 2 a second */
+        dr_set(P_LFO_RATE, 100);                  /* rate: ~0.29 Hz */
+        dr_set(P_PULSE_RATE, 56);
         dr_set(P_PULSE, 1);
-        dr_set(P_LFO_RATE, 78);                         /* a cycle in 22 s */
-        for (lk = 0; lk < 2; lk++) {
-            dr_set(P_LFO_LOCK, lk);
-            dr_lfo_reset();
-            run(secs(0.1f));
-            mx[lk] = 0.0f;
-            for (b = 0; b < secs(4.0f); b++) {
-                run(1);
-                mx[lk] = fmaxf(mx[lk], dr_lfo_ph);
-            }
+        run(secs(0.7f));
+        ph = dr_lfo_ph;
+        dr_lfo_transport_set(DR_LFO_PAUSE);
+        run(secs(0.3f));
+        p0 = dr_lfo_dr_ph[0];
+        p1 = dr_lfo_dr_ph[1];
+        run(secs(0.4f));
+        check("LFO PAUSE holds global and both local phases, Swell independent",
+              dr_lfo_transport == DR_LFO_PAUSE &&
+              fabsf(dr_lfo_ph - ph) < 0.002f &&
+              fabsf(dr_lfo_dr_ph[0] - p0) < 0.002f &&
+              fabsf(dr_lfo_dr_ph[1] - p1) < 0.002f);
+        dr_lfo_transport_set(DR_LFO_RUN);
+        run(secs(0.4f));
+        check("LFO RESUME continues the same phase", dr_lfo_transport == DR_LFO_RUN &&
+              fabsf(dr_lfo_ph - ph) > 0.03f);
+        dr_lfo_transport_set(DR_LFO_STOPPING);
+        run(1);
+        last_lfo = dr_lfo_ph;
+        last_swell0 = dr_pulse_dr_ph[0];
+        last_swell1 = dr_pulse_dr_ph[1];
+        for (k = 0; k < secs(6.0f) && dr_lfo_transport == DR_LFO_STOPPING; k++) {
+            run(1);
+            if (dr_lfo_ph > last_lfo + 0.003f ||
+                dr_pulse_dr_ph[0] > last_swell0 + 0.003f ||
+                dr_pulse_dr_ph[1] > last_swell1 + 0.003f)
+                smooth = 0;
+            last_lfo = dr_lfo_ph;
+            last_swell0 = dr_pulse_dr_ph[0];
+            last_swell1 = dr_pulse_dr_ph[1];
         }
-        printf("    LFO phase over 4 s: free %.3f, locked to the pulse %.3f (a bar: 0.045)\n", (double)mx[0], (double)mx[1]);
-        check("LFO lock: the LFO starts over each pulse bar; free, it runs on", mx[1] < 0.05f && mx[0] > 0.15f);
-        dr_set(P_LFO_LOCK, 0);
-        dr_set(P_PULSE, 0);
+        check("LFO STOP rewind is monotone without a phase jump", smooth);
+        check("LFO STOP reaches zero and automatically returns to RUN",
+              dr_lfo_transport == DR_LFO_RUN && dr_lfo_ph < 0.001f &&
+              dr_lfo_dr_ph[0] < 0.001f && dr_lfo_dr_ph[1] < 0.001f &&
+              dr_pulse_dr_ph[0] < 0.001f && dr_pulse_dr_ph[1] < 0.001f);
+        /* No user command: the next audio blocks must move both clocks
+         * forward, immediately after their rubber-band turnaround. */
+        run(secs(0.2f));
+        check("LFO and Swell progress from zero without another tap",
+              dr_lfo_transport == DR_LFO_RUN && dr_lfo_ph > 0.02f &&
+              dr_lfo_dr_ph[0] > 0.02f && dr_lfo_dr_ph[1] > 0.02f &&
+              dr_pulse_dr_ph[0] > 0.01f && dr_pulse_dr_ph[1] > 0.01f);
+        dr_lfo_transport_set(DR_LFO_PAUSE);
+        run(1);
+        check("Short tap pause still works after automatic rewind/resume",
+              dr_lfo_transport == DR_LFO_PAUSE);
     }
 
     {   /* RATE MOD: the LFO's own wave speeding it where high, slowing it where low: a triangle on Wave I

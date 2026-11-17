@@ -20,7 +20,7 @@ The effects: a delay with six types, a drive, and a reverb with five.
 
 ## Delay
 
-<img class="shot" src="../../img/screen-fx.png" width="240" alt="The Space page: the delay's echoes as half-rings on the left, the reverb's tail as rings on the right">
+> **Screenshot needed — Space:** `build/scenarios/volcano-ui/atmosphere.png`.
 
 | Knob | What it does |
 |---|---|
@@ -32,7 +32,7 @@ The effects: a delay with six types, a drive, and a reverb with five.
 
 ## Reverb
 
-<img class="shot" src="../../img/screen-fx2.png" width="240" alt="The Details page: drive, time, damp and type, with the two SEL choices above">
+> **Screenshot needed — Details:** Capture FX page 2 from the v1.5 host simulator.
 
 | Knob | What it does |
 |---|---|
@@ -56,6 +56,5 @@ The effects: a delay with six types, a drive, and a reverb with five.
 - **Runaway repeats** are held by a soft clip; the header says "runaway".
 - **A freeze** holds what's in it (Damp is out at Inf); PLAY to stop lets it go.
 - **Changing type** crossfades; the type knobs go round both ways.
-- **The pictures:** on Space, the echoes as half-rings on the left and the reverb's tail as rings on the right; on
-  Details, the same with the SEL choices above Time and Type.
-- The delay and reverb are ChoralRoot's design (see [About](../about.md#where-it-came-from)).
+- **VOLCANO's FX view** uses model-derived blue/icy seismographic drawings for the delay and reverb, not an FFT or measurement of the live audio. The six delay types (Clean, Wide, Ping-pong, Tape, Grain and Self) have distinguishable illustrated response patterns; delay DRIVE introduces orange into the processed trace. Reverb profile and DAMP change the texture of the depicted tail, while Chorus Hall and Shimmer have separate visual details. Parameter values remain the authoritative readouts.
+- The delay and reverb draw on ChoralRoot's design (see [About](../about.md#credits-and-lineage)).

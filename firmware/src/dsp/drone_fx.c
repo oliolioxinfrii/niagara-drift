@@ -656,10 +656,10 @@ static void fx_run(float *l, float *r, uint32_t n)
         x = (l[j] + r[j]) * 0.5f;
         in_m[j] = x;
         {
-            float lfo = lfo_at(dly_rt, j / CR);
+            float lfo = lfo_at_master(dly_rt, j / CR);
             if (dly_rw < 1.0f) {
                 dly_rw = fm_minf(dly_rw + rstep, 1.0f);
-                lfo = lfo_at(dly_rp, j / CR) + (lfo - lfo_at(dly_rp, j / CR)) * dly_rw;
+                lfo = lfo_at_master(dly_rp, j / CR) + (lfo - lfo_at_master(dly_rp, j / CR)) * dly_rw;
             }
             t = ms * 0.001f * DR_SR * (1.0f + damt * lfo);
             dly_t += (t - dly_t) * 0.00045f;                       /* ~50 ms: tape-like */

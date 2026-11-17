@@ -8,7 +8,7 @@
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
  *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
- *   PRESETS        GESTURE TIME: every gesture's speed, x0.1 .. x10 (v0.2)
+ *   PRESETS        MORPH TIME: gesture depth and clock return timing
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
  *   MASTER         volume      SAVE   saves
@@ -32,8 +32,9 @@
  *   LFO pages: drone I's oscillator tap/destination and filter tap/destination,
  *   drone II's filter destination, drone II's oscillator tap/destination and filter tap,
  *   LFO lock/reset, Delay LFO tap, Cross-mod.
- *   C#5 always controls LFO lock/reset: tap locks/frees the LFO to the Swell,
- *   hold at least 500 ms to reset its phase without changing the lock.
+ *   C#5 controls LFO transport: tap pauses/resumes both waves at their
+ *   current phase; hold at least 500 ms to rewind the LFO and both Swell
+ *   progressions to zero at the LFO rate, then automatically run forward.
  *   A routed LFO tap cycles Wave I, II and both; first, second and third choices light dim,
  *   bright and blinking, respectively.
  * ARP            tap: the SWELL page; tapped on it, the Swell on / off (lit, in time); hold: a peek
@@ -124,17 +125,19 @@ static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
 static const uint8_t WHITE_K[NWHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const char BANK_L[NBANKS] = {'A', 'B', 'C', 'P', 'D', 'E', 'F', 'P'};
 static const char *const BANK_N[NBANKS] = {"A", "B", "C", "PRESETS 1-8", "D", "E", "F", "PRESETS 9-16"};
-/* Browse user banks together, followed by the two immutable Preset banks.
- * Storage IDs remain unchanged for saved projects and scene recalls. */
-static const uint8_t BANK_ORDER[NBANKS] = {0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2, BANK_PRESETS, BANK_PRESETS2};
-static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL",
-                                               "STUTTER"};   /* D5-G5, then G4-C5: fixed */
+/* Browse P1, P2, then A-F, matching the SAVE orbit's dark-to-light
+ * bank gradient. Storage IDs are unchanged for existing saved projects. */
+static const uint8_t BANK_ORDER[NBANKS] = {BANK_PRESETS, BANK_PRESETS2, 0, 1, 2, BANK_D, BANK_D + 1, BANK_D + 2};
+static const char *const GESTURE[DR_NGTYPE] = {"WEIGHT", "SHIFT", "CLEAN", "WASH", "TICK", "CHORD", "SNARL", "STUTTER"};
+static const char *const SUB_NAME[4] = {"STRIP", "DARK", "STILL", "TAIL"};
+#define G_PRESS DR_G_TICK
+static int gl_par(int g) { return g < G_PRESS ? P_GL_0 + g : P_GL_4 + g - G_PRESS; }
 enum { S_NONE, S_PARTNER, S_SUBOCT, S_HP, S_OTAP, S_ODEST, S_FTAP, S_FDEST, S_PLINK, S_SYNC, S_XMOD, S_LFORESET, S_DTAP,
        S_PLOCK };
 typedef struct {
     uint8_t s, g;
 } sw_t;
-/* Normal pages: D#4 is drone-II Pitch Link; C#5 is LFO lock/reset,
+/* Normal pages: D#4 is drone-II Pitch Link; C#5 is global LFO pause/stop,
  * at the same physical position and with the same tap/hold behavior as on LFO pages.
  * C#4 remains the separate, global Pitch Lock. */
 static const sw_t SW_NORMAL[11] = {{S_PARTNER, 0}, {S_SUBOCT, 0}, {S_HP, 0}, {S_PLOCK, 0}, {S_PLINK, 1},
@@ -143,7 +146,7 @@ static const sw_t SW_NORMAL[11] = {{S_PARTNER, 0}, {S_SUBOCT, 0}, {S_HP, 0}, {S_
 /* the LFO pages: each drone's keys in one order, the pitch send's LFO and target, then the cutoff send's (Evan,
  * 2026-11-03) */
 /* On LFO pages, D#4 follows C#4 as drone II's filter destination;
- * C#5 takes the Swell lock / LFO reset beside D#5's delay LFO. */
+ * C#5 takes global LFO transport beside D#5's delay LFO. */
 static const sw_t SW_LFO[11] = {{S_OTAP, 0}, {S_ODEST, 0}, {S_FTAP, 0}, {S_FDEST, 0}, {S_FDEST, 1},
                                 {S_OTAP, 1}, {S_ODEST, 1}, {S_FTAP, 1}, {S_LFORESET, 0}, {S_DTAP, 1},
                                 {S_XMOD, 1}};
@@ -183,7 +186,7 @@ static struct {
     int8_t km_key;                     /* the black key touched while SEL is held (named, not switched), or -1 */
     uint8_t jack;                      /* the headphone jack as last read (1: in), and since when */
     uint32_t jack_t;
-    uint32_t rst_t;                    /* LFO key pressed: tap locks/free, long hold resets */
+    uint32_t rst_t;                    /* LFO key: tap pause/play, long hold smooth stop */
     uint8_t rst_done;                  /* hold used or SEL key-map consumed the press */
     char msg[2][24];
     uint32_t msg_until;
@@ -209,6 +212,8 @@ static struct {
     uint8_t loop_scenes;               /* the loop moves scenes: each pass starts from the whole sound it began on */
     uint32_t morph_t0, morph_ms;
     uint8_t morph_pct;               /* terminal progression for a targeted transition */
+    uint8_t transition_seq_pending;  /* 100% TRANSITION: take sequence at the Scene Time endpoint */
+    uint8_t transition_seq_bank, transition_seq_slot;
     int16_t morph_from[DR_NPARAMS];
     int16_t morph_to[DR_NPARAMS];      /* the scene being morphed to, as it was when its key was pressed */
     int8_t press;                      /* the scene key held in a pressure crossfade (v0.2), or -1 */
@@ -228,9 +233,16 @@ static struct {
     float g_out[DR_NGEST];             /* ... let go after a hold: how far in it was, and over how long (s, at Gesture
                                         * time x1) it goes: as long as it was held (Evan, 2026-10-18); 0: the swell */
     float g_out_s[DR_NGEST];
-    float g_amt[DR_NGEST];             /* ... how far in each is, 0..1 */
-    int16_t g_sent[DR_NGEST];          /* ... as the engine has it, 0..1000 */
-    uint32_t g_last;                   /* the last swell step's time */
+    float g_amt[DR_NGEST];             /* the eight original gestures */
+    int16_t g_sent[DR_NGEST];
+    float sub_amt[8];                  /* keys 1-8: four operations per drone */
+    int16_t sub_sent[8];
+    uint16_t key_held;                 /* all sixteen white keys, physical positions */
+    uint16_t key_was_returning;        /* state when the current press began */
+    uint16_t key_initial_zero;         /* short touch from zero retains the small value */
+    uint8_t key_mode[16];             /* 0: stationary, 1: returning, 2: paused return */
+    uint32_t key_t0[16];
+    uint32_t g_last;
     uint64_t hands[(DR_NPARAMS + 63) / 64];   /* the values a hand has moved since a scene switch began: the
                                                * switch lets go of them (Evan, 2026-10-17: Movement fought it) */
     int16_t press_to[DR_NPARAMS];      /* ... the scene */
@@ -603,7 +615,8 @@ static int sw_look(sw_t w)
     case S_OTAP: case S_FTAP: case S_DTAP:
         v = (w.s == S_DTAP ? proj.par[P_DLY_LFO] : p[w.s == S_OTAP ? GP_OLFO : GP_FLFO]) & 3;
         return v == DR_LFO_BOTH ? 3 : v == DR_LFO_II ? 2 : v ? 1 : 0;
-    case S_LFORESET: return proj.par[P_LFO_LOCK] ? 2 : 0;
+    case S_LFORESET: return dr_lfo_transport == DR_LFO_STOPPING ? 3 :
+                                  dr_lfo_transport == DR_LFO_PAUSE ? 2 : 0;
     default: v = sw_get(w); return v == 2 ? 3 : v ? 2 : 0;
     }
 }
@@ -681,13 +694,14 @@ static void sw_flip(sw_t w)
             tip(TIP_XMOD);
         break;
     }
-    case S_LFORESET: {                    /* short release: preserve phase, toggle lock to Swell */
-        const int locked = !proj.par[P_LFO_LOCK];
-        param_set(P_LFO_LOCK, locked);
-        if (locked && !proj.par[P_PULSE])
-            say_c("LFO LOCKED", "SWELL OFF", K_LFO);
-        else
-            say_c("LFO TO SWELL", locked ? "LOCKED" : "FREE", K_LFO);
+    case S_LFORESET: {                    /* short release: preserve phase, pause/resume */
+        const int resume = dr_lfo_transport != DR_LFO_RUN;
+        /* Retire the older Swell-lock function without changing the
+         * stored project's parameter layout. */
+        if (proj.par[P_LFO_LOCK])
+            param_set(P_LFO_LOCK, 0);
+        dr_lfo_transport_set(resume ? DR_LFO_RUN : DR_LFO_PAUSE);
+        say_c("LFO", resume ? "RESUME" : "PAUSED", K_LFO);
         return;
     }
     case S_DTAP: param_set(tp, nx); q = a; what = "DELAY"; st = WAVES[nx]; break;
@@ -1173,7 +1187,16 @@ static void scene_store(int n)                         /* SAVE held + a white ke
         say_c("PRESETS ARE FIXED", "[SAVE]: SELECT BANK", K_GOLD);
         return;
     }
-    scene_put(proj.bank, n);
+    seq_scene_t snapshot;
+    if (scene_put(proj.bank, n) != 0) {
+        say("NOT STORED", "INVALID SLOT");
+        return;
+    }
+    sd_scene_capture(&snapshot);
+    if (project_seq_put(proj.bank, n, &snapshot) != 0) {
+        say("NOT STORED", "SEQUENCE ERROR");
+        return;
+    }
     ui.scene_at = (int8_t)n;
     ui.dirty = 1;
     save_ask(n);
@@ -1347,6 +1370,8 @@ static void scene_recall(int n, int keep)              /* a white key: morph the
     if (BANK_IS_PRESETS(proj.bank)) {
         sd_stop();
         sd_init();  /* Factory sounds start with one step, independent of earlier RAM sequences. */
+    } else {
+        sd_scene_restore(project_seq_get(proj.bank, n));
     }
     if (keep)
         undo_keep();
@@ -1374,6 +1399,8 @@ static void scene_play(int bank, int n)
     if (BANK_IS_PRESETS(bank)) {
         sd_stop();
         sd_init();
+    } else {
+        sd_scene_restore(project_seq_get(bank, n));
     }
     for (k = 0; k < DR_NPARAMS; k++) {
         ui.morph_from[k] = proj.par[k];
@@ -1457,8 +1484,22 @@ static void scene_morph(void)
         x = 1.0f;
     sound_blend(ui.morph_from, ui.morph == VISIT_BACK ? ui.visit_back : ui.morph_to,
                 ui.morph == MENU_TRANSITION ? x * (float)ui.morph_pct * 0.01f : x);
-    if (x >= 1.0f)
+    for (int g = 0; g < DR_NGEST; g++) {
+        const int key = g < G_PRESS ? NSCENES + g : NPLAY + g - G_PRESS;
+        if (!(ui.key_held & (1u << key)) && ui.key_mode[key] == 0)
+            ui.g_amt[g] = (float)proj.par[gl_par(g)] * 0.01f;
+    }
+    if (x >= 1.0f) {
+        /* Sound reaches its target over Scene Time; a 100% performance
+         * transition must not switch the authored pitch progression early. */
+        if (ui.morph == MENU_TRANSITION && ui.transition_seq_pending) {
+            const int bank = ui.transition_seq_bank, slot = ui.transition_seq_slot;
+            if (BANK_IS_PRESETS(bank)) { sd_stop(); sd_init(); }
+            else sd_scene_restore(project_seq_get(bank, slot));
+        }
+        ui.transition_seq_pending = 0;
         ui.morph = -1;
+    }
 }
 
 /* THE PRESSURE CROSSFADE (v0.2, option D): a scene key held is a fader into its scene. Under PR_DEAD nothing
@@ -1845,124 +1886,129 @@ static void midi_in(void)
     }
 }
 
-/* THE GESTURES (v0.2): Weight, Shift, Clean, Wash on the top four white keys (always these: Evan, 2026-10-18, you
- * learn where they are), which sense no pressure, so
- * time stands in: held, a gesture comes in (over its own time x Gesture time), its parts in order; let go, it goes
- * over as long as it was held (x Gesture time, turned live: Evan, 2026-10-18). A tap (under GEST_TAP_MS: a press
- * needn't be quick) latches it on, all the way;
- * tapping a latched one lets it go (over its own time); SEL held as you let go keeps it where it is. No depth or
- * time of its own to set (Evan, 2026-10-18: how you play it sets them); Shift's move is on Moves. Latched
- * levels are values (P_GL_*): scenes keep them. v0.3: four more on keys 9-12 (G4-C5: Tick, Chord, Snarl, Stutter,
- * each the partner of the top key four to its right), which sense pressure: held, one goes toward how hard the key is
- * pressed (over its time x Gesture time), easing off or let go it comes back; a tap latches it, as the top keys'.
- * SEL tapped while a gesture is held latches it at the level it has reached (Evan, 2026-10-27), on every gesture key. */
-#define GEST_TAP_MS PR_TAP_MS          /* a gesture key let go sooner: a tap, as a scene key */
-#define G_PRESS DR_G_TICK              /* gestures from here on are on the pressure keys */
-static int gl_par(int g) { return g < G_PRESS ? P_GL_0 + g : P_GL_4 + (g - G_PRESS); }   /* its latch */
+/* Every white key controls a depth without pressure or a separate latch command.
+ * Hold increases at 100% / Morph Time; release retains the current amount.
+ * A tap of a stationary nonzero key begins a return, another tap pauses it;
+ * holding during a return reverses to increasing. No automatic reversal at 100%.
+ * Keys 1-8 are STRIP/DARK/STILL/TAIL for drone I and II; 9-16 retain
+ * TICK/CHORD/SNARL/STUTTER/WEIGHT/SHIFT/CLEAN/WASH. */
+#define GEST_TAP_MS 220u
+static int key_gesture(int i) { return i < NPLAY ? -1 : i < NSCENES ? G_PRESS + i - NPLAY : i - NSCENES; }
 static uint32_t gkey(int g) { return g < G_PRESS ? WHITE_K[NSCENES + g] : WHITE_K[NPLAY + g - G_PRESS]; }
-static void gesture_down(int g)
+static float *key_amount(int i) { return i < NPLAY ? &ui.sub_amt[i] : &ui.g_amt[key_gesture(i)]; }
+static void key_rejoin(int i, int on)
 {
-    if (proj.par[gl_par(g)]) {                     /* latched: let go of it, whatever the press */
-        param_set(gl_par(g), 0);
-        loop_note(gl_par(g), 0, 0);
+    if (i == 2 || i == 6) {
+        dr_still_rejoin(i / 4, on);
+        sd_still_rejoin(i / 4, on);
+    }
+}
+static void gesture_down(int i)                  /* i: physical white key, 0..15 */
+{
+    const uint16_t bit = (uint16_t)(1u << i);
+    if (ui.key_held & bit) return;
+    if (ui.key_mode[i] == 1) {                   /* a return pauses as soon as pressed */
+        ui.key_was_returning |= bit;
+        ui.key_mode[i] = 2;
+        key_rejoin(i, 0);
+    } else {
+        ui.key_was_returning &= (uint16_t)~bit;
+    }
+    ui.key_held |= bit;
+    if (*key_amount(i) <= 0.0001f) ui.key_initial_zero |= bit;
+    else ui.key_initial_zero &= (uint16_t)~bit;
+    ui.key_t0[i] = plat_ms();
+    if (i >= NPLAY) {
+        const int g = key_gesture(i);
+        ui.g_held |= (uint8_t)(1u << g);
+        ui.g_t0[g] = ui.key_t0[i];
         hands_on(gl_par(g));
-        ui.g_rel |= (uint8_t)(1u << g);        /* (no banner: the header shows it going, Evan 2026-11-07) */
+    } else if (i == 2 || i == 6) {
+        key_rejoin(i, 0);
     }
-    ui.g_held |= (uint8_t)(1u << g);
-    ui.g_t0[g] = plat_ms();
-    tip(TIP_GEST);
-    ui.g_out_s[g] = 0.0f;
+    ui.scene_at = -1;
 }
-static void gesture_up(int g)
+static void gesture_up(int i)
 {
-    uint32_t held = plat_ms() - ui.g_t0[g];
-    if (!(ui.g_held >> g & 1u))
-        return;                                        /* not a gesture's press (SEL + the key: a bank) */
-    ui.g_held &= (uint8_t)~(1u << g);
-    if (ui.g_rel >> g & 1u) {
-        ui.g_rel &= (uint8_t)~(1u << g);
-        return;
-    }
-    if (held >= GEST_TAP_MS && !(ui.btn >> B_SEL & 1u) && g < G_PRESS) {   /* let go after a hold: out over as long
-                                                                         * as it was held (a pressure key: its own time) */
-        ui.g_out[g] = ui.g_amt[g];
-        ui.g_out_s[g] = fm_minf((float)held * 0.001f, 60.0f);
-    }
-    if (held < GEST_TAP_MS) {                          /* a tap: latched, at full */
-        param_set(gl_par(g), 100);
-        loop_note(gl_par(g), 100, 0);
-        hands_on(gl_par(g));                   /* the header says "latched" */
-    } else if (ui.btn >> B_SEL & 1u) {                 /* SEL held: latched where it is */
-        int v = (int)(ui.g_amt[g] * 100.0f + 0.999f);   /* rounded up: a hair less would read as letting go
-                                                          * (QA 2026-10-20: Shift's chord swapped, Weight jumped) */
-        ui.btn_used |= 1u << B_SEL;
-        param_set(gl_par(g), v < 1 ? 1 : v);
-        loop_note(gl_par(g), v < 1 ? 1 : v, 0);
-        hands_on(gl_par(g));
-    }
-}
-static char *dec1(float v, char *b);                   /* below */
-/* GESTURE TIME: the gestures' times x 0.25 .. x 12, 50 as set. Slower, evenly in seconds (each detent the same time
- * more, to 12x); faster, by ratio and only to 4x (Evan, 2026-10-28: most of the old x 0.1 .. x 10 was fast, the slow
- * end a few big jumps; a slow one is for a tap, which latches and comes in by itself) */
-static float mtime_k(void)
-{
-    float m = (float)proj.mtime;
-    return m > 50.0f ? 1.0f + (m - 50.0f) * 0.22f : fm_exp2f((m - 50.0f) * 0.04f);
-}
-static void mtime_turn(int32_t e)                      /* PRESETS: Gesture time, shown as Weight's time in (the
-                                                        * others scale with it): right is faster (Evan, 2026-10-24) */
-{
-    int v = (int)proj.mtime - (int)e;
-    float t;
-    char *q;
-    proj.mtime = (uint8_t)(v < 0 ? 0 : v > 100 ? 100 : v);
-    mark_dirty();
-    t = fm_exp2f((float)DR_GEST_TIME[DR_G_WEIGHT] * 0.0490689f) * mtime_k();
-    scopy(ui.glab[0], "GESTURE TIME");
-    q = ui.glab[1];
-    if (t < 9.95f)
-        q = dec1(t, q);
-    else
-        itoa_u((uint32_t)(t + 0.5f), q);
-    while (*q)
-        q++;
-    scopy(q, " s");
-    ui.glab_until = plat_ms() + 1500u;
-    ui.act_t = plat_ms();
-}
-static void gesture_run(void)                          /* each frame: each gesture toward where it's going */
-{
-    uint32_t now = plat_ms(), dt = now - ui.g_last;
-    int g;
-    ui.g_last = now;
-    if (dt > 100u)
-        dt = 100u;
-    for (g = 0; g < DR_NGEST; g++) {
-        float to = (float)proj.par[gl_par(g)] * 0.01f;
-        if ((ui.g_held >> g & 1u) && !(ui.g_rel >> g & 1u)) {
-            to = 1.0f;
-            if (g >= G_PRESS) {                        /* a pressure key: as far as it's pressed (none: the emulator) */
-                int pr = plat_pressure(gkey(g));
-                if (pr >= 0)
-                    to = fm_clampf(((float)press_scaled(pr) / 127.0f - PR_DEAD) / (PR_FULL - PR_DEAD), 0.0f, 1.0f);
-            }
+    const uint16_t bit = (uint16_t)(1u << i);
+    const uint32_t held = plat_ms() - ui.key_t0[i];
+    const float amount = *key_amount(i);
+    if (!(ui.key_held & bit)) return;
+    ui.key_held &= (uint16_t)~bit;
+    if (i >= NPLAY)
+        ui.g_held &= (uint8_t)~(1u << key_gesture(i));
+    if (held < GEST_TAP_MS && amount > 0.0f && !(ui.key_initial_zero & bit)) {
+        if (ui.key_was_returning & bit) {
+            ui.key_mode[i] = 2;                 /* tap during return: hold its position */
+        } else if (ui.key_mode[i] == 2) {
+            ui.key_mode[i] = 1;                 /* tap again: resume returning */
+            key_rejoin(i, 1);
+        } else if (amount > 0.0f) {
+            ui.key_mode[i] = 1;                 /* tap a stationary amount: return */
+            key_rejoin(i, 1);
         }
-        float *a = &ui.g_amt[g], k = mtime_k();
-        float step = *a > to && ui.g_out_s[g] > 0.0f
-                       ? (float)dt * 0.001f * ui.g_out[g] / (ui.g_out_s[g] * k)   /* let go: as long as it was held */
-                       : (float)dt * 0.001f / (fm_exp2f((float)DR_GEST_TIME[g] * 0.0490689f) * k);
+    } else {
+        ui.key_mode[i] = 0;                     /* a release after a hold is a latch */
+    }
+    ui.key_was_returning &= (uint16_t)~bit;
+    ui.key_initial_zero &= (uint16_t)~bit;
+    if (i >= NPLAY) {
+        int g = key_gesture(i), v = (int)(amount * 100.0f + 0.5f);
+        proj.par[gl_par(g)] = (int16_t)v;
+        loop_note(gl_par(g), v, 0);
+        mark_dirty();
+    }
+}
+static void gesture_run(void)
+{
+    const uint32_t now = plat_ms();
+    uint32_t dt = now - ui.g_last;
+    const float morph = dr_time_s(P_MORPH, proj.par[P_MORPH]) * 1000.0f;
+    int i;
+    ui.g_last = now;
+    if (dt > 100u) dt = 100u;
+    for (i = 0; i < NWHITE; i++) {
+        const uint16_t bit = (uint16_t)(1u << i);
+        const int g = key_gesture(i);
+        float *amount = key_amount(i);
+        const int pressed = (ui.key_held & bit) != 0;
+        const int raising = pressed && (*amount <= 0.0f || now - ui.key_t0[i] >= GEST_TAP_MS);
+        const float delta = (float)dt / fm_maxf(morph, 20.0f);
         int16_t q;
-        *a = *a < to ? fm_minf(*a + step, to) : fm_maxf(*a - step, to);
-        if (*a <= to)
-            ui.g_out_s[g] = 0.0f;                      /* out (or on its way in again): its own time from here */
-        q = (int16_t)(*a * 1000.0f + 0.5f);
-        if (q != ui.g_sent[g] && ui.loop == L_REC)
-            loop_note(LP_GEST + g, q, dt);             /* the loop: the level as played */
-        q = (int16_t)(fm_maxf(*a, loop_gest(g)) * 1000.0f + 0.5f);   /* playing: the loop's, or the hand's if more */
-        if (q != ui.g_sent[g]) {
-            ui.g_sent[g] = q;
-            dr_gesture(g, q);
+        if (raising) {
+            if (ui.key_mode[i] == 2)
+                key_rejoin(i, 0);
+            ui.key_mode[i] = 0;
+            *amount = fm_minf(*amount + delta, 1.0f);
+        } else if (!pressed && ui.key_mode[i] == 1) {
+            *amount = fm_maxf(*amount - delta, 0.0f);
+            if (*amount <= 0.0f) {
+                ui.key_mode[i] = 0;
+                if (g >= 0) mark_dirty();
+            }
+        } else if (!pressed && ui.key_mode[i] == 0 && g >= 0 &&
+                   ui.morph >= 0) {
+            /* A scene transition can still change a saved gesture depth. */
+            *amount = (float)proj.par[gl_par(g)] * 0.01f;
+        }
+        q = (int16_t)(*amount * 1000.0f + 0.5f);
+        if (i < NPLAY) {
+            if (q != ui.sub_sent[i]) {
+                ui.sub_sent[i] = q;
+                dr_subtract(i, q);
+                if (i == 2 || i == 6)
+                    sd_still_level(i / 4, q);
+            }
+        } else {
+            if (q != ui.g_sent[g] && ui.loop == L_REC)
+                loop_note(LP_GEST + g, q, dt);
+            q = (int16_t)(fm_maxf(*amount, loop_gest(g)) * 1000.0f + 0.5f);
+            if (q != ui.g_sent[g]) {
+                ui.g_sent[g] = q;
+                dr_gesture(g, q);
+            }
+            if (ui.morph < 0 && proj.par[gl_par(g)] != (int16_t)(*amount * 100.0f + 0.5f))
+                proj.par[gl_par(g)] = (int16_t)(*amount * 100.0f + 0.5f);
         }
     }
 }
@@ -2098,6 +2144,53 @@ static void menu_name_input(uint32_t released)
         }
     }
 }
+/* LOAD is an editing/startup operation, not a performance morph. It takes
+ * the complete saved sound immediately, including both pitches even if the
+ * current Pitch Lock is enabled. Room/transport settings remain global.
+ * TRANSITION below deliberately keeps the Scene Time rule. */
+static void menu_load_scene(int bank, int slot)
+{
+    const int16_t *target = scene_get(bank, slot);
+    char label[12];
+    int k, g;
+    if (!target) {
+        say("EMPTY SLOT", "CHOOSE ANOTHER");
+        return;
+    }
+    undo_keep();
+    ui.morph = -1;                  /* cancel any old scene glide or transition */
+    ui.transition_seq_pending = 0;
+    ui.press = -1;
+    ui.visit = -1;
+    hands_clear();
+    proj.bank = (uint8_t)bank;
+    for (k = 0; k < DR_NPARAMS; k++)
+        if (!scene_room(k))
+            param_set(k, target[k]);
+    if (BANK_IS_PRESETS(bank)) {
+        sd_stop();
+        sd_init();
+    } else {
+        sd_scene_restore(project_seq_get(bank, slot));
+    }
+    /* A previous gesture's return must not immediately overwrite the saved
+     * latch levels when the next UI frame runs. Subtractive gestures remain
+     * performance state and are not altered by loading a scene. */
+    for (g = 0; g < DR_NGEST; g++) {
+        const int key = g < G_PRESS ? NSCENES + g : NPLAY + g - G_PRESS;
+        if (!(ui.key_held & (1u << key))) {
+            ui.key_mode[key] = 0;
+            ui.g_amt[g] = (float)proj.par[gl_par(g)] * 0.01f;
+            ui.g_sent[g] = -1;
+        }
+    }
+    ui.scene_at = (int8_t)slot;
+    ui.save_menu = 0;
+    mark_dirty();                   /* save the selected bank even for an identical sound */
+    scene_name(label, bank, slot);
+    say_c(label, "LOADED", K_GOLD);
+}
+
 static void menu_start_transition(int bank, int slot)
 {
     const int16_t *target = scene_get(bank, slot);
@@ -2106,16 +2199,17 @@ static void menu_start_transition(int bank, int slot)
         say("EMPTY TARGET", "SELECT A SOUND");
         return;
     }
-    if (BANK_IS_PRESETS(bank)) {
-        sd_stop();
-        sd_init();
-    }
     if (!ui.menu_pct) {
         say("TRANSITION 0%", "SOUND UNCHANGED");
         ui.save_menu = 0;
         return;
     }
     undo_keep();
+    /* Partial transitions keep the working progression. At 100%, the
+     * target pattern follows only when the sound has completed Scene Time. */
+    ui.transition_seq_pending = (uint8_t)(ui.menu_pct == 100);
+    ui.transition_seq_bank = (uint8_t)bank;
+    ui.transition_seq_slot = (uint8_t)slot;
     for (i = 0; i < DR_NPARAMS; i++) {
         ui.morph_from[i] = proj.par[i];
         ui.morph_to[i] = target[i];
@@ -2164,9 +2258,9 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
     uint32_t i;
     const uint32_t released = changed & ~btn;
     const uint32_t keyup = ui.keys & ~keys;
-    for (i = NPLAY; i < NWHITE; i++)
+    for (i = 0; i < NWHITE; i++)
         if (keyup >> WHITE_K[i] & 1u)
-            gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+            gesture_up((int)i);
     ui.keys = keys;
     if (ui.save_menu == 2) {
         menu_name_input(released);
@@ -2188,7 +2282,8 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
             if (action < 0) action += 3;
             ui.menu_load = (uint8_t)action;
         }
-        if ((step = plat_enc(EN_K4)) != 0) {
+        if ((step = plat_enc(EN_K4)) != 0 && ui.menu_load == 2) {
+            /* The depth control belongs to TRANSITION only; LOAD is instant. */
             int n = (int)ui.menu_pct + (int)accel(EN_K4, step, 100);
             ui.menu_pct = (uint8_t)(n < 0 ? 0 : n > 100 ? 100 : n);
         }
@@ -2207,10 +2302,7 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
             } else if (ui.menu_load == 2) {
                 menu_start_transition(bank, slot);
             } else if (ui.menu_load == 1) {
-                proj.bank = (uint8_t)bank;
-                mark_dirty();
-                scene_recall(slot, 1);
-                ui.save_menu = 0;
+                menu_load_scene(bank, slot);
             } else if (scene_has(bank, slot)) {
                 /* An occupied user scene requires a second, explicit SAVE.
                  * No flash or in-RAM scene mutation occurs before confirmation. */
@@ -2241,18 +2333,8 @@ static void input(void)
         return;
     }
     if ((ch & btn) >> B_SEL & 1u) {
-        int g;
         ui.sel_t = plat_ms();
         ui.sel_turned = 0;
-        for (g = 0; g < DR_NGEST; g++)                 /* SEL tapped while a gesture is held: latched where it is */
-            if ((ui.g_held >> g & 1u) && !(ui.g_rel >> g & 1u) && plat_ms() - ui.g_t0[g] >= GEST_TAP_MS) {
-                int v = (int)(ui.g_amt[g] * 100.0f + 0.999f);   /* rounded up, as a SEL let-go's */
-                param_set(gl_par(g), v < 1 ? 1 : v);
-                loop_note(gl_par(g), v < 1 ? 1 : v, 0);
-                hands_on(gl_par(g));
-                ui.g_rel |= (uint8_t)(1u << g);        /* its let-go does nothing more */
-                ui.btn_used |= 1u << B_SEL;            /* the header says "latched" */
-            }
         if (ui.press >= 0 && !ui.press_done && plat_ms() - ui.press_t0 >= PR_WAIT_MS) {   /* ... a scene key: the
                                                         * blend kept there; its let-go does nothing more */
             ui.btn_used |= 1u << B_SEL;
@@ -2356,8 +2438,10 @@ static void input(void)
         } else if (w.s == S_LFORESET && !ui.rst_done &&
                    ((((keys >> BLACK_K[i]) & 1u) || (((ch & ~keys) >> BLACK_K[i]) & 1u))) &&
                    plat_ms() - ui.rst_t >= HOLD_MS + 100u) {
-            dr_lfo_reset();                           /* long hold: one reset, lock unchanged */
-            say_c("LFO", "RESET", K_LFO);
+            if (proj.par[P_LFO_LOCK])
+                param_set(P_LFO_LOCK, 0);
+            dr_lfo_transport_set(DR_LFO_STOPPING);  /* return to zero at LFO rate */
+            say_c("LFO / SWELL", "STOPPING", K_LFO);
             ui.rst_done = 1;
         } else if (w.s == S_LFORESET && !ui.rst_done &&
                    (((ch & ~keys) >> BLACK_K[i]) & 1u)) {
@@ -2406,19 +2490,14 @@ static void input(void)
                 scene_back();
         }
     }
-    for (i = NPLAY; i < NWHITE; i++) {                 /* the eight gesture keys, G4 .. G5 */
-        const int g = i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES);   /* keys 9-12: the pressure
-                                                                                          * gestures (v0.3) */
-        if (!((ch & keys) >> WHITE_K[i] & 1u))
-            continue;
-        if (btn >> B_SEL & 1u)
-            ui.btn_used |= 1u << B_SEL;   /* SEL+gesture is not a request for the key map */
-        gesture_down(g);
-    }
-    for (i = NPLAY; i < NWHITE; i++)                 /* ... and let go */
+    for (i = 0; i < NWHITE; i++) {
+        if (i < NPLAY && ui.scene_keys_enabled) continue; /* legacy scenario only */
+        if ((ch & keys) >> WHITE_K[i] & 1u)
+            gesture_down((int)i);
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
-            gesture_up(i < NSCENES ? G_PRESS + (int)(i - NPLAY) : (int)(i - NSCENES));
+            gesture_up((int)i);
     }
+    } /* end normal keyboard dispatch; sequencer's keyboard is handled separately */
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();
@@ -2451,7 +2530,7 @@ static void input(void)
     if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */
         global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
     if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */
-        mtime_turn(e);
+        global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
             const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
@@ -2634,26 +2713,9 @@ static int32_t echo_shift(int ty, int k)
     return ty == 4 ? JIT[k & 7] : ty == 5 ? (int32_t)(k * k) / 3 : 0;
 }
 
-/* THE BLACK KEYS' MAP (SEL held 0.4 s, nothing else asking for the screen: a knob turning, a white key held): the
- * eleven keys drawn where they sit on the keyboard (3-2-3-2-1), lit as the panel's are, and only their groups
- * named. A key touched while SEL is held names itself and its setting, large, and doesn't switch (Evan, 2026-10-19:
- * the eleven names and settings at once were too crowded to read). The LFO pages' layer on those pages */
-#define KEYMAP_MS 400u
-#define KEYMAP_JOB_MS 1500u            /* ... on a page where a knob has a SEL job: a quick SEL + turn never meets the map
-                                        * (Evan, 2026-10-28); once a job is turned, not until SEL is let go */
-static int keymap_on(void)
-{
-    uint32_t white = 0, i, wait = page_jobs(ui.view) ? KEYMAP_JOB_MS : KEYMAP_MS;
-    for (i = 0; i < NWHITE; i++)
-        white |= 1u << WHITE_K[i];
-    if (page_jobs(ui.view) && ui.sel_turned && ui.km_key < 0)
-        return 0;
-    if ((ui.btn_used >> B_SEL & 1u) && ui.km_key < 0)
-        return 0;                                      /* SEL already used in this hold (SEL + PLAY, a bank, a knob):
-                                                        * no map until it's let go (Evan, 2026-11-08) */
-    return (ui.btn >> B_SEL & 1u) && (plat_ms() - ui.sel_t >= wait || ui.km_key >= 0) && !lit(0) && !lit(1) &&
-           !lit(2) && !lit(3) && !(ui.keys & white) && ui.press < 0;
-}
+/* SEL continues to modify knobs and transport; it no longer opens a key map.
+ * Keep the query for host scenario compatibility, always reporting hidden. */
+static int keymap_on(void) { return 0; }
 static void sw_text(sw_t w, const char **name, const char **st)
 {
     static const char *const SUB[7] = {"", "-1 oct", "-2 oct", "1/3", "1/5", "-3 oct", "-4 oct"},
@@ -2667,7 +2729,8 @@ static void sw_text(sw_t w, const char **name, const char **st)
     case S_SUBOCT: *name = "Sub"; *st = SUB[(unsigned)p[GP_SUBOCT] < 7u ? p[GP_SUBOCT] : 1]; break;
     case S_HP: *name = "Filter"; *st = MODE[(unsigned)p[GP_MODE] < 3u ? p[GP_MODE] : 0]; break;
     case S_PLOCK: *name = "Pitch lock"; break;
-    case S_LFORESET: *name = "LFO to Swell"; *st = proj.par[P_LFO_LOCK] ? "locked" : "free"; break;
+    case S_LFORESET: *name = "LFO transport"; *st = dr_lfo_transport == DR_LFO_RUN ? "running" :
+                       dr_lfo_transport == DR_LFO_PAUSE ? "paused" : "returning"; break;
     case S_PLINK: *name = "Pitch link"; break;
     case S_SYNC: *name = "Hard sync"; break;
     case S_XMOD: *name = "X-mod"; *st = proj.par[P_XMOD] == DR_XMOD_OUT ? "snarl" : proj.par[P_XMOD] == DR_XMOD_FM ? "pitch" : on ? "cutoff" : "off"; break;
@@ -2790,17 +2853,8 @@ static void leds(void)
         b[B_REC] = 255;
     else if (ui.loop == L_REC)
         b[B_REC] = now - ui.loop_t0 + 20000u >= LOOP_MS ? ((ui.frame / 8u) & 1u ? 255 : 0) : now % 1000u < 500u ? 255 : 0;
-    {                                                  /* SEL: glows while it can keep what a hand holds (a blend, a
-                                                        * gesture past its tap) */
-        int keep = ui.press >= 0 && !ui.press_done && now - ui.press_t0 >= PR_WAIT_MS;
-        for (i = 0; i < DR_NGEST; i++)
-            if ((ui.g_held >> i & 1u) && !(ui.g_rel >> i & 1u) && now - ui.g_t0[i] >= GEST_TAP_MS)
-                keep = 1;
-        if (keep) {
-            b[B_SEL] = 128;
-            tip(TIP_KEEP);
-        }
-    }
+    if (ui.press >= 0 && !ui.press_done && now - ui.press_t0 >= PR_WAIT_MS)
+        b[B_SEL] = 128;  /* SEL no longer latches gestures */
     {                                                  /* the black keys' active switch layer */
         const sw_t *layer = sw_layer();
         for (i = 0; i < 11u; i++) {
@@ -2832,7 +2886,10 @@ static void leds(void)
     else if (ui.flash_t && ui.press >= 0 && now - ui.flash_t < 480u)
         k[WHITE_K[ui.press]] = (now - ui.flash_t) % 160u < 80u ? 255 : 0;
     }
-    for (i = 0; i < DR_NGEST; i++) {                 /* gestures: actual amount, no minimum light when off */
+    if (!ui.scene_keys_enabled)
+        for (i = 0; i < NPLAY; i++)
+            k[WHITE_K[i]] = (uint8_t)(255.0f * ui.sub_amt[i] + 0.5f);
+    for (i = 0; i < DR_NGEST; i++) {
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
     }
@@ -2878,6 +2935,11 @@ void ui_init(void)
     dr_phones = (uint8_t)(ui.jack || plat_speaker_muted());   /* restore user preference; default speaker ON */
     ui.save_q = -2;
     sd_init();
+    for (int g = 0; g < DR_NGEST; g++) {
+        ui.g_amt[g] = (float)proj.par[gl_par(g)] * 0.01f;
+        ui.g_sent[g] = -1;
+    }
+    ui.g_last = plat_ms();
     ui.splash_t0 = plat_ms();
     lcd_fill(0, 0, 240, 240, K_BG);
 }
@@ -2955,6 +3017,53 @@ static void sp_fade_canvas(uint16_t sky, float remaining)
         cv_px[i] = swap16((uint16_t)((r << 11) | (g << 5) | b));
     }
 }
+#include "volcano_logo.h"
+
+/* Bauhaus-adjacent, rounded geometric wordmark from a compact OFL bitmap.
+ * Per-pixel compositing lets ash/plume pixels invert through the existing
+ * volcanic red-orange-yellow color family, instead of RGB inversion.
+ * 2-bit coverage is expanded to the renderer's native 15-level range. */
+static void sp_wordmark(int32_t y, uint8_t opacity, uint16_t sky)
+{
+    const uint16_t logo_red = RGB(248, 43, 43);
+    const uint32_t full = 15u * 255u;
+    const int32_t x0 = (240 - SP_LOGO_W) / 2;
+    int32_t gx, gy;
+    if (!opacity) return;
+    for (gy = 0; gy < SP_LOGO_H; gy++) {
+        const int32_t py = y + gy;
+        if (py < 0 || (uint32_t)py >= cv_h) continue;
+        for (gx = 0; gx < SP_LOGO_W; gx++) {
+            const char c = SP_LOGO_ROWS[gy][gx / 3];
+            const uint32_t idx = c >= 'A' && c <= 'Z' ? (uint32_t)(c - 'A') :
+                                 c >= 'a' && c <= 'z' ? (uint32_t)(c - 'a' + 26) :
+                                 c >= '0' && c <= '9' ? (uint32_t)(c - '0' + 52) :
+                                 c == '-' ? 62u : 63u;
+            const uint32_t coverage = ((idx >> (4 - 2 * (gx % 3))) & 3u) * 5u;
+            const uint32_t a = coverage * (uint32_t)opacity;
+            const int32_t px = x0 + gx;
+            const uint32_t at = (uint32_t)py * cv_w + (uint32_t)px;
+            uint32_t bg, ink, nr, ng, nb;
+            if (!a || (uint32_t)px >= cv_w) continue;
+            bg = swap16(cv_px[at]);
+            ink = logo_red;
+            if (bg != sky && px > 88 && px < 194) {
+                /* A dark-red plume becomes yellow lettering; bright molten
+                 * yellow becomes dark red; orange maps to a distinct orange.
+                 * The plume remains visible as a heat-color silhouette in
+                 * the wordmark. Do not invert background pixels elsewhere. */
+                const int green = (int)((bg >> 5) & 63u);
+                ink = green > 40 ? RGB(182, 25, 36) :
+                      green > 18 ? RGB(247, 117, 37) : RGB(255, 222, 63);
+            }
+            nr = ((ink >> 11) * a + (bg >> 11) * (full - a) + full / 2u) / full;
+            ng = (((ink >> 5) & 63u) * a + ((bg >> 5) & 63u) * (full - a) + full / 2u) / full;
+            nb = ((ink & 31u) * a + (bg & 31u) * (full - a) + full / 2u) / full;
+            cv_px[at] = swap16((nr << 11) | (ng << 5) | nb);
+        }
+    }
+}
+
 static void draw_splash(uint32_t ms)
 {
     static const uint16_t BED[11] = {
@@ -3106,7 +3215,7 @@ static void draw_splash(uint32_t ms)
         const uint8_t ver = (uint8_t)(255.0f * version_alpha + 0.5f);
         const uint8_t name = (uint8_t)(255.0f * name_alpha + 0.5f);
         cv_text_alpha(16, 212 - y0, &FONT_S, "VOLCANO " OM_VERSION, PAPER, ver);
-        cv_text_alpha(18, 53 - y0, &FONT_L, "VOLCANO", PAPER, name);
+        sp_wordmark(53 - y0, name, SKY);
         sp_fade_canvas(SKY, scene_remaining);
         cv_blit(0, (uint32_t)y0);
     }
@@ -3362,8 +3471,8 @@ static void sp_does_k(int k, int key)
     case S_ODEST: sp_cat(on ? " for pitch" : " for x-wave"); break;
     case S_FDEST: sp_cat(p[GP_FLFO_DEST] == DR_TO_CUTOFF ? " for reso" : p[GP_FLFO_DEST] == DR_TO_RESO ? " for pan" : " for cutoff"); break;
     case S_XMOD: sp_cat(" for "); sp_cat(XM[(proj.par[P_XMOD] + 1) % (DR_XMOD_OUT + 1)]); break;
-    case S_LFORESET: sp_cat(proj.par[P_LFO_LOCK] ? " for free, hold to reset LFO" :
-                                                " for lock to Swell, hold to reset LFO"); break;
+    case S_LFORESET: sp_cat(dr_lfo_transport == DR_LFO_RUN ?
+                              " to pause, hold to stop" : " to resume, hold to stop"); break;
     default: break;
     }
 }
@@ -3495,7 +3604,8 @@ static void sp_screen(int all)
     if (i >= 0) {
         sp_cat(" ");
         sp_cat(GESTURE[i]);
-        sp_cat(proj.par[gl_par(i)] ? " latched." : " on.");
+        { char v[12]; itoa_u((uint32_t)(ui.g_amt[i] * 100.0f + 0.5f), v);
+          sp_cat(" "); sp_cat(v); sp_cat(" percent."); }
     }
     if (proj.par[P_II_OUT])
         sp_cat(" Drone 2 out.");
@@ -3764,7 +3874,8 @@ static void speak(void)
         if (g >= 0) {
             sp_start();
             sp_cat(GESTURE[g]);
-            sp_cat(proj.par[gl_par(g)] ? " latched" : "");
+            { char v[12]; itoa_u((uint32_t)(ui.g_amt[g] * 100.0f + 0.5f), v);
+              sp_cat(" "); sp_cat(v); sp_cat(" percent"); }
             ann_say(sp_buf, 0, ANN_NOW);
         }
     }

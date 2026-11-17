@@ -84,8 +84,8 @@ tap OCT+
 release SEL
 wait 2500
 expect level1 >3
-# GESTURES IN THE LOOP (Evan, 2026-10-28: a loop of gestures said "nothing moved"): Weight (D5) held 2 s and let go,
-# recorded as it went; looped, it rises and falls again each pass, from where the recording began (none)
+# GESTURES IN THE LOOP: record Weight rising on hold, then returning on a tap.
+# Playback must recreate both movements, with the loop starting from none.
 expect gam0 0
 tap REC
 expect loop 1
@@ -95,27 +95,35 @@ wait 2000
 expect gam0 >30
 key w12 up
 wait 300
+# Release latches in Volcano; explicitly tap to record a return to zero.
+tapkey w12
+wait 950
+expect gam0 0
 tap REC
 expect loop 2
 wait 1900
 expect gsent0 >30
-wait 1000
+wait 1300
 expect gsent0 <30
-# stopped: the gesture stays where the loop had it, then goes its own way (out)
+# Stopping copies the currently looped gesture into the live latched state.
 wait 1500
 tap REC
 expect loop 0
 expect gam0 >20
+# A tap, rather than key-up or elapsed time alone, starts the return.
+tapkey w12
 wait 8000
 expect gam0 0
-# a second loop with the same gesture starts from where it is now, not where the last loop left it (the review: Weight
-# swept down from full at the new loop's start)
+# A second loop with the same gesture starts from the current zero, not where the previous loop left it.
 tap REC
 wait 500
 key w12 down
 wait 700
 key w12 up
 wait 300
+tapkey w12
+wait 900
+expect gam0 0
 tap REC
 expect loop 2
 wait 50

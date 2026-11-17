@@ -31,7 +31,7 @@ SRC = Path(__file__).resolve().parents[1]
 MAN = SRC / "docs" / "manual"
 WEB = SRC / "web" / "manual"                       # the pages' style and the banner's bands
 AUDIO = SRC / "build" / "manual-audio"
-REPO = "https://github.com/evanyerburgh/niagara-drift"
+REPO = "https://github.com/oliolioxinfrii/niagara-drift"
 LEVEL_LUFS = -14.0                                 # every recipe's sound at this perceived loudness (BS.1770), peaks under -1 dBFS
 
 GH = ('<svg class="gh" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 '
@@ -51,25 +51,24 @@ def icon(name, cls="ic"):
     return s.replace("<svg ", f'<svg class="{cls}" aria-hidden="true" focusable="false" ', 1)
 
 
-MENU_ICON = {"Play it": "play", "Start here": "flag", "Recipes": "cooking-pot", "Reference": "book-open",
+MENU_ICON = {"Manual": "book-open", "Recipes": "cooking-pot", "Reference": "book-open",
              "Shortcuts": "keyboard", "Help": "lifebuoy", "About": "info"}
-TAB_ICON = {"sounds": "waveform", "gestures": "hand-pointing", "scenes": "floppy-disk", "time": "timer",
+TAB_ICON = {"sounds": "waveform", "sequencing": "music-notes-simple", "gestures": "hand-pointing", "scenes": "floppy-disk", "time": "timer",
             "performing": "faders", "scratch": "plant"}
-MENU = [("", "Play it", "the emulator: the firmware itself, in your browser"),
-        ("#start-here", "Start here", "the first steps, beside the emulator"),
-        ("manual/recipes/", "Recipes", "how to get a sound or a move"),
+MENU = [("manual/", "Manual", "start with the instrument and its controls"),
+        ("manual/recipes/", "Recipes", "build sounds, gestures and pitch sequences"),
         ("manual/reference/", "Reference", "every page, knob and key"),
-        ("manual/reference/shortcuts/", "Shortcuts", "every combination, hold and tap"),
-        ("manual/help/", "Help", "installing, going back, problems"),
-        ("manual/about/", "About", "what it does, the details, where it came from")]
+        ("manual/reference/shortcuts/", "Shortcuts", "button combinations and holds"),
+        ("manual/help/", "Help", "installation and recovery"),
+        ("manual/about/", "About", "Volcano's origins and technical details")]
 
 
 def menu_html(up, current):
-    """Install, Source and the menu (the front page has the same, web/emu/index.html)."""
+    """Build instructions, source and the manual's own navigation."""
     items = "".join(f'<a href="{up}{h}"{" aria-current=\"page\"" if n == current else ""}>{icon(MENU_ICON[n], "mi")}'
-                    f'<span>{n}<small>{s}</small></span></a>'
-                    for h, n, s in MENU)
-    return (f'<a href="{up}install/">Install</a><a href="{REPO}" aria-label="Source on GitHub">Source{GH}</a>'
+                    f'<span>{n}<small>{desc}</small></span></a>'
+                    for h, n, desc in MENU)
+    return (f'<a href="{REPO}/blob/main/BUILDING.md">Build</a><a href="{REPO}" aria-label="Source on GitHub">Source{GH}</a>'
             f'<details class="menubtn"><summary aria-label="Menu" title="Menu">Menu</summary><div class="panel">{items}</div></details>')
 
 
@@ -241,12 +240,12 @@ def recipe_page(text):
             while j < len(bl) and not (bl[j][0] == "h" and bl[j][1][0] <= 3):
                 body.append(bl[j])
                 j += 1
-            line = re.sub(r"^\*(.*)\*$", r"\1", body[0][1]) if body and body[0][0] == "p" else ""
+            line = re.sub(r"^\*(.*)\*$", r"\1", body[0][1]) if body and body[0][0] == "p" and re.fullmatch(r"\*[^*].*\*", body[0][1]) else ""
             if not groups:
                 groups.append(("", []))
             groups[-1][1].append((rid, title, line, not coming))
             if not coming:
-                recipes.append(recipe_html(rid, title, body[1:]))
+                recipes.append(recipe_html(rid, title, body))
             i = j
             continue
         i += 1
@@ -254,38 +253,47 @@ def recipe_page(text):
 
 
 def recipe_html(rid, title, body):
-    lead, moves, good, pics, listen = "", "", "", [], None
+    """Render every documented recipe block, including screenshot placeholders.
+
+    Recipes traditionally contain one italic lead, a numbered move list,
+    Good to know, screenshots and Listen. Preserve additional explanatory
+    paragraphs and multiple notes rather than silently dropping them.
+    """
+    content, pics, listen = [], [], None
     k = 0
     while k < len(body):
         kind, d = body[k]
         if kind == "p" and d.startswith("**Listen**"):
-            name = re.search(r"`([\w-]+)`", d).group(1)
+            name = re.search(r"`([\w-]+)`", d)
             rows = body[k + 1][1] if k + 1 < len(body) and body[k + 1][0] == "ul" else []
-            listen = (name, [re.match(r"(\d+):(\d\d)\s+(.*)", r[1]).groups() for r in rows])
+            if name:
+                listen = (name.group(1), [re.match(r"(\d+):(\d\d)\s+(.*)", r[1]).groups() for r in rows])
             k += 2
             continue
         if kind == "p" and d.startswith("!["):
             pics += re.findall(r'!\[([^\]]*)\]\(([^)\s]+) "([^"]*)"\)', d)
-        elif kind == "p" and not lead:
-            lead = inline(d)
+        elif kind == "p" and d.startswith("*") and d.endswith("*") and not d.startswith("**") and not content:
+            content.append(f'<p class="lead">{inline(d[1:-1])}</p>')
         elif kind == "ol":
-            moves = "".join(f"<li>{inline(t)}</li>" for _, t in d)
-        elif kind == "quote":
-            good = render(blocks(re.sub(r"^\*\*Good to know\.?\*\*\s*", "", d)))
+            items = "".join(f"<li>{inline(t)}</li>" for _, t in d)
+            content.append(f'<ol class="moves">{items}</ol>')
+        elif kind == "quote" and re.match(r"^\*\*Good to know\.?\*\*", d):
+            note = re.sub(r"^\*\*Good to know\.?\*\*\s*", "", d)
+            content.append(f'<div class="good"><b>Good to know</b>{render(blocks(note))}</div>')
+        else:
+            content.append(render([(kind, d)]))
         k += 1
-    figs = "".join(f'<figure><img src="../../media/{Path(s).name}" alt="{html.escape(a)}"><figcaption>{inline(c)}</figcaption></figure>'
-                   for a, s, c in pics)
+    figs = "".join(f'<figure><img src="../../media/{Path(src).name}" alt="{html.escape(alt)}"><figcaption>{inline(caption)}</figcaption></figure>'
+                   for alt, src, caption in pics)
     snd = ""
     if listen:
         name, rows = listen
         li = "".join(f'<li><button data-t="{int(mm) * 60 + int(ss)}" aria-label="Play {html.escape(title)} from {mm}:{ss}">'
-                     f'{mm}:{ss}</button><span>{inline(w)}</span></li>' for mm, ss, w in rows)
+                     f'{mm}:{ss}</button><span>{inline(words)}</span></li>' for mm, ss, words in rows)
         snd = (f'<div class="listen"><h4 id="{rid}-listen">Listen</h4><audio controls preload="none" '
                f'src="../../media/{name}.mp4" aria-label="{html.escape(title)}: a sound example"></audio><ol>{li}</ol></div>')
-    return (f'<section class="recipe" id="{rid}"><div class="recipe-head"><h3>{inline(title)}</h3>'
-            f'</div>'
-            f'<div class="recipe-body"><div class="how">{f"<p class=lead>{lead}</p>" if lead else ""}<ol class="moves">{moves}</ol>'
-            f'{f"<div class=good><b>Good to know</b>{good}</div>" if good else ""}</div>'
+    return (f'<section class="recipe" id="{rid}"><div class="recipe-head"><h3>{inline(title)}</h3></div>'
+            f'<div class="recipe-body"><div class="how">{"".join(content)}</div>'
             + (f'<div class="screens">{figs}</div>' if figs else "") + f'{snd}</div></section>')
 
 
@@ -303,7 +311,7 @@ def onpage(groups, base, label):
 
 # ---- pages -------------------------------------------------------------------------------------------------------
 
-RECIPE_KINDS = ["sounds", "gestures", "scenes", "time", "performing", "scratch"]   # scratch: the tutorial, one walk-through
+RECIPE_KINDS = ["scratch", "sequencing", "sounds", "gestures", "scenes", "time", "performing"]   # scratch: the tutorial, one walk-through
 
 
 def page_html(rel, meta, body, current, side=""):
@@ -315,19 +323,19 @@ def page_html(rel, meta, body, current, side=""):
     img = f'<meta property="og:image" content="{up}manual/media/{meta["image"]}">' if meta.get("image") else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(title)} · Niagara Drift</title>
-<meta name="description" content="{desc}"><meta property="og:title" content="{html.escape(title)} · Niagara Drift">
+<title>{html.escape(title)} · Volcano</title>
+<meta name="description" content="{desc}"><meta property="og:title" content="{html.escape(title)} · Volcano">
 <meta property="og:description" content="{desc}">{img}<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="{mup}manual.css"></head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="top"><div class="top-in">
-<nav class="menu" aria-label="Site"><a class="homeicon" href="{up}" aria-label="Home: Niagara Drift, play it in your browser" title="Home">{HOME}</a>{menu_html(up, current)}</nav>
-<div class="title"><small>{"Niagara Drift" + (" · " + kicker if kicker else "")}</small><h1>{inline(title)}</h1><p>{inline(intro)}</p></div>
+<nav class="menu" aria-label="Site"><a class="homeicon" href="{up}" aria-label="Home: Volcano" title="Home">{HOME}</a>{menu_html(up, current)}</nav>
+<div class="title"><small>{"Volcano" + (" · " + kicker if kicker else "")}</small><h1>{inline(title)}</h1><p>{inline(intro)}</p></div>
 </div></div>
 <main id="main" tabindex="-1" class="page{' side' if side else ''}">{side}<div class="prose">{body}</div></main>
-<p class="foot">Niagara Drift · free, open-source firmware (GPL-3.0) for the M-VAVE FM-1. Sound examples are rendered from the
-firmware's own code on a computer, with headphones' settings, not recorded from an FM-1. <a href="{mup}about/">About</a> ·
+<p class="foot">Volcano · a Niagara Drift derivative for the M-VAVE FM-1. Previously recorded recipe audio is being updated; original sound examples were rendered from the
+original firmware's code on a computer, not recorded from an FM-1. <a href="{mup}about/">About</a> ·
 <a href="{REPO}">Source on GitHub</a></p>
 <script src="{mup}manual.js"></script>
 </body></html>"""
@@ -490,6 +498,33 @@ def check():
                     bad.append(f"{p.relative_to(out)}: {href}: nothing there")
                 elif frag and frag not in re.findall(r'id="([^"]+)"', tgt.read_text(encoding="utf-8")):
                     bad.append(f"{p.relative_to(out)}: {href}: no #{frag} there")
+        # The recipe renderer must not silently discard tutorial steps or
+        # screenshot placeholders from the Markdown source.
+        for md in sorted((MAN / "recipes").glob("*.md")):
+            if md.stem == "index":
+                continue
+            _, source = front(md.read_text(encoding="utf-8"))
+            _, recipes = recipe_page(source)
+            target = site / "recipes" / md.stem / "index.html"
+            if not target.exists():
+                bad.append(f"recipes/{md.stem}: generated page missing")
+                continue
+            generated = target.read_text(encoding="utf-8")
+            actual = generated.count('<section class="recipe"')
+            if actual != len(recipes):
+                bad.append(f"recipes/{md.stem}: rendered {actual} of {len(recipes)} recipes")
+            expected_notes = source.count("Screenshot needed")
+            visible_notes = generated.count("Screenshot needed")
+            if expected_notes != visible_notes:
+                bad.append(f"recipes/{md.stem}: rendered {visible_notes} of {expected_notes} screenshot placeholders")
+        for label, needle in (("scratch", "Presets 9–16"),
+                              ("sequencing", "13 seconds"),
+                              ("scenes", "TRANSITION"),
+                              ("performing", "MIDI clock"),
+                              ("time", "pitch movement")):
+            target = site / "recipes" / label / "index.html"
+            if target.exists() and needle not in target.read_text(encoding="utf-8"):
+                bad.append(f"recipes/{label}: expected v1.5 instructions missing from generated page")
     for b in bad:
         print("manual: " + b)
     if bad:

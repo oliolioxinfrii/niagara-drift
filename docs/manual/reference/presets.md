@@ -7,16 +7,15 @@ intro: 16 sounds to start from, each changing over a minute
 
 ## Presets
 
-16 sounds built into Niagara Drift, each showing a different side of it and changing over a minute. They sit in two
-banks of eight on white keys 1–8.
+Sixteen factory sounds are included with Volcano, arranged in two banks of eight. Open the **SAVE scene browser** to hear them. Unlike user scenes, factory presets cannot be overwritten or renamed.
 
 ### P1–P8
 
-Hold [[SEL]] and tap [[F5]] for this bank, then tap white keys 1–8.
+In the SAVE browser, set KNOB 1 to **Presets 1–8**, KNOB 2 to the desired slot, and KNOB 3 to **LOAD**; press SAVE to confirm.
 
-<img src="../../img/keys-presets-1.png" width="720" alt="The keyboard: white keys 1 to 8 are P1 to P8; SEL with F5 picks their bank">
+> **Screenshot needed — Presets 1–8:** Capture this bank in the v1.5 Orbit scene browser.
 
-| Key | Preset | What it shows |
+| Slot | Preset | What it shows |
 |---|---|---|
 | P1 | **Niagara** | the starting sound: D and A a fifth apart, breathing slowly |
 | P2 | **Embers** | D and a pure third above, triangles blooming toward saws and back, the two drones in turn, a chorus hall |
@@ -29,11 +28,11 @@ Hold [[SEL]] and tap [[F5]] for this bank, then tap white keys 1–8.
 
 ### P9–P16
 
-Hold [[SEL]] and tap [[G5]] for this bank, then tap white keys 1–8.
+In the SAVE browser, choose **Presets 9–16** and load a slot using the same controls.
 
-<img src="../../img/keys-presets-2.png" width="720" alt="The keyboard: white keys 1 to 8 are P9 to P16; SEL with G5 picks their bank">
+> **Screenshot needed — Presets 9–16:** Capture this bank in the v1.5 Orbit scene browser.
 
-| Key | Preset | What it shows |
+| Slot | Preset | What it shows |
 |---|---|---|
 | P9 | **Howl** | low, D and E♭ a semitone apart so they grind, the feedback high, drone II band-passed; a random LFO flares the filters every few seconds |
 | P10 | **Cistern** | reeds in a cistern: a fifth apart, drone I rounder with a sine sub, a bellows Swell, a tape delay a second long, the Shimmer reverb |
@@ -46,9 +45,9 @@ Hold [[SEL]] and tap [[G5]] for this bank, then tap white keys 1–8.
 
 ## Good to know
 
-- **Pitch lock** ([[C#4]]) is on when a new FM-1 starts: the Presets keep the pitch you're on. Turn it off to hear
-  each at its own notes and Tuning.
-- **They're fixed:** to keep your changes, save them in a bank of your own, A to F
+- **Immediate LOAD applies the preset's stored pitches even if Pitch Lock is enabled.** Pitch Lock remains a global setting and influences later pitch behavior; it does not prevent an explicit SAVE-browser LOAD.
+- **They're fixed:** to keep your changes, select a user bank A–F and **SAVE** in the scene browser
   ([recipe](../recipes/scenes.md#save)).
+- **Factory presets recall a one-step sequence.** New user scenes can save and restore a multi-step sequence with the sound. A loaded sequence starts stopped at step 1. See [What a scene stores](scenes.md#what-a-scene-stores).
 - **Most are rooted on D,** so moving between them keeps the root.
 - **Their loudest moments match P1's;** Bare is quieter on purpose.

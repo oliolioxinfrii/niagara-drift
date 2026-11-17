@@ -14,6 +14,12 @@ static struct {
     int16_t note[2][SD_MAX];
     int16_t sent[2];
     uint32_t started_ms, sent_ms, paused_ms;
+    /* STILL: local elapsed = master elapsed + error, independent for each drone.
+     * Return interpolates error and its derivative to zero in Morph Time. */
+    float still[2], error[2], velocity[2], start_error[2], start_velocity[2];
+    float return_elapsed[2], return_duration[2];
+    uint8_t returning[2];
+    uint32_t still_last_ms;
     int8_t preview_key;                  /* most recently pressed keyboard key; -1: none */
     uint8_t preview_sounded;             /* audition temporarily started PLAY's audio */
     uint8_t preview_active;              /* audible preview replaced the normal pitch */
@@ -69,11 +75,82 @@ static uint32_t sd_elapsed_ms(void)
 }
 static void sd_reset_clock(void)
 {
+    int g;
+    for (g = 0; g < 2; g++) {
+        sd.error[g] = sd.velocity[g] = 0.0f;
+        sd.returning[g] = 0;
+    }
+    sd.still_last_ms = plat_ms();
     sd.started_ms = plat_ms();
     sd.paused_ms = 0;
     sd.paused = 0;
     sd.sent_ms = 0;
     sd.sent[0] = sd.sent[1] = -32768;
+}
+/* Local phase is stored as a bounded offset from the independent master.
+ * Neither drone is used as the other's timing reference. */
+static void sd_still_level(int g, int amount)
+{
+    if ((unsigned)g < 2u)
+        sd.still[g] = fm_clampf((float)amount * 0.001f, 0.0f, 1.0f);
+}
+static void sd_still_rejoin(int g, int on)
+{
+    const uint32_t len = sd_total_s() * 1000u;
+    if ((unsigned)g >= 2u) return;
+    if (!on) {
+        sd.returning[g] = 0;
+        return;
+    }
+    if (len) {
+        const float l = (float)len;
+        sd.error[g] -= fm_floorf((sd.error[g] + 0.5f*l) / l) * l;
+    }
+    sd.start_error[g] = sd.error[g];
+    sd.start_velocity[g] = sd.velocity[g];
+    sd.return_elapsed[g] = 0.0f;
+    sd.return_duration[g] = 1000.0f * fm_maxf(dr_time_s(P_MORPH, proj.par[P_MORPH]) * sd.still[g], 0.02f);
+    sd.returning[g] = 1;
+}
+static void sd_still_tick(uint32_t now)
+{
+    uint32_t dt = now - sd.still_last_ms, len = sd_total_s() * 1000u;
+    int g;
+    sd.still_last_ms = now;
+    if (!sd.enabled || sd.paused || !len) return;
+    if (dt > 250u) dt = 250u;
+    for (g = 0; g < 2; g++) {
+        if (sd.returning[g]) {
+            float u, u2, u3, m0;
+            sd.return_elapsed[g] = fm_minf(sd.return_elapsed[g] + (float)dt, sd.return_duration[g]);
+            u = sd.return_elapsed[g] / sd.return_duration[g];
+            u2 = u*u;
+            u3 = u2*u;
+            m0 = sd.start_velocity[g] * sd.return_duration[g];
+            sd.error[g] = (2.0f*u3 - 3.0f*u2 + 1.0f)*sd.start_error[g] +
+                          (u3 - 2.0f*u2 + u)*m0;
+            sd.velocity[g] = ((6.0f*u2 - 6.0f*u)*sd.start_error[g] +
+                              (3.0f*u2 - 4.0f*u + 1.0f)*m0) / sd.return_duration[g];
+            if (u >= 1.0f) {
+                sd.error[g] = sd.velocity[g] = 0.0f;
+                sd.returning[g] = 0;
+            }
+        } else {
+            sd.error[g] -= (float)dt * sd.still[g];
+            sd.velocity[g] = -sd.still[g];
+            if (sd.error[g] <= -(float)len || sd.error[g] >= (float)len)
+                sd.error[g] -= fm_floorf(sd.error[g] / (float)len) * (float)len;
+        }
+    }
+}
+static uint32_t sd_elapsed_local(int g)
+{
+    const uint32_t len = sd_total_s() * 1000u;
+    float t;
+    if (!len) return sd_elapsed_ms();
+    t = (float)(sd_elapsed_ms() % len) + sd.error[g];
+    t -= fm_floorf(t / (float)len) * (float)len;
+    return (uint32_t)fm_maxf(t, 0.0f);
 }
 static void sd_sync_home(void)
 {
@@ -121,6 +198,45 @@ static void sd_stop(void)
     sd_reset_clock();
     if (sd.preview_key < 0) sd_restore_pitch();
 }
+/* The authored progression is independent of transport and live STILL clocks.
+ * Every scene load starts stopped, at position 1, with its saved pattern. */
+static void sd_scene_capture(seq_scene_t *out)
+{
+    int i, g;
+    memset(out, 0, sizeof *out);
+    sd_sync_home();
+    out->count = sd.count;
+    out->drone = sd.drone;
+    out->phase = sd.phase;
+    for (i = 0; i < SD_MAX; i++) {
+        out->gap_s[i] = sd.gap_s[i];
+        out->shape[i] = sd.shape[i];
+        for (g = 0; g < 2; g++)
+            out->note[g][i] = sd.note[g][i];
+    }
+}
+static void sd_scene_restore(const seq_scene_t *saved)
+{
+    int i, g;
+    const float still_i = sd.still[0], still_ii = sd.still[1];
+    sd_stop();
+    sd_init();                      /* legacy scenes without a progression: one step */
+    sd.still[0] = still_i;         /* a scene does not cancel a live STILL gesture */
+    sd.still[1] = still_ii;
+    if (!saved) return;
+    sd.count = saved->count;
+    sd.drone = saved->drone;
+    sd.phase = saved->phase;
+    for (i = 0; i < SD_MAX; i++) {
+        sd.gap_s[i] = saved->gap_s[i];
+        sd.shape[i] = saved->shape[i];
+        for (g = 0; g < 2; g++)
+            sd.note[g][i] = saved->note[g][i];
+    }
+    sd_sync_home();                 /* step 1 always follows the sound's live home pitch */
+    sd_capture_node_fracs();
+    sd_reset_clock();
+}
 /* PLAY fades the complete instrument before releasing the sequencer's pitch
  * cursor. Restoring step 1 while dr_fade is audible causes a pitch jump. */
 static void sd_global_play(int on)
@@ -153,7 +269,7 @@ static void sd_toggle(void)
          * The sound stays on; ordinary PLAY is the stop/reset control. */
         for (g = 0; g < 2; g++) {
             dr_slide(g, 25);
-            dr_set(DR_GP(g, GP_PITCH), sd_at(g, sd.paused_ms));
+            dr_set(DR_GP(g, GP_PITCH), sd_at(g, sd_elapsed_local(g)));
         }
         sd.sent[0] = sd.sent[1] = -32768;
         say_c("SEQUENCE", "PAUSED", K_GOLD);
@@ -285,6 +401,7 @@ static void sd_run(void)
     uint32_t now = plat_ms();
     int g;
     sd_sync_home();
+    sd_still_tick(now);
     if (sd.stopping && dr_fade <= 0.0f) {
         sd_stop();                   /* engine is silent; no audible pitch reset */
         return;
@@ -330,7 +447,7 @@ static void sd_run(void)
     sd.sent_ms = now | 1u;
     dr_set(P_PLINK, 0);               /* scene recalls cannot re-enable link on the audio cursor */
     for (g = 0; g < 2; g++) {
-        const int v = sd_at(g, sd_elapsed_ms());
+        const int v = sd_at(g, sd_elapsed_local(g));
         if (v != sd.sent[g]) {
             dr_slide(g, sd.paused ? 25 : 80);
             dr_set(DR_GP(g, GP_PITCH), v);

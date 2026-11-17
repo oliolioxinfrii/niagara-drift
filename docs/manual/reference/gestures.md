@@ -1,82 +1,63 @@
 ---
 title: Gestures
-intro: What each gesture does, and how to play them
+intro: Sixteen hold-and-tap controls, including independent subtractive gestures
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 ## Gestures
 
-Macros: one key moves several settings together, on top of your sound, each in its own order. Keys 13–16 come in as
-you hold them, keys 9–12 as you press harder.
+All **16 white keys** are performance gestures on ordinary pages. They are **independent of pressure and velocity**; the amount depends on how long you hold a key. On **SEQ → Sequence**, the keyboard instead enters pitches.
 
-<img src="../../img/panel-keys.png" width="720" alt="The FM-1's keys: keys 9 to 12 are the pressure gestures Tick, Chord, Snarl and Stutter; keys 13 to 16 the held gestures Weight, Shift, Clean and Wash">
+> **Screenshot needed — Sixteen gesture keys:** Capture a real v1.5 panel map identifying STRIP / DARK / STILL / TAIL for each drone and the eight remaining gestures.
 
-### Weight · [[D5]], hold
+### Subtractive gestures: keys 1–8
 
-A full, warm bass: the drones and the sub come up, the cutoffs ease down, drive rounds it off.
+| Key | Drone | Action |
+|---|---|---|
+| **1** | I | **STRIP** — progressively remove partner, sub and noise, leaving the main oscillator |
+| **2** | I | **DARK** — move the oscillator's effective X-Wave toward sine and reduce drive/Character harmonics |
+| **3** | I | **STILL** — slow its LFO, Swell and pitch-sequence progression without stopping audio |
+| **4** | I | **TAIL** — lower its contribution to the shared dry/effects bus; existing echoes and reverb tails continue |
+| **5** | II | **STRIP** |
+| **6** | II | **DARK** |
+| **7** | II | **STILL** |
+| **8** | II | **TAIL** |
 
-### Shift · [[E5]], hold
+These are **subtractive**, not alternate oscillator or filter modes. At 100% STILL, the selected drone's **LFO, Swell and sequencer local clocks** stop advancing. Its oscillators, existing effects, Drift, Wander and Age are not frozen. The other drone can continue at its own rate. On release of STILL back toward zero, the local clocks rejoin the shared master phase smoothly over Morph Time; the correction may briefly run faster to catch up.
 
-A new chord, a voice at a time: drone I glides by Shift's move (Pitch moves), drone II follows.
+The two drones share the effect buffers. TAIL can stop adding new dry/effect signal from one drone but cannot isolate or remove the sound already in those buffers. These four gesture amounts per drone are **not stored in scenes** on this development branch.
 
-### Clean · [[F5]], hold
+### Sound gestures: keys 9–16
 
-A clean sound with your notes kept: the grit goes, then the movement, then the effects.
+| Key | Gesture | Effect |
+|---|---|---|
+| **9 · G4** | Tick | Convert the low sub into clicks/flutter |
+| **10 · A4** | Chord | Shift the partners into a chord in the selected scale |
+| **11 · B4** | Snarl | Introduce detuning, cross-modulation, drive and feedback |
+| **12 · C5** | Stutter | Increase Swell gating for rhythmic chopping |
+| **13 · D5** | Weight | Increase low-end weight and sub, round the tone |
+| **14 · E5** | Shift | Change the relationship between drone pitches |
+| **15 · F5** | Clean | Remove grit, movement and effects while keeping the current pitches |
+| **16 · G5** | Wash | Increase delay/reverb toward a sustained wash |
 
-### Wash · [[G5]], hold
+These eight gestures retain the established sonic transformations. Unlike STRIP/DARK/STILL/TAIL, their **held amounts can be saved as scene latch settings**.
 
-The delay, then a reverb growing toward a freeze, the dry sound breathing in and out of it.
+### How every gesture key behaves
 
-### Tick · [[G4]], press
+- **Hold:** increase that gesture's intensity linearly toward **100%**, at a rate set by **Morph Time**. The gesture stops increasing at 100%.
+- **Release:** keep the **exact amount reached**. Releasing does *not* automatically fade it away.
+- **Tap an active, stationary key:** start a linear return toward **0%**.
+- **Tap during the return:** pause at the current amount; tap again to resume its return.
+- **Hold an active key longer than approximately 220 ms:** increase again from the amount already reached.
+- **Tap from zero:** a brief press can establish a small retained amount, rather than jumping immediately to 100%.
 
-The sub sinks into slow clicks; pressing harder speeds them into a flutter.
+**PRESETS** now adjusts **Morph Time**, also found at **GLO → Setup 1 → Morph**. It controls gesture rise and return speed and the STILL phase rejoining. The previous separate Gesture Time behavior and SEL-to-latch gesture shortcut are retired. The screen reports a percentage rather than a separate “latched” label.
 
-### Chord · [[A4]], press
+An active Motion Loop can replay original gesture amounts; the exact session behavior of STRIP/DARK/STILL/TAIL is separate from stored scene values.
 
-The partners move to a beatless chord on the Scale (Pitch moves), a different voicing every press.
+## Combining gestures
 
-### Snarl · [[B4]], press
+The controls are designed to overlap. For example, hold DARK I while using STILL II to keep one drone harmonically simple while the other's time progression slows. STRIP can expose an oscillator's fundamental while TAIL allows already generated delay and reverb to ring out.
 
-Drone II detunes, Snarl grows, the drive bites, and Feedback sings at the top.
-
-### Stutter · [[C5]], press
-
-The Swell chops the drones, deeper and harder into a gate.
-
-## Playing them
-
-### Hold or press
-
-In while you hold or press; out over as long as you held, or as you ease off.
-
-### Tap to latch
-
-A tap takes one all the way in and keeps it; tap again and it goes.
-
-### Latch at a level
-
-Tap [[SEL]] while holding: it stays at the level it has reached.
-
-### Gesture time (PRESETS)
-
-How fast they all move: left slower, right faster.
-
-## Good to know
-
-- **Each leaves in its own order:** Weight's brightness comes back first and the sub lingers; Shift's drone I comes
-  back first; Clean brings the effects back first; Wash brings the dry back first and the tails ring on.
-- **Your settings stay underneath,** as they were, once a gesture has left.
-- **Gesture time:** up to 12 times slower or 4 times faster. The middle is each one's own time (Weight 2.8 s, Shift
-  3.9 s, Clean and Wash 3.3 s, the pressure gestures 6.5 s); the screen shows Weight's.
-- **It acts on a gesture already moving:** in fast, let go, turn it slow, and it leaves slowly.
-- **For a long one,** tap the key: it comes in on its own.
-- **The header** shows the last one played and how far in ("WASH 40%"), or "latched". Scenes remember which are
-  latched.
-- **The gesture keys' lights** follow their active effect levels, including motion-loop playback: dark at 0%,
-  fully bright at 100%.
-- **The LFO steps aside** from what a gesture moves, so Movement doesn't wobble it.
-- **Pairs on the panel:** each key of 9–12 pairs with the key four to its right: Tick and Weight the low end, Chord and
-  Shift pitch, Snarl adds the dirt Clean takes out, Stutter and Wash time.
-- **Chord** follows the Tuning's notes. **Clean** keeps the same loudness.
-- Recipes: [Gestures](../recipes/gestures.md) · [Ticks and clicks](../recipes/sounds.md#ticks)
+There is no requirement to combine them in prescribed patterns. See [Gesture recipes](../recipes/gestures.md), [Motion Loop](../recipes/performing.md#loop) and [What a scene stores](scenes.md#what-a-scene-stores).

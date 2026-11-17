@@ -13,6 +13,40 @@ static const uint8_t BANKX_OBJ[3] = {OBJ_BANKD, OBJ_BANKE, OBJ_BANKF};
 #define BANK_X(b) ((b) >= BANK_D && (b) < BANK_D + 3)
 static uint16_t p_moved;                   /* the old Presets object's scenes moved to the banks, to be cleared there */
 static const uint8_t BANK_OBJ[3] = {OBJ_BANKB, OBJ_BANKC, OBJ_BANKP};
+#define SEQ_SIDECAR_MAGIC 0x31514553u /* "SEQ1": trailing slot sequences, not a project-format change */
+#define SEQ_SIDECAR_VERSION 1u
+typedef struct {
+    uint32_t magic, version;
+    uint8_t used, reserved[3];
+    seq_scene_t slot[NPLAY];
+} seq_sidecar_t;
+static seq_sidecar_t seq_bank[6] OM_POOL;             /* A-F user banks, eight slots each */
+static uint8_t seq_a_dirty;                  /* A's sequences live after old Presets at OBJ_BANKP */
+_Static_assert(sizeof(bank_t) + sizeof(seq_sidecar_t) <= PLAT_STORE_MAX, "B/C sequences must fit");
+_Static_assert(sizeof(bank8_t) + sizeof(seq_sidecar_t) <= PLAT_STORE_MAX, "D-F sequences must fit");
+static void seq_bank_reset(void)
+{
+    int b;
+    memset(seq_bank, 0, sizeof seq_bank);
+    for (b = 0; b < 6; b++) {
+        seq_bank[b].magic = SEQ_SIDECAR_MAGIC;
+        seq_bank[b].version = SEQ_SIDECAR_VERSION;
+    }
+    seq_a_dirty = 0;
+}
+static int seq_valid(const seq_scene_t *s)
+{
+    int i;
+    uint32_t sum = 0;
+    if (s->count < 1 || s->count > SEQ_STEPS || s->phase > 100 || s->drone > 1)
+        return 0;
+    for (i = 0; i < SEQ_STEPS; i++) {
+        if (s->shape[i] < -100 || s->shape[i] > 100 || s->gap_s[i] < 1 || s->gap_s[i] > 240)
+            return 0;
+        if (i < s->count) sum += s->gap_s[i];
+    }
+    return s->count == 1 || sum <= 240;
+}
 static uint32_t proj_h;                    /* a hash of the project as on the flash, 0 = unknown: a save that
                                             * would write the same bytes skips it (each write is a late block) */
 static uint32_t proj_hash(void)
@@ -247,6 +281,7 @@ void project_defaults(void)
 {
     int i;
     proj_h = 0;
+    seq_bank_reset();
     memset(&proj, 0, sizeof proj);
     proj.magic = PROJ_MAGIC;
     proj.format = PROJ_FORMAT;
@@ -271,6 +306,26 @@ static int slot_bank_index(int bank)
     if (bank >= 0 && bank <= 2) return bank;
     if (bank >= BANK_D && bank <= BANK_D + 2) return bank - BANK_D + 3;
     return -1;
+}
+
+const seq_scene_t *project_seq_get(int bank, int n)
+{
+    const int b = slot_bank_index(bank);
+    if (b < 0 || n < 0 || n >= NPLAY || !(seq_bank[b].used >> n & 1u) || !scene_has(bank, n))
+        return 0;
+    return &seq_bank[b].slot[n];
+}
+int project_seq_put(int bank, int n, const seq_scene_t *s)
+{
+    const int b = slot_bank_index(bank);
+    if (b < 0 || n < 0 || n >= NPLAY || !s || !seq_valid(s))
+        return -1;
+    seq_bank[b].slot[n] = *s;
+    seq_bank[b].used |= (uint8_t)(1u << n);
+    if (b == 0) seq_a_dirty = 1;
+    else if (b <= 2) bank_dirty |= (uint8_t)(1u << b);
+    else bank_dirty |= (uint8_t)(1u << (b + 1));
+    return 0;
 }
 
 const char *project_slot_name(int bank, int slot)
@@ -694,6 +749,32 @@ static union {
     uint8_t raw[PLAT_STORE_MAX];
 } ld;
 
+/* The suffix has its own signature and version. Existing project/scene bytes
+ * are never relocated, including unmigrated factory-bank overwrite data. */
+static int seq_trailer_present(int n)
+{
+    uint32_t hdr[2];
+    if (n < (int)sizeof(seq_sidecar_t)) return 0;
+    memcpy(hdr, ld.raw + n - sizeof(seq_sidecar_t), sizeof hdr);
+    return hdr[0] == SEQ_SIDECAR_MAGIC && hdr[1] == SEQ_SIDECAR_VERSION;
+}
+static void seq_trailer_load(int bank, int n)
+{
+    int i;
+    if (!seq_trailer_present(n)) return;
+    memcpy(&seq_bank[bank], ld.raw + n - sizeof(seq_sidecar_t), sizeof(seq_sidecar_t));
+    for (i = 0; i < NPLAY; i++)
+        if ((seq_bank[bank].used >> i & 1u) && !seq_valid(&seq_bank[bank].slot[i]))
+            seq_bank[bank].used &= (uint8_t)~(1u << i);
+}
+static int seq_bank_write(uint32_t obj, const void *bank, uint32_t len, int index)
+{
+    if (len + sizeof(seq_sidecar_t) > PLAT_STORE_MAX) return -1;
+    memcpy(ld.raw, bank, len);
+    memcpy(ld.raw + len, &seq_bank[index], sizeof(seq_sidecar_t));
+    return plat_store_save(obj, ld.raw, len + sizeof(seq_sidecar_t));
+}
+
 static void widen(int16_t *dst, const int16_t *src, uint32_t from)   /* an old sound: the new values' defaults */
 {
     int k;
@@ -709,12 +790,14 @@ static uint32_t bank_fmt[2];                   /* B's and C's format as stored (
 static void bank_load(int b)                   /* B (1) or C (2): from its object, if it's sound */
 {
     bank_t *k = &bank_bc[b - 1];
-    int i;
+    int i, n;
     bank_blank(k);
     bank_fmt[b - 1] = 0;
     memset(ld.raw, 0, sizeof ld.raw);
-    if (plat_store_load(BANK_OBJ[b - 1], ld.raw, sizeof ld.raw) < 8 || ld.b.magic != BANK_MAGIC)
+    n = plat_store_load(BANK_OBJ[b - 1], ld.raw, sizeof ld.raw);
+    if (n < 8 || ld.b.magic != BANK_MAGIC)
         return;
+    seq_trailer_load(b, n);
     bank_fmt[b - 1] = ld.b.format;
     if (ld.b.format == PROJ_FORMAT) {
         *k = ld.b;
@@ -800,12 +883,14 @@ _Static_assert(PROJ_FORMAT == 45, "bankx_load reads D-F only in formats 43 and 4
 static void bankx_load(int j)
 {
     bank8_t *k = &bank_x[j];
-    int i;
+    int i, n;
     bankx_blank(k);
     memset(ld.raw, 0, sizeof ld.raw);
-    if (plat_store_load(BANKX_OBJ[j], ld.raw, sizeof ld.raw) < (int)sizeof *k || ld.x.magic != BANK_MAGIC ||
+    n = plat_store_load(BANKX_OBJ[j], ld.raw, sizeof ld.raw);
+    if (n < (int)sizeof *k || ld.x.magic != BANK_MAGIC ||
         (ld.x.format != PROJ_FORMAT && ld.x.format != 43u && ld.x.format != 44u))
         return;
+    seq_trailer_load(j + 3, n);
     *k = ld.x;
     if (k->format != PROJ_FORMAT) {            /* 43: the X-WAVE and resonance depths */
         for (i = 0; i < NPLAY; i++)
@@ -843,11 +928,13 @@ static const int16_t *old_scene(int n, uint32_t *from)   /* scene n of the bank 
 }
 static void presets_move(void)
 {
-    int n, b, i;
+    int n, b, i, size;
     uint16_t used;
     memset(ld.raw, 0, sizeof ld.raw);
-    if (plat_store_load(OBJ_BANKP, ld.raw, sizeof ld.raw) < 8 || ld.b.magic != BANK_MAGIC)
+    size = plat_store_load(OBJ_BANKP, ld.raw, sizeof ld.raw);
+    if (size < 8 || ld.b.magic != BANK_MAGIC)
         return;
+    seq_trailer_load(0, size);
     used = ld.b.used;
     for (n = 0; n < NSCENES; n++) {
         uint32_t from;
@@ -937,6 +1024,7 @@ int project_load(void)
     preset_n = -1;
     bank_dirty = 0;
     p_moved = 0;
+    seq_bank_reset();
     bank_blank(&bank_bc[0]);
     bank_blank(&bank_bc[1]);
     for (i = 0; i < 3; i++)
@@ -1113,13 +1201,13 @@ int project_save(void)                         /* the banks first, then the proj
     uint32_t h;
     for (b = 1; b <= 2; b++)
         if (!rc && (bank_dirty >> b & 1u)) {
-            rc = plat_store_save(BANK_OBJ[b - 1], &bank_bc[b - 1], sizeof bank_bc[b - 1]);
+            rc = seq_bank_write(BANK_OBJ[b - 1], &bank_bc[b - 1], sizeof bank_bc[b - 1], b);
             if (!rc)
                 bank_dirty &= (uint8_t)~(1u << b);
         }
     for (b = 0; b < 3; b++)                    /* D, E, F */
         if (!rc && (bank_dirty >> (b + 4) & 1u)) {
-            rc = plat_store_save(BANKX_OBJ[b], &bank_x[b], sizeof bank_x[b]);
+            rc = seq_bank_write(BANKX_OBJ[b], &bank_x[b], sizeof bank_x[b], b + 3);
             if (!rc)
                 bank_dirty &= (uint8_t)~(1u << (b + 4));
         }
@@ -1132,15 +1220,29 @@ int project_save(void)                         /* the banks first, then the proj
         if (rc)
             return rc;
     }
-    if (bank_dirty >> 3 & 1u) {                /* the old Presets object, without the scenes moved from it */
+    if ((bank_dirty >> 3 & 1u) || seq_a_dirty) {
+        /* The old Presets object is retained verbatim (including any scenes
+         * which could not be migrated). A's sequence trailer is appended to it.
+         * On later saves replace the trailer rather than appending another. */
         memset(ld.raw, 0, sizeof ld.raw);
         n = plat_store_load(OBJ_BANKP, ld.raw, sizeof ld.raw);
-        if (n >= 8 && ld.b.magic == BANK_MAGIC) {
-            ld.b.used &= (uint16_t)~p_moved;   /* (the same place in every format) */
-            rc = plat_store_save(OBJ_BANKP, ld.raw, (uint32_t)n);
+        if (n < 8 || ld.b.magic != BANK_MAGIC) {
+            memset(ld.raw, 0, sizeof(bank_t));
+            ld.b.magic = BANK_MAGIC;
+            ld.b.format = PROJ_FORMAT;
+            n = (int)sizeof(bank_t);
         }
+        if (seq_trailer_present(n))
+            n -= (int)sizeof(seq_sidecar_t);
+        if (bank_dirty >> 3 & 1u)
+            ld.b.used &= (uint16_t)~p_moved;
+        if ((uint32_t)n + sizeof(seq_sidecar_t) > PLAT_STORE_MAX)
+            return -1;
+        memcpy(ld.raw + n, &seq_bank[0], sizeof(seq_sidecar_t));
+        rc = plat_store_save(OBJ_BANKP, ld.raw, (uint32_t)n + sizeof(seq_sidecar_t));
         if (!rc) {
             bank_dirty &= (uint8_t)~(1u << 3);
+            seq_a_dirty = 0;
             p_moved = 0;
         }
     }

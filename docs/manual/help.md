@@ -1,67 +1,49 @@
 ---
 title: Help
-intro: When something doesn't work
+intro: Installing, updating, connecting and recovering Volcano
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 ## Quick answers
 
-- **Drone II went quiet, the header says II OUT:** [[SEL]] + [[PLAY]] brings it back.
-- **Back to the sound before a scene:** [[SEL]] + [[SAVE]] (again to go forward).
-- **Drone II keeps jumping to other notes:** that's Wander. Turn it to 0 on Pitch moves ([[SEQ]] twice, KNOB 3).
-- **A knob's value is gray:** it can't be heard as things are, and the screen says why ("needs sqr", "needs
-  [[F#3]]", Movement at 0%).
-- **The low end is missing on the speaker:** it can't play the lowest notes and clicks; listen on headphones.
-- **A Preset doesn't play at its own pitch:** Pitch lock ([[C#4]]) keeps the pitch you're on; turn it off.
+| Problem | What to check |
+|---|---|
+| A drone is silent | **SEL + OCT−** toggles drone I; **SEL + OCT+** toggles drone II |
+| The pitch progression has stopped | **SEL + PLAY** starts, pauses or resumes the sequencer; normal PLAY controls the global audio fade |
+| How a scene or preset LOAD affects pitch | **LOAD** now immediately applies its saved pitches even when Pitch Lock is on. TRANSITION continues to respect the current Pitch Lock and Scene Time |
+| Drone II wanders between notes | On SEQ → Pitch moves, reduce **Wander** (KNOB 3) |
+| White keys 1–8 change the sound rather than loading scenes | They control STRIP, DARK, STILL and TAIL, separately for each drone. Use **SAVE** to browse scenes |
+| The internal speaker has no sound, but USB or headphones work | Check **GLO → Setup 2 → Speaker** (KNOB 4) |
 
-## Installing and updating
+## Installing Volcano
 
-- **Install** from the [web installer](https://evanyerburgh.github.io/niagara-drift/install/) in Chrome or Edge, with a
-  USB data cable straight into the computer.
-- **Update:** run the installer again. Your sounds and scenes are kept, unless that version's notes in the
-  [changelog](../../CHANGELOG.md) say otherwise.
-- Installing firmware is at your own risk.
+Volcano is a **custom fork** of Niagara Drift. The original project's online installer and public emulator **do not** distribute this fork's firmware. This subtractive/STILL feature branch remains **unverified on physical FM-1 hardware**; do not treat it as a tested release package.
 
-## Backups
+At present, build the desired source revision locally using [BUILDING.md](../../BUILDING.md). The installer package is `build/omni.fwsc`; install it with [Slipway](https://discodave-glitch.github.io/slipway/app/) or the repository's command-line installer:
 
-- **Before every install** over Niagara Drift, both installers save your sounds, scenes and settings to a file: the
-  web installer into your downloads (and it offers to put them back), the terminal one into
-  `~/niagara-drift-backups/`.
-- **Any time:** the web installer's "Your sounds and scenes" card saves or restores one, as
-  `python3 tools/fm1_install.py --backup` and `--restore FILE` do. Each reads the other's files.
-- **Trying another firmware:** back up first, restore when you come back.
-- **Another FM-1:** a backup leaves out the knobs' calibration, which belongs to each FM-1, so it can go onto another.
+```sh
+python3 tools/fm1_install.py build/omni.fwsc
+```
 
-**Restoring is safe.** The whole backup goes onto the FM-1 and is checked first, changing nothing. The FM-1 asks
-**RESTORE FROM USB?**: [[SEL]] puts it back, [[HOME]] keeps what it has (as does a minute without either). Then your
-sounds and scenes change all together or not at all, even if the power goes off halfway (the next power-on finishes
-it). A damaged file is refused before anything is written.
+The firmware replaces M-VAVE's stock FM-1 software. Check the revision and any release notes before flashing development code. Installing firmware is at your own risk.
 
-## Going back, or to another firmware
+## Backups and recovery
 
-- **The installer's "Back to M-VAVE's firmware"** writes M-VAVE's firmware back, V16 or V15, over the same cable. Or
-  use M-VAVE's updater, M-UPGRADE, from [m-vave.com/download](https://www.m-vave.com/download).
-- **Other firmwares** mostly expect M-VAVE's: go back first, then install them.
-- **Safe mode:** if Niagara Drift fails to start twice in a row, it comes up with no sound and USB on, and the
-  installer still works.
+Back up your scenes and settings before switching firmware revisions, and keep a stock-firmware recovery route available. The command-line installer supports `--backup` and `--restore FILE`; see [BUILDING.md](../../BUILDING.md) and the [installation utility](../../tools/fm1_install.py) for the current options.
 
-## If an install doesn't take
+If the FM-1 does not start normally, the repository describes its low-level restore path in [BUILDING.md](../../BUILDING.md#install). Holding **OCT− and OCT+** for five seconds enters the chip's own update mode, from which compatible recovery tools may restore the device.
 
-1. Use a USB data cable straight into the computer, close other apps that use MIDI (a DAW, M-UPGRADE), replug, try
-   again. Nothing is written until the FM-1 has checked the whole package, so trying again is safe.
-2. Going back from 0.2 or another firmware, and nothing was written: choose the other M-VAVE file (V16 or V15). Each
-   takes back only the version whose bootloader the FM-1 has; from 0.2.1 on, Niagara Drift takes either.
-3. Still stuck: hold [[OCT−]] and [[OCT+]] for 5 seconds. The FM-1 goes into its chip's own update mode, which no
-   firmware can get in the way of, and [M-Flasher](https://github.com/jvitkauskas/m-flasher) (Windows, Mac, Linux)
-   puts M-VAVE's firmware back. If an FM-1 won't start at all, see [BUILDING.md](../../BUILDING.md#install).
+For a failed update, disconnect other MIDI applications, reconnect the USB data cable directly and retry the verified installation procedure. For stock-firmware recovery, see [M-Flasher](https://github.com/jvitkauskas/m-flasher) and the instructions linked from BUILDING.md.
 
-**Newer FM-1s on 0.2:** up to 0.2, Niagara Drift didn't recognize the memory chip of some newer FM-1s; there it couldn't
-save and ignored installs. On such an FM-1 running 0.2, use step 3 to leave it. Since 0.2.1 it takes any standard
-chip: the newer UC25HQ80 (ID B36014) and the first Puya P25Q80 (856014).
+## Audio connections
 
-## Something else
+- The **3.5 mm audio jack** provides audio for headphones or connection to another audio device with a suitable input.
+- **USB-C** can carry the stereo audio signal to a compatible host. This is separate from using USB to install or send MIDI.
+- **GLO → Setup 2 → Speaker** (KNOB 4) turns the built-in speaker on or off. Disabling it does not silence the 3.5 mm output or USB recording, and also bypasses the speaker-specific bass cut for the USB signal.
 
-It's tested on one FM-1 so far. If something goes wrong, sounds wrong or could be better,
-[open an issue](https://github.com/evanyerburgh/niagara-drift/issues): what you did, what happened, and the version
-on the startup screen.
+See [Setup](reference/setup.md#speaker-output) and [MIDI](reference/midi.md).
+
+## Reporting problems
+
+Use [this fork's issue tracker](https://github.com/oliolioxinfrii/niagara-drift/issues), not the upstream Niagara Drift tracker, for problems specific to Volcano. Include the branch/commit, what you did, what happened, and whether the behavior was reproduced in the host simulator, browser emulator or physical FM-1.

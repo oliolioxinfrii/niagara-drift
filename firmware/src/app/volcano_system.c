@@ -1,11 +1,21 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Orbit/scene browser and the transient geological navigation atlas. */
 
+/* Bank colors run in browser order: P1, P2, then A through F.
+ * P1 is the deep FX blue; F is its near-white endpoint. */
+static uint16_t vs_bank_ink(int bank)
+{
+    static const uint8_t stop[NBANKS] = {2, 3, 4, 0, 5, 6, 7, 1};
+    return lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], (float)stop[bank] / 7.0f);
+}
 /* The ellipse is a dotted instrument track, not a rendered planet orbit.
- * Scene markers are evenly spaced along it and remain identifiable by slot. */
-static void vs_orbit_figure(int slot, int filled, const char *name)
+ * Only the track and node outlines adopt the current bank's shade.
+ * The satellite remains the original warm geological palette. */
+static void vs_orbit_figure(int bank, int slot, int filled, const char *name)
 {
     const float twopi = 6.2831853f, quarter = 1.5707963f;
+    const uint16_t bank_ink = vs_bank_ink(bank);
+    const uint16_t node_fill = lk_mix(LK_FX_RAMP[0], LK_FX_RAMP[1], 0.0f);
     int i, band;
     cv_text(10, 2, &FONT_XS, "ORBIT / RECORDED STATES", LK_LABEL);
     /* The planetary fragment is intentionally only a layered cutaway. */
@@ -35,40 +45,40 @@ static void vs_orbit_figure(int slot, int filled, const char *name)
         const int x = 120 + (int)(101.0f * fm_sinf(a + quarter));
         const int y = 57 + (int)(35.0f * fm_sinf(a));
         if ((i % 5) != 0)
-            cv_rect(x, y, 1, 1, vg_dim(LK_WHITE, 0.64f));
+            cv_rect(x, y, 1, 1, vg_dim(bank_ink, 0.80f));
     }
     for (i = 0; i < 8; i++) {
         const float a = twopi * (float)i / 8.0f;
         const int x = 120 + (int)(101.0f * fm_sinf(a + quarter));
         const int y = 57 + (int)(35.0f * fm_sinf(a));
-        const uint16_t col = i == slot ? LK_WHITE : (scene_has(BANK_ORDER[ui.menu_bank], i) ?
-                                                     VL_SURFACE : LK_UNLIT);
+        const uint16_t col = i == slot ? bank_ink : vg_dim(bank_ink, scene_has(bank, i) ? 0.82f : 0.42f);
         cv_round(x - 3, y - 3, 7, 7, 3, col);
-        cv_round(x - 1, y - 1, 3, 3, 1, LK_BG);
+        cv_round(x - 1, y - 1, 3, 3, 1, node_fill); /* always deep FX blue, never hollow */
         if (i == slot) {
-            cv_rect(x - 1, y - 6, 3, 1, VL_SURFACE);
-            cv_rect(x - 1, y + 6, 3, 1, VL_SURFACE);
+            cv_rect(x - 1, y - 6, 3, 1, bank_ink);
+            cv_rect(x - 1, y + 6, 3, 1, bank_ink);
         }
     }
-    /* Two small solar-array grids connected to an angled central body. */
-    cv_line(42, 37, 72, 22, VL_SURFACE);
-    cv_line(48, 45, 78, 30, VL_SURFACE);
-    cv_line(42, 37, 48, 45, VL_SURFACE);
-    cv_line(72, 22, 78, 30, VL_SURFACE);
-    cv_line(47, 36, 74, 25, VG_STRATA[0][1]);
-    for (i = 0; i < 3; i++) {
-        cv_line(48 + i * 7, 34 - i * 3, 54 + i * 7, 42 - i * 3,
-                vg_dim(VL_SURFACE, 0.75f));
-    }
-    cv_line(18, 47, 40, 39, VL_SURFACE);
-    cv_line(21, 56, 43, 48, VL_SURFACE);
-    cv_line(18, 47, 21, 56, VL_SURFACE);
-    cv_line(40, 39, 43, 48, VL_SURFACE);
-    cv_line(25, 46, 28, 54, VL_SURFACE);
-    cv_line(32, 43, 35, 51, VL_SURFACE);
-    cv_round(42, 35, 11, 11, 2, LK_WHITE);
-    cv_round(44, 37, 7, 7, 2, VG_STRATA[0][2]);
-    cv_line(48, 35, 51, 29, LK_WHITE);
+    /* Compact satellite between the two lower-left orbit nodes (roughly
+     * 19,57 and 49,82). Keep its geological palette; neither solar panel
+     * crosses a node's 7-pixel marker. Coordinates are picture-local. */
+    cv_line(22, 77, 33, 71, VL_SURFACE);
+    cv_line(25, 83, 36, 77, VL_SURFACE);
+    cv_line(22, 77, 25, 83, VL_SURFACE);
+    cv_line(33, 71, 36, 77, VL_SURFACE);
+    cv_line(27, 75, 30, 81, VL_SURFACE);
+    cv_line(31, 73, 34, 79, VL_SURFACE);
+    cv_line(48, 63, 59, 57, VL_SURFACE);
+    cv_line(51, 69, 62, 63, VL_SURFACE);
+    cv_line(48, 63, 51, 69, VL_SURFACE);
+    cv_line(59, 57, 62, 63, VL_SURFACE);
+    cv_line(53, 61, 56, 67, VL_SURFACE);
+    cv_line(57, 59, 60, 65, VL_SURFACE);
+    cv_line(34, 74, 35, 72, VG_STRATA[0][1]);
+    cv_line(46, 68, 49, 66, VG_STRATA[0][1]);
+    cv_round(35, 65, 11, 11, 2, LK_WHITE);
+    cv_round(37, 67, 7, 7, 2, VG_STRATA[0][2]);
+    cv_line(40, 65, 43, 59, LK_WHITE);
     if (name || filled)
         cv_text(12, 105, &FONT_XS, name ? name : "STORED", LK_WHITE);
     else
@@ -103,7 +113,7 @@ static void vl_save_menu(void)
     cv_blit(0, 0);
     cv_begin(240, LK_PIC_H, LK_BG);
     if (ui.save_menu == 1) {
-        vs_orbit_figure(slot, filled, name);
+        vs_orbit_figure(bank, slot, filled, name);
     } else if (ui.save_menu == 2) {
         /* The cursor stays inside the fixed-size slot-name buffer. */
         cv_text(12, 9, &FONT_XS, "RENAME RECORDED STATE", LK_LABEL);
@@ -135,17 +145,19 @@ static void vl_save_menu(void)
     cv_rect(8, 0, 224, 1, LK_RULE);
     if (ui.save_menu == 1) {
         const int32_t cx[4] = {31, 89, 148, 207};
-        const char *const label[4] = {"BANK", "SLOT", "ACTION", "MORPH"};
+        const char *const label[4] = {"BANK", "SLOT", "ACTION", ui.menu_load == 2 ? "MORPH" : "TIME"};
         const char *const action[3] = {"SAVE", "LOAD", "TRANS"};
         char short_bank[4] = {BANK_L[bank], bank == BANK_PRESETS ? '1' :
                               bank == BANK_PRESETS2 ? '2' : 0, 0};
-        const char *const value[4] = {short_bank, key, action[ui.menu_load], pct};
+        const char *const value[4] = {short_bank, key, action[ui.menu_load],
+                                      ui.menu_load == 2 ? pct : ui.menu_load == 1 ? "NOW" : "--"};
         for (i = 0; i < 4; i++) {
             text_c(cx[i], 9, &FONT_XS, label[i], LK_LABEL);
             text_c(cx[i], 34, &FONT_T20, value[i],
                    i == 2 && ui.menu_load == 0 && BANK_IS_PRESETS(bank) ? LK_UNLIT : LK_WHITE);
             cv_rect(cx[i] - 22, 70, 44, 1, LK_RULE);
-            cv_rect(cx[i] - 22, 70, i == 3 ? (int)(44.0f * (float)ui.menu_pct * 0.01f) :
+            cv_rect(cx[i] - 22, 70, i == 3 ? (ui.menu_load == 2 ?
+                    (int)(44.0f * (float)ui.menu_pct * 0.01f) : 0) :
                     (i == 2 ? 15 : 7), 2, VL_SURFACE);
         }
         cv_text(10, 75, &FONT_U2, "SAVE: YES / HOME: BACK", LK_LABEL);

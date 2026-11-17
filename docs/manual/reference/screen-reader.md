@@ -7,7 +7,7 @@ intro: The FM-1 Screen Reader, for players who can't see the screen
 
 ## Hearing your screen
 
-Niagara Drift can say what its screen shows, for players who can't see it.
+Volcano exposes its screen information through the FM-1 Screen Reader integration. This is distinct from the geological images on the display.
 
 ## Screen Reader
 
@@ -33,7 +33,7 @@ A knob's name and value, as it settles.
 
 ### Keys
 
-What a key set, and what the next press does.
+The name and amount of the selected white-key gesture (STRIP, DARK, STILL, TAIL, or the eight sound gestures) and, on ordinary pages, the black-key switch. On the Sequence page the keys instead enter notes. Support for every new gesture announcement should be verified against the Screen Reader and the current firmware.
 
 ### Messages
 
@@ -42,6 +42,6 @@ PLAY and stop, a scene or Preset on its way, a gesture coming in.
 ## Good to know
 
 - **Examples:** "Drones page. Drone 1: Level 84, Cutoff 57.5 …"; "Drone 1 Cutoff 60.5"; "Drone 1 band-pass filter,
-  A sharp 3 for high-pass"; "to Preset 2 Embers".
+  A sharp 3 for high-pass"; "to Preset 2 Embers". The SAVE scene browser has separate bank, slot and action controls.
 - **[[SEL]] held, a black key touched:** it says what the key does, without switching it.
 - **On request:** everything on the screen: the page and its keys, whether it's playing, and the sound.

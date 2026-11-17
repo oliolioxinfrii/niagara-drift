@@ -1,0 +1,76 @@
+# Regression: LOAD must apply immediately; TRANSITION must respect Scene Time.
+# A saved scene also carries its sequencer. The factory presets remain distinct.
+notips
+bank 0
+set 71 30                         # Scene Time: several seconds, deliberately nonzero
+set 7 200                         # drone I cutoff
+page 18
+spin K3 2                         # three authored sequence steps
+expect seqcount 3
+tap SAVE
+expect savemenu 1
+expect menuaction 0
+tap SAVE
+expect savemenu 0
+expect sceneparam0_0_7 200
+
+# Save a contrasting sound and shorter progression in A2.
+set 7 700
+page 18
+spin K3 -1
+expect seqcount 2
+tap SAVE
+spin K2 1
+tap SAVE
+expect savemenu 0
+expect sceneparam0_1_7 700
+
+# LOAD A1: immediate, despite a nonzero Scene Time and active Pitch Lock.
+tap SAVE
+spin K2 -1
+spin K3 1
+expect menuaction 1
+expect menupct 100
+tap SAVE
+expect savemenu 0
+expect scene_at 0
+expect par7 200
+expect seqcount 3
+expect seqstate 0
+
+# LOAD A2: again immediate, including its different authored progression.
+tap SAVE
+spin K2 1
+spin K3 1
+expect menuaction 1
+tap SAVE
+expect savemenu 0
+expect par7 700
+expect seqcount 2
+expect seqstate 0
+
+# TRANSITION 40% from A2 toward A1: over Scene Time, not immediately.
+tap SAVE
+spin K2 -1
+spin K3 2
+expect menuaction 2
+spin K4 -60
+expect menupct 40
+tap SAVE
+expect savemenu 0
+expect par7 >650                   # still near 700 immediately after starting
+wait 5000
+expect par7 500                    # 40% of the 500-unit difference
+expect seqcount 2                 # partial transition does not replace the pattern
+
+# A full performance transition changes the pattern only at its endpoint.
+tap SAVE
+spin K3 2
+expect menuaction 2
+expect menupct 100
+tap SAVE
+expect savemenu 0
+expect seqcount 2                 # still playing the current authored pattern
+wait 5000
+expect seqcount 3                 # target A1 pattern loaded at Scene Time completion
+expect seqstate 0

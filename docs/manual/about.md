@@ -1,60 +1,30 @@
 ---
-title: About
-intro: Two drones that breathe and drift on their own, as open-source firmware for the M-VAVE FM-1
+title: About Volcano
+intro: Its sound engine, origins, technical design and credits
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-## What it does
+## About Volcano
 
-### Sound
+Volcano is a custom FM-1 drone firmware based on [Niagara Drift](https://github.com/evanyerburgh/niagara-drift) by Evan Yerburgh. Niagara Drift provides the foundation: two continually sounding drones, modulation, gestures, a responsive sound engine and effects. Volcano expands this with a programmable pitch sequencer, sixteen performance gestures, a SAVE-based scene browser and the geological interface.
 
-<ul class="cards">
-<li><img class="ic" src="../../web/manual/icons/waveform.svg" alt=""><b>2 drones</b><span>Virtual-analog: each a wave from sine to square, a partner (a second oscillator) at an interval, a sub and noise, into its own resonant filter and drive</span></li>
-<li><img class="ic" src="../../web/manual/icons/music-notes-simple.svg" alt=""><b>11 tunings</b><span>12-tone to Partch's 43 notes, La Monte Young's, Harrison's, the shrutis; intervals named in each one's terms</span></li>
-<li><img class="ic" src="../../web/manual/icons/intersect.svg" alt=""><b>FM cross-mod</b><span>FM between the drones: each bending the other's pitch, or the finished sound bending both (Snarl); or drone I moving drone II's filter</span></li>
-<li><img class="ic" src="../../web/manual/icons/arrows-clockwise.svg" alt=""><b>Feedback and Character</b><span>The finished sound fed back into the drones; the oscillators from clean to vintage</span></li>
-<li><img class="ic" src="../../web/manual/icons/broadcast.svg" alt=""><b>6 delays, 5 reverbs</b><span>Clean to tape and self-warping echoes, a drive after them, reverbs from a room to a freeze</span></li>
-</ul>
+The changes were inspired by Nicolas Godin's score for *Fire of Love* (2022), particularly "Acid Lake": a foreboding drone progression whose changes unfold over time. The sequencer therefore emphasizes **up to four pitches per drone with individually positioned events and adjustable transitions**, rather than a conventional evenly spaced step grid.
 
-### Movement
+Volcano is intended to be one instrument in a larger arrangement, not a complete workstation. The FM-1's processor already runs the synthesis, modulation, sequencing and interface. Connect its 3.5 mm audio output or USB audio to a compatible recording setup or another instrument to build a larger composition.
 
-<ul class="cards">
-<li><img class="ic" src="../../web/manual/icons/wave-sine.svg" alt=""><b>Ultra LFO</b><span>2 waves of 10 shapes each, on each drone's pitch, wave, cutoff or resonance, and the delay</span></li>
-<li><img class="ic" src="../../web/manual/icons/gauge.svg" alt=""><b>Movement</b><span>One knob for every LFO's depth at once, from still to double</span></li>
-<li><img class="ic" src="../../web/manual/icons/pulse.svg" alt=""><b>Swell</b><span>A tremolo on both drones, in time: from a soft swell to a hard gate</span></li>
-<li><img class="ic" src="../../web/manual/icons/shuffle.svg" alt=""><b>Moves on its own</b><span>Drift (slow random modulation), Wander (a random melody on a scale) and Age (tape wear)</span></li>
-</ul>
+## Sound and movement
 
-### Playing
+- **Two drones:** continuously blended oscillator shapes, partner oscillators, subs, noise, resonant filters, drive and pitch linking.
+- **Movement:** two routed LFO signals, Swell envelopes, Drift, Wander and Age; gestures can move many sound parameters at once.
+- **Sequencing:** up to four pitch events per drone; independently adjustable arrival times, total duration, drone II phase and the four pitch-transition shapes.
+- **Performance:** sixteen gestures (four subtractive actions per drone plus eight macros), a motion loop, 16 factory presets and 48 user scenes selected through the orbital SAVE browser.
+- **Effects:** delay, reverb, post-delay drive, feedback and stereo controls.
+- **Display:** VOLCANO's five geological layer identities show sound and modulation, while SAVE and GLO use distinct orbital and planetary views.
 
-<ul class="cards">
-<li><img class="ic" src="../../web/manual/icons/stack.svg" alt=""><b>16 presets</b><span>Each a different side of the instrument, each moving over a minute</span></li>
-<li><img class="ic" src="../../web/manual/icons/hand-pointing.svg" alt=""><b>8 gestures</b><span>Macros: several settings at once on top of your sound, each in its own order; held, pressed harder, or tapped to stay</span></li>
-<li><img class="ic" src="../../web/manual/icons/floppy-disk.svg" alt=""><b>Save 48 sounds</b><span>Six banks of eight scenes, yours to fill; each glides in, or crossfades as you press its key harder</span></li>
-<li><img class="ic" src="../../web/manual/icons/repeat.svg" alt=""><b>Motion loop</b><span>Records your knob moves, gestures and scenes, and plays them back</span></li>
-<li><img class="ic" src="../../web/manual/icons/path.svg" alt=""><b>Never jumps</b><span>Everything glides (morphs): buttons, keys and scenes move to new settings over times you set</span></li>
-</ul>
+For editing steps, see [Controls](reference/controls.md), [SEQ](reference/partner.md) and [Scenes](reference/scenes.md).
 
-### Connect
-
-<ul class="cards">
-<li><img class="ic" src="../../web/manual/icons/metronome.svg" alt=""><b>MIDI in</b><span>Follows a MIDI clock over USB or TRS: the Swell, the LFO, the delay, Wander and the scenes keep its time; notes on channels 1 and 2 tune the drones</span></li>
-<li><img class="ic" src="../../web/manual/icons/ear.svg" alt=""><b>Hear the screen</b><span>With the FM-1 Screen Reader, it says what its screen shows, for players who can't see it</span></li>
-<li><img class="ic" src="../../web/manual/icons/browser.svg" alt=""><b>Play it in a browser</b><span>The emulator on the front page is the firmware itself, with sound; no FM-1 needed</span></li>
-<li><img class="ic" src="../../web/manual/icons/download-simple.svg" alt=""><b>Install from a browser</b><span>Install, update, back up and go back to M-VAVE's firmware from Chrome or Edge</span></li>
-</ul>
-
-## Videos
-
-<div class="videos">
-<figure class="video"><iframe src="https://www.youtube-nocookie.com/embed/6mRatAf7f-k" title="2 x FM-1 AMBIENT TECHNO LIVE PERFORMANCE | Niagara Drift and Groove OS, by Grzegorz Bojanek" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture; fullscreen"></iframe>
-<figcaption><a href="https://www.youtube.com/watch?v=6mRatAf7f-k">2 x FM-1 AMBIENT TECHNO LIVE PERFORMANCE | Niagara Drift and Groove OS</a> · Grzegorz Bojanek</figcaption></figure>
-<figure class="video"><iframe src="https://www.youtube-nocookie.com/embed/bVre9eF2Rm4" title="無数の窓口 - collective unconscious - [soundtrack][5.1ch専用][FM-1 Niagara], by Mirrorofes" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture; fullscreen"></iframe>
-<figcaption><a href="https://www.youtube.com/watch?v=bVre9eF2Rm4">無数の窓口 - collective unconscious - [soundtrack][5.1ch専用][FM-1 Niagara]</a> · Mirrorofes</figcaption></figure>
-<figure class="video"><iframe src="https://www.youtube-nocookie.com/embed/ZzUiysz0RY0" title="M-VAVE FM-1 カスタムファームウェアにびっくり「Niagara Drift」の世界！, by 電気老人" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture; fullscreen"></iframe>
-<figcaption><a href="https://www.youtube.com/watch?v=ZzUiysz0RY0">M-VAVE FM-1 カスタムファームウェアにびっくり「Niagara Drift」の世界！</a> · 電気老人</figcaption></figure>
-</div>
+> **Screenshots needed — VOLCANO overview:** Capture the HOME Drones, geological atlas, SEQ Sequence, Orbit SAVE browser and GLO planet views using `tests/scenarios/volcano-ui.omni`. Do not use the previous Niagara Drift display images.
 
 ## Technical details
 
@@ -68,26 +38,69 @@ intro: Two drones that breathe and drift on their own, as open-source firmware f
 | **LFO** | 2 waves of 10 shapes each (20 in all: triangles, squares, saws, exponentials, patterns, random, AND and OR steps), one cycle in 100 s to 70 Hz, on pitch, wave, cutoff, resonance and the delay |
 | **Tuning** | A from 427 to 453 Hz (440 to start, 432 for those who like it), 1 Hz a click or 0.1 with SEL; 12-tone, quarter tones, 19-, 31- and 53-tone, just, the harmonics, LMY, Harrison, the shrutis, Partch |
 | **Detuning** | each drone a cent at a time off its Tuning's notes (SEL + a pitch knob), kept as you move between notes; each partner up to 30 cents, for beating; Drift lets the detune wander |
-| **Polyphonic aftertouch** | each white key's own pressure, read as it's held; scenes crossfade and keys 9–12's gestures follow it; the touch is a setting (Setup 2); used inside, not sent out over MIDI |
+| **Gesture input** | All 16 white-key gestures use hold/tap timing, not aftertouch or velocity. Keys 1–8 operate STRIP, DARK, STILL and TAIL for each drone; 9–16 are the eight original macros. PRESETS adjusts Morph Time. |
 | **MIDI** | in, over USB and TRS: notes on channels 1 and 2 tune the drones; the clock (24 pulses a beat) and Start, with Sync on or off ([MIDI](reference/midi.md)) |
-| **Storage** | 6 banks of 8 scenes and 16 Presets in the FM-1's flash; backups to a file before every install; a restore that a power cut can't break ([Help](help.md)) |
-| **License** | GPL-3.0, source on [GitHub](https://github.com/evanyerburgh/niagara-drift) |
+| **Storage** | Six banks of eight user scenes, each with an optional 11-character name and stored pitch-sequencer pattern, plus 16 immutable factory presets. A scene stores the authored sequence, but not its running transport, editor cursor, or live STILL offsets. |
+| **License** | GPL-3.0-only, except for designated MPL-2.0 components; see [LICENSING.md](../../LICENSING.md) |
 
-## Where it came from
 
-Named for *Day of Niagara* (the Theatre of Eternal Music, 1965) and La Monte Young's *Drift Studies*. It began from ideas
-in the Stylophone CPM DS-2, the Moog Subharmonicon and the Soma Lyra-8, and has grown into an instrument of its own.
+## Credits and lineage
 
-| From | By | What it gave |
+### Niagara Drift and its predecessors
+
+[Niagara Drift](https://github.com/evanyerburgh/niagara-drift) is the work
+of **Evan Yerburgh**. It was named for *Day of Niagara* (Theatre of Eternal
+Music, 1965) and La Monte Young's *Drift Studies*. Its musical influences
+included the Stylophone CPM DS-2, Moog Subharmonicon and Soma Lyra-8.
+
+**Volcano is a derivative of Niagara Drift.** The projects below belong
+to *Niagara Drift's* development and attribution history. They are named
+because Volcano inherits that foundation—not because I separately
+borrowed from each predecessor.
+
+| Niagara Drift predecessor or resource | Developer | Contribution to Niagara Drift's lineage |
 |---|---|---|
-| [FoMni](https://github.com/charlesvestal/fm1-fomni) and [X0X](https://github.com/charlesvestal/fm1-x0x) | Charles Vestal | the code it started from, the host simulator, the browser emulator |
-| [Felucca](https://github.com/hugelton/Felucca) | Leo Kuroshita, Hügelton Instruments | the FM-1 platform: hardware layer, USB, update loader, storage, installer |
-| [MONK-1](https://github.com/charlesvestal/fm1-monk) | Charles Vestal | reading the keys' pressure |
-| [ChoralRoot](https://github.com/Quixotic7/ChoralRootFM1) | Quixotic7 | the delay and reverb's design; the scene crossfade and backup-before-install ideas |
-| [fm1-base](https://github.com/charlesvestal/fm1-base) | Charles Vestal | the safe restore's flash core (MPL-2.0) |
-| [FM-1 Screen Reader](https://github.com/charlesvestal/fm1-reader) | Charles Vestal | the screen's words over USB and the page that speaks them (its firmware side from fm1-base, MPL-2.0); thanks to João Durães (WoodJack) for asking for it |
-| [Groove OS](https://www.groove-os.com/) | | the idea of running FM-1 firmware in a browser |
+| [FoMni](https://github.com/charlesvestal/fm1-fomni) and [X0X](https://github.com/charlesvestal/fm1-x0x) | Charles Vestal | Codebase, host simulator and browser emulator |
+| [Felucca](https://github.com/hugelton/Felucca) | Leo Kuroshita / Hügelton Instruments | FM-1 platform, hardware interfacing, USB, storage and installer |
+| [MONK-1](https://github.com/charlesvestal/fm1-monk) | Charles Vestal | Key-pressure input |
+| [ChoralRoot](https://github.com/Quixotic7/ChoralRootFM1) | Quixotic7 | Delay/reverb design, scene-crossfade and recovery ideas |
+| [fm1-base](https://github.com/charlesvestal/fm1-base) | Charles Vestal | Safe restore and flash-storage work (MPL-2.0) |
+| [FM-1 Screen Reader](https://github.com/charlesvestal/fm1-reader) | Charles Vestal | Accessible screen announcements and reading interface |
 
-Made by Evan Yerburgh; not made or endorsed by M-VAVE, Hügelton Instruments or the makers of any instrument it began
-from. Licenses in [LICENSING.md](../../LICENSING.md). The site is set in Inter Tight, IBM Plex Mono and Barlow Semi
-Condensed (SIL OFL).
+[Groove OS](https://www.groove-os.com/) was also a reference for the idea
+of running FM-1 firmware in a browser; it is identified as an
+**influence on Niagara Drift's ecosystem**, not as incorporated code.
+
+The specific reuse and license requirements are documented in
+[LICENSING.md](../../LICENSING.md).
+
+### Other influences on Volcano
+
+**Jiant** is another FM-1 firmware I use extensively. **Frasil** and
+**AMB-1** were also at the forefront of my thinking, especially as points
+of comparison for defining the boundaries of Volcano's intended role.
+These three projects informed my perspective on what an FM-1 instrument
+can do, but I **did not directly borrow code or designs from them**.
+
+The direct musical catalyst for Volcano was Nicolas Godin's score for
+*Fire of Love* (2022), particularly **"Acid Lake."** The intention was
+to give Niagara Drift's evolving drones a freely spaced pitch
+progression without turning the FM-1 into an all-in-one workstation.
+
+### Development and AI assistance
+
+The Volcano-specific firmware code and most of the documentation for this
+fork were written by **ChatGPT**, working from my instructions and design
+decisions. I have not worked much with C since my undergraduate computer
+science classes. As a research scientist turned secondary mathematics
+teacher, I generally use scientific programming languages: formerly
+MATLAB, now Julia (all hail Julia!).
+
+This describes how the **Volcano modifications** were developed, not the
+authorship of the Niagara Drift codebase or its predecessors. Those
+contributors retain the credit and licensing described above. The
+firmware's behavior still needs to be established through testing, and
+the current subtractive/STILL branch is not a validated hardware release.
+
+Volcano is not affiliated with or endorsed by Evan Yerburgh, the
+developers above, M-VAVE or the makers of any referenced instrument.

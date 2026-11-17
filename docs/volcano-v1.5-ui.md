@@ -1,10 +1,27 @@
 # VOLCANO v1.5 — geological UI overhaul
 
-Status: **web-emulator review build; physical FM-1 performance remains unverified.**
-The v1.4 sound engine and scene storage are retained. Setup 2 no longer exposes
-pressure sensitivity, and factory preset recalls reset the RAM-only sequencer to one step.
+Status: **development UI and subtractive/STILL branch; full host and physical FM-1 verification remains outstanding.**
+This document describes the v1.5 graphical design. The companion [subtractive/STILL specification](volcano-subtractive-still.md) records the newer 16-gesture controls, immediate LOAD, stored user-scene sequences, and LFO transport. Setup 2 no longer exposes pressure sensitivity. Factory presets restore one-step sequences; **user scenes now store their authored 1–4-step sequences**.
 The new drawings are composed at native **240 × 240 pixels** by the existing RGB565
 strip renderer; no photograph, full-screen framebuffer, or additional DSP layer is required.
+
+## Startup wordmark and LFO transport
+
+The 14-second geological startup animation is unchanged except for the
+**VOLCANO** wordmark: it now uses a rounded geometric **Comfortaa Bold**
+bitmap, generated at 34px with 4px of additional letter tracking (about
+50% more apparent space than the default setting). It is centered, vibrant
+red, and wherever a molten-red/orange/yellow plume pixel is behind a letter,
+the letter takes a contrasting color from the same red-to-yellow heat palette,
+not a literal RGB invert. Its independent fade remains intact. Only the seven
+letters of the logo are stored as a compact 2-bit bitmap; no full font file is
+required at runtime. Comfortaa is by Johan Aakerlund under SIL OFL 1.1.
+
+C#5 now uses CD-like global LFO transport: tap to pause/resume at the current
+phase, hold 500ms for a continuous rewind toward phase zero of both LFO
+waveforms and both Swell progressions at the LFO's rate, immediately resuming forward at zero.
+The legacy LFO-to-Swell lock is retired; saved-sound parameter indices remain
+unchanged. See [Volcano transport details](volcano-subtractive-still.md).
 
 ## Design contract
 
@@ -36,19 +53,73 @@ strip renderer; no photograph, full-screen framebuffer, or additional DSP layer 
 | LFO | Waves, Sends, Mods | Existing informative wave/route diagrams, recolored in the Deep Mantle family |
 | SEQ | Partner, Pitch moves, Sequence, Intervals, Transitions | Existing note, event, and segment diagrams; warm Crust palette, actual pitch trajectories retained. Random Start now randomizes all active transition shapes, including the loop back to step 1 |
 | ARP | Swell, Swell shape | Existing two-envelope plots, warm Crust palette |
-| FX | Space, Details | Cyan seismographic arrivals and reverberant coda; continuous 50/50 linear–square-root display gain avoids the former discontinuity at zero and retains more value differentiation; icy-white value ramps |
+| FX | Space, Details | Model-driven delay and reverb seismographs with a continuous 9.24-second forward–reverse loop. Delay modes visibly distinguish Clean, Wide, Ping-pong, Tape, Grain, and Self; DRIVE adds reddish-orange to the post-delay trace. Reverb type changes onset and motion, while DAMP strongly removes high-frequency texture even at moderate MIX. Chorus Hall splits into modulated strands and Shimmer adds an eight-second halo; the icy-blue palette remains |
 | GLO | Setup 1, Setup 2 | Setup 1 gives yellow Fade (top), orange Morph (middle), and red Scene (lower third) distinct plateau heights on a common five-minute maximum Scene axis (or a longer maximum clock-synced span). Pixel-column strokes keep all three curves and their complete plateaus continuous at native and scaled display sizes. Setup 2 retains the same-sized centered planet, with animated L/R wavy orbits converging toward or diverging from a fixed external orbital reference as Stereo changes; the built-in speaker remains on KNOB 4 |
 | SAVE | Browser, rename, overwrite confirmation | Orbital scene nodes and satellite; browser retains four-encoder assignments |
+
+## FX delay and reverb seismographs (model-driven, not FFT)
+
+Both traces are **illustrated control-response diagrams**, not actual audio
+FFT bins or measured stereo waveforms. The 240 × 124-pixel picture strip and
+9.24-second cosine-eased forward/reverse motion remain unchanged.
+
+- **Moderate MIX readability.** The reverb retains its fourth-root
+  display response, keeping its multiple texture layers visible around 15–50%
+  wet. The delay now uses a more proportional blend of 75% linear and 25%
+  square-root gain, plus wet-dependent line brightness: its 12%, 52% and 100%
+  settings are visibly different without changing the six characteristic
+  algorithm patterns. A dry (0%) setting draws no wet waveform; the mapping
+  remains continuous at zero.
+- **Delay type.** The six response profiles mirror the DSP's delay-line ratio,
+  loop tone, wow, stereo ping-pong, grain and self-modulation. Clean shows
+  crisp, even repeats; Wide offsets and separates the stereo arrivals;
+  Ping-pong alternates upper and lower echoes; Tape shows smoother, slowly
+  warped returns; Grain has fragmented, high-rate flecks; and Self exhibits
+  larger, dynamically moving echo offsets. These drawings represent the
+  algorithms qualitatively rather than pretending to show measured echoes.
+- **Graph labels.** Delay- and reverb-algorithm names are no longer printed
+  inside the waveform graphs. Their page/parameter readouts remain available;
+  removing the redundant labels clears the DRIVE gauge's upper-right area
+  without moving or changing that gauge.
+- **DRIVE (reddish orange).** The audio path is dry sound + delay, then
+  saturation, then optional reverb send. A parallel line on the delay trace
+  progressively shifts from cyan toward reddish-orange as DRIVE grows;
+  an orange intensity bar stays visible even when the delay wet mix is zero,
+  because dry audio also passes through DRIVE. When the reverb route is
+  Both, the reverb's middle layer receives a more restrained warm tint.
+  Echoes-only and Drones-only routes bypass the driven signal for the
+  reverb send, so the lower trace remains blue.
+- **Reverb type and DAMP.** Room, Hall, Cathedral, Chorus Hall, and Shimmer
+  are differentiated using the actual reverb profile's predelay, network
+  size and line modulation. The left portion resolves early reflection
+  timing while the rest presents compressed decay. Slow dark-blue body,
+  midrange diffusion and icy fine detail are separately visible at moderate
+  MIX. Increasing DAMP suppresses fine detail *quadratically* and dims its
+  color, with progressively gentler effects on the midrange trace; the low
+  body remains. This maps the perceptual effect of the DSP low-pass rather
+  than simply reducing the whole waveform's height.
+- **Chorus Hall, Shimmer and Inf.** Chorus Hall adds a counter-moving strand,
+  reflecting its greater modulation and width. Shimmer's octave-up input is
+  shown by a second fine halo that washes in over approximately eight
+  seconds and out over six. At infinite LENGTH the DSP suspends damping,
+  and the visualization holds the tail accordingly.
+
+These changes are **UI-only**: no DSP coefficients, routing, stored scene
+data or audio processing have been modified. The parameter-derived visual
+mapping is documented for interpretation, not laboratory measurement.
+`tests/scenarios/fx-algorithm-contrast.omni` captures all six delay types,
+DRIVE routing and reverb DAMP at 35% MIX. The earlier
+`fx-reverb-model.omni` still covers reverb algorithms, Shimmer and Inf.
+Web build, visual review and hardware frame-rate tests remain outstanding.
 
 ## Control behavior
 
 - Setup 2 uses K1 Tuning, K2 Tune, K3 Stereo and K4 Speaker On/Off;
   the former third GLO page is retired. Pressure retains its neutral response.
-- A factory preset selection or transition clears any previously authored
-  RAM-only multistep sequence; user scenes retain their existing behavior.
+- A factory preset LOAD restores a one-step sequence. **LOAD** of a user scene immediately applies its sound and stored sequence, stopped at step 1; **TRANSITION** takes Scene Time, keeps the working sequence for partial morphs, and restores the target sequence only after a 100% transition completes. See [scene behavior](volcano-subtractive-still.md#save-browser-load-versus-transition).
 - Automatic onboarding tip popups are disabled; explicit action messages and
   second-part announcements remain available.
-- The global LFO rate, movement and gesture-time readouts use value-dependent
+- The global LFO rate, Movement and Morph Time readouts use value-dependent
   dark-red-to-yellow halos and a matching gradient ruler around white text. The
   halo's interpolation stays in 24-bit RGB until it is converted to RGB565, so
   intermediate values no longer acquire a spurious green tint.

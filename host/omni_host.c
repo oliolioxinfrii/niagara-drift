@@ -498,6 +498,14 @@ static int expect(const char *what, const char *val)
         got = ui.dirty;
     else if (!strcmp(what, "loop"))                /* the motion loop: 0 idle, 1 recording, 2 playing */
         got = ui.loop;
+    else if (!strcmp(what, "lfo_transport"))        /* 0 run, 1 pause, 2 smooth rewind */
+        got = dr_lfo_transport;
+    else if (!strcmp(what, "lfo_phase"))            /* thousandths of a complete LFO cycle */
+        got = (int)(dr_lfo_ph * 1000.0f + 0.5f);
+    else if (!strcmp(what, "swell1_phase"))
+        got = (int)(dr_pulse_dr_ph[0] * 1000.0f + 0.5f);
+    else if (!strcmp(what, "swell2_phase"))
+        got = (int)(dr_pulse_dr_ph[1] * 1000.0f + 0.5f);
     else if (!strcmp(what, "seqstate"))            /* pitch sequence: 0 off, 1 running, 2 paused */
         got = sd.enabled ? (sd.paused ? 2 : 1) : 0;
     else if (!strcmp(what, "seqcount"))

@@ -171,22 +171,22 @@ shot fx-sel.png
 release SEL
 wait 1500
 shot fx2.png
-# SEL held: the black keys' map (the normal layer), drone I's Sub key touched
+# SEL remains a modifier; holding it never opens an overlay.
 tap HOME
 wait 300
 press SEL
 wait 200
 expect keymap 0
 wait 400
-expect keymap 1
-# a key touched with SEL held: named, not switched
+expect keymap 0
+# SEL + black key still acts as a non-switching lookup, but does not replace the page
 tapkey b1
 wait 300
-shot keymap.png
+shot sel-held-no-overlay.png
 spin K2 1
 expect keymap 0
 release SEL
-# SEL used for something else in a hold (SEL + OCT+, a bank): no map after it, until SEL is let go (Evan, 2026-11-08)
+# SEL + OCT+ and held keys also leave the active page visible
 press SEL
 tap OCT+
 wait 1000

@@ -100,8 +100,8 @@ enum {
     P_REV_TYPE,                     /* Room, Hall, Cathedral, Chorus hall (DR_REV_NAME) */
     P_DLY_LFO,                      /* the delay time's LFO tap: DR_LFO_I, _II, _BOTH (a switch) */
     P_DLY_LFO_DEPTH,                /* -100..100: up to +-25 % of the time; 0 none */
-    P_LFO_LOCK,                     /* the LFO restarts at each Pulse bar (two beats) while the pulse runs (1) /
-                                     * runs free (0) (a switch) */
+    P_LFO_LOCK,                     /* legacy Swell-lock slot, retained in saved-project layout;
+                                     * no longer drives LFO restarts; C#5 is session transport */
     P_LFO_RMOD,                     /* -100..100: the LFO's own wave moving its rate, up to +-3 octaves (linear); 0 none */
     P_LFO_RMOD_SRC,                 /* which wave moves it: DR_LFO_I, _II, _BOTH */
     P_MORPH,                        /* 0..100 = 0.02 .. 30 s (x^2.5: 1 s at 25): how long a switch (a button or key) takes to move
@@ -181,6 +181,8 @@ extern const char *const DR_GEST_NAME[DR_NGTYPE];
 extern const uint8_t DR_GEST_DEPTH[DR_NGTYPE], DR_GEST_TIME[DR_NGTYPE];   /* each one's full depth and its time */
 #define DR_NWSCALE 6                           /* Wander's scales */
 extern const char *const DR_WSCALE_NAME[DR_NWSCALE];
+void dr_subtract(int key, int amt);           /* white keys 1-8: 0..1000, four per drone */
+void dr_still_rejoin(int g, int on);         /* 1 cubic catch-up to master; 0 stop catching up */
 void dr_gesture(int g, int amt);               /* gesture key g's amount now, 0..1000 (the UI swells it) */
 float dr_wander(void);                         /* Wander's move of drone II now, semitones (the screen) */
 float dr_wander_to(void);                      /* ... and where it's going (the screen) */
@@ -276,6 +278,11 @@ void dr_pslide(int param, int ms);
 void dr_panic(void);                           /* silence now, no fade */
 void dr_duck(int on);                          /* the output dips out (20 ms) or back (30 ms): around a flash write */
 void dr_lfo_reset(void);                       /* the LFO back to the start of its cycle (the DS-2's RESET) */
+/* Global transport shared by LFO I and II. STOP winds their phases and
+ * both Swell envelopes back to zero at the current LFO rate, then runs forward. */
+enum { DR_LFO_RUN, DR_LFO_PAUSE, DR_LFO_STOPPING };
+void dr_lfo_transport_set(int state);         /* command on the audio queue; not a saved preset parameter */
+extern volatile uint8_t dr_lfo_transport;     /* last command's running/paused/stopping state */
 void dr_seed(uint32_t s);                      /* mix s into the random generators (LFO, Drift): each run its own */
 
 /* the render (audio ISR): n stereo frames, 24-bit in int32; gain Q12 (the MASTER pot) */
@@ -297,6 +304,8 @@ extern volatile float dr_xw[DR_NGROUPS];       /* ... its X-WAVE now, with its L
 extern volatile float dr_reso[DR_NGROUPS];     /* its resonance (0..1000); both updated while the drones play */
 extern volatile float dr_fb;                   /* FEEDBACK's share of the sound now, 0..1 (v0.3; was the loop's level) */
 extern volatile float dr_snarl;                /* SNARL's bend now (how far it moves the drones' speed), 0..1 */
+extern volatile float dr_lfo_dr_ph[DR_NGROUPS];  /* per-drone LFO position */
+extern volatile float dr_pulse_dr_ph[DR_NGROUPS]; /* per-drone Swell position */
 extern volatile float dr_pulse_ph;             /* the pulse's phase now, 0..2 (its two beats) */
 float dr_lfo_wave(int tap, int shape, float ph);   /* a tap's shape (1..10; 0 off: flat) at ph, -1..1; for
                                                     * random, ph 0..1 the last cycle, 1..2 this one */

@@ -13,6 +13,29 @@
 #define CR 16u                                  /* control rate: one update every 16 samples */
 #define BLK 256u
 
+/* Freestanding STILL clock memory operations. The compiler barrier prevents
+ * conversion into implicit libc calls in the embedded toolchain. */
+static void *dr_memset(void *dst, int value, unsigned n)
+{
+    unsigned char *p = (unsigned char *)dst;
+    for (unsigned i = 0; i < n; ++i) {
+        p[i] = (unsigned char)value;
+        BARRIER();
+    }
+    return dst;
+}
+
+static void *dr_memcpy(void *dst, const void *src, unsigned n)
+{
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+    for (unsigned i = 0; i < n; ++i) {
+        d[i] = s[i];
+        BARRIER();
+    }
+    return dst;
+}
+
 /* the partner's intervals, each tempered and then just (pure ratios: 2/3, 3/4, 6/5, 5/4, 4/3, 3/2, 3; a just one
  * doesn't beat, Detune still can), so Tuning is the Interval knob's (Evan, 2026-10-18); octaves and unison are both */
 const float DR_IV_SEMI[DR_NINTERVALS] = {-12.0f, -7.0f, -7.01955f, -5.0f, -4.98045f, 0.0f, 3.0f, 3.15641f, 4.0f,
@@ -629,7 +652,7 @@ void dr_param_text(int i, int v, char *b)
 }
 
 /* -------------------------------------------------------------- commands --- */
-enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST };
+enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
 #define QN 128u
@@ -653,8 +676,13 @@ void dr_duck(int on) { post(C_DUCK, on, 0); }
 void dr_slide(int g, int ms) { post(C_SLIDE, g, ms); }
 void dr_pslide(int param, int ms) { post(C_PSLIDE, param, ms); }
 void dr_lfo_reset(void) { post(C_LFO_RESET, 0, 0); }
+void dr_lfo_transport_set(int state) {
+    if ((unsigned)state <= DR_LFO_STOPPING) post(C_LFO_TRANSPORT, state, 0);
+}
 void dr_seed(uint32_t s) { post(C_SEED, (int)(s >> 16 & 0xFFu), (int)(s & 0xFFFFu)); }
 void dr_gesture(int g, int amt) { post(C_GEST, g, amt); }
+void dr_subtract(int key, int amt) { if ((unsigned)key < 8u) post(C_SUB, key, amt); }
+void dr_still_rejoin(int g, int on) { if ((unsigned)g < DR_NGROUPS) post(C_SUB_RETURN, g, on); }
 
 /* ----------------------------------------------------------------- state --- */
 volatile float dr_level[DR_NGROUPS];
@@ -852,6 +880,86 @@ static float fade, fade_target;
 volatile float dr_lfo[2];
 volatile float dr_pulse = 1.0f;
 volatile float dr_lfo_ph, dr_pulse_ph;
+volatile float dr_lfo_dr_ph[DR_NGROUPS], dr_pulse_dr_ph[DR_NGROUPS];
+/* Each drone's four subtractive depths are control values, never audio buffers. */
+static float sub_depth[DR_NGROUPS][4];
+/* The shared clocks remain authoritative. A local clock is master + a wrapped
+ * phase error; on release Hermite interpolation brings error AND its velocity
+ * to zero in Morph Time. Position and speed then agree exactly. */
+typedef struct {
+    float error, start_error, start_velocity, velocity, rate;
+    float elapsed, duration;
+    uint8_t rejoining;
+} sub_clock_t;
+enum { SUB_LFO, SUB_SWELL };
+static sub_clock_t sub_clock[DR_NGROUPS][2];
+static float swell_master_prev;             /* master at the prior Swell control tick */
+/* Transport is session-only, rather than another saved sound parameter.
+ * STOP rewinds the LFO master and both drone-specific LFO / Swell clocks
+ * without a discontinuous jump; Swell and LFO advance from zero again. */
+volatile uint8_t dr_lfo_transport;
+static uint8_t swell_transport_hold;
+static float lfo_stop_local[DR_NGROUPS], swell_stop_local[DR_NGROUPS];
+static float swell_stop_master;                  /* preserve master even when STILL offsets its drones */
+static float lfo_stop_speed;                  /* normalized cycles per sample */
+static float sub_phase_wrap(float p)
+{
+    /* Most phases are within one turn: avoid soft floor on the Swell hot path.
+     * The fallback covers a very fast cubic return that temporarily overshoots. */
+    if (p >= 1.0f) p -= 1.0f;
+    else if (p < 0.0f) p += 1.0f;
+    if (p >= 1.0f || p < 0.0f) p -= fm_floorf(p);
+    return p;
+}
+static float sub_phase_tick(sub_clock_t *c, float master, float advance, float dt, float still)
+{
+    if (still <= 0.0f && !c->rejoining && c->error == 0.0f) {
+        c->rate = dt > 0.0f ? advance / dt : 0.0f;
+        c->velocity = 0.0f;
+        return master;                /* zero cost from the original idle clock */
+    }
+    if (c->rejoining) {
+        float u, u2, u3, m0;
+        c->elapsed = fm_minf(c->elapsed + dt, c->duration);
+        u = c->elapsed / c->duration;
+        u2 = u * u;
+        u3 = u2 * u;
+        m0 = c->start_velocity * c->duration;
+        c->error = (2.0f*u3 - 3.0f*u2 + 1.0f)*c->start_error +
+                   (u3 - 2.0f*u2 + u)*m0;
+        c->velocity = ((6.0f*u2 - 6.0f*u)*c->start_error +
+                       (3.0f*u2 - 4.0f*u + 1.0f)*m0) / c->duration;
+        if (u >= 1.0f) {
+            c->error = c->velocity = 0.0f;
+            c->rejoining = 0;
+        }
+    } else {
+        c->error -= advance * still;
+        c->velocity = dt > 0.0f ? -advance * still / dt : 0.0f;
+        /* Keep the error bounded across arbitrarily long freezes. */
+        if (c->error < -1.0f || c->error > 1.0f)
+            c->error -= fm_floorf(c->error);
+    }
+    c->rate = dt > 0.0f ? advance / dt : 0.0f;
+    return sub_phase_wrap(master + c->error);
+}
+static void sub_clock_return(int g, int on)
+{
+    int k;
+    for (k = 0; k < 2; k++) {
+        sub_clock_t *c = &sub_clock[g][k];
+        if (on) {
+            c->start_error = c->error - fm_floorf(c->error + 0.5f);
+            c->start_velocity = c->velocity;
+            c->error = c->start_error;  /* equivalent cycle, nearer the master */
+            c->duration = fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]) * sub_depth[g][2], 0.02f);
+            c->elapsed = 0.0f;
+            c->rejoining = 1;
+        } else {
+            c->rejoining = 0;
+        }
+    }
+}
 volatile float dr_cut[DR_NGROUPS];
 volatile float dr_xw[DR_NGROUPS], dr_reso[DR_NGROUPS];
 volatile float dr_fb, dr_snarl;
@@ -869,6 +977,7 @@ static uint32_t lfo_q;                          /* ... its phase in 32 bits (a f
 static int lfo_wc[2], lfo_wp[2];                 /* each tap's shape now, and the one before (Morph) */
 static float lfo_wx[2];                          /* ... how far from that one to this, 0..1 */
 static void lfo_restart(void);
+static void lfo_local_reset(void);
 static float lfo_rnd[3];                         /* the random shapes' levels (below) */
 static uint32_t lfo_seed;                        /* ... their generator (dr_init seeds it) */
 static float rnd_next(void);
@@ -928,6 +1037,18 @@ void dr_init(void)
     lfo_rk = 0.0f;
     lfo_rnew = 0;
     lfo_q = 0u;
+    dr_lfo_transport = DR_LFO_RUN;
+    swell_transport_hold = 0;
+    lfo_stop_speed = 0.0f;
+    swell_stop_master = 0.0f;
+    dr_memset(lfo_stop_local, 0, sizeof lfo_stop_local);
+    dr_memset(swell_stop_local, 0, sizeof swell_stop_local);
+    dr_memset(sub_depth, 0, sizeof sub_depth);
+    dr_memset(sub_clock, 0, sizeof sub_clock);
+    swell_master_prev = 0.0f;
+    lfo_local_reset();
+    dr_lfo_dr_ph[0] = dr_lfo_dr_ph[1] = 0.0f;
+    dr_pulse_dr_ph[0] = dr_pulse_dr_ph[1] = 0.0f;
     lfo_wc[0] = lfo_wp[0] = par[P_LFO_W1];
     lfo_wc[1] = lfo_wp[1] = par[P_LFO_W2];
     lfo_wx[0] = lfo_wx[1] = 1.0f;
@@ -1372,6 +1493,12 @@ static void drain(void)
         BARRIER();
         q_r++;
         switch (c >> 24) {
+        case C_SUB:
+            if (a < 8) sub_depth[a / 4][a % 4] = fm_clampf((float)b * 0.001f, 0.0f, 1.0f);
+            break;
+        case C_SUB_RETURN:
+            if (a < DR_NGROUPS) sub_clock_return(a, b != 0);
+            break;
         case C_GEST:
             if (a < DR_NGEST) {
                 gam[a] = fm_clampf((float)b * 0.001f, 0.0f, 1.0f);
@@ -1405,7 +1532,23 @@ static void drain(void)
             }
             break;
         case C_LFO_RESET:
-            lfo_restart();
+            lfo_restart();                 /* legacy immediate DSP reset API */
+            break;
+        case C_LFO_TRANSPORT:
+            if (a == DR_LFO_STOPPING) {
+                int g;
+                for (g = 0; g < DR_NGROUPS; g++) {
+                    lfo_stop_local[g] = dr_lfo_dr_ph[g];
+                    swell_stop_local[g] = dr_pulse_dr_ph[g];
+                }
+                swell_stop_master = pulse_ph;
+                swell_transport_hold = 1;
+                dr_lfo_transport = DR_LFO_STOPPING;
+            } else if (a == DR_LFO_RUN || a == DR_LFO_PAUSE) {
+                dr_lfo_transport = (uint8_t)a;
+                if (a == DR_LFO_RUN)
+                    swell_transport_hold = 0; /* stop releases both Swells at phase zero */
+            }
             break;
         case C_SEED: {                           /* the random ones from somewhere new (the UI, at the first PLAY) */
             uint32_t x = ((uint32_t)a << 16 | ((uint32_t)b & 0xFFFFu)) * 0x9E3779B1u;
@@ -1557,7 +1700,23 @@ static float mixl[BLK], mixr[BLK];
 static float pgain[DR_NGROUPS][BLK];
 
 /* ------------------------------------------------------------ the LFO --- */
-static float lfo_tick[2][BLK / CR + 1];          /* each tap's value at each control tick of the block */
+static float lfo_tick[2][BLK / CR + 1];
+static float lfo_tick_dr[DR_NGROUPS][2][BLK / CR + 1];
+static float lfo_local_s[DR_NGROUPS][2], lfo_local_rnd[DR_NGROUPS][3];
+static uint32_t lfo_local_seed[DR_NGROUPS] = {0xB5297A4Du, 0x68E31DA4u};
+static uint8_t lfo_local_active[DR_NGROUPS];
+static float lfo_local_prev_ph[DR_NGROUPS];
+static void lfo_local_reset(void)
+{
+    int g;
+    dr_memset(lfo_local_active, 0, sizeof lfo_local_active);
+    dr_memset(lfo_local_s, 0, sizeof lfo_local_s);
+    dr_memset(lfo_local_rnd, 0, sizeof lfo_local_rnd);
+    for (g = 0; g < DR_NGROUPS; g++)
+        lfo_local_prev_ph[g] = 0.0f;
+    lfo_local_seed[0] = 0xB5297A4Du;
+    lfo_local_seed[1] = 0x68E31DA4u;
+}          /* each tap's value at each control tick of the block */
 /* what drone I leaves for drone II each block: its sound, its oscillator's restarts, its pitch a tick */
 static float xbuf[BLK], ptick[BLK / CR + 1];
 static float ybuf[BLK];                           /* drone II's sound, for drone I's cross-FM in the next block */
@@ -1566,9 +1725,31 @@ static uint8_t sbuf[BLK];
 static float sfr[BLK];                           /* ... and where in its sample it restarted (0..1) */
 /* a route's LFO at control tick t: Wave I, Wave II, or both summed (as two DS-2 waves switched to one
  * destination); none: 0 */
-static inline float lfo_at(int tap, uint32_t t)
+/* The shared delay follows the master LFO, never a drone's private STILL clock.
+ * Shared feedback cannot be assigned to either drone after mixing. */
+static inline float lfo_at_master(int tap, uint32_t t)
 {
-    return tap == DR_LFO_BOTH ? lfo_tick[0][t] + lfo_tick[1][t] : tap ? lfo_tick[tap - 1][t] : 0.0f;
+    const float a = lfo_tick[0][t], b = lfo_tick[1][t];
+    return tap == DR_LFO_BOTH ? a + b : tap == DR_LFO_I ? a : tap == DR_LFO_II ? b : 0.0f;
+}
+
+static inline float lfo_at(int drone, int tap, uint32_t t)
+{
+    const int active = lfo_local_active[drone];
+    const float a = active ? lfo_tick_dr[drone][0][t] : lfo_tick[0][t];
+    const float b = active ? lfo_tick_dr[drone][1][t] : lfo_tick[1][t];
+    float value = tap == DR_LFO_BOTH ? a + b : tap == DR_LFO_I ? a : tap == DR_LFO_II ? b : 0.0f;
+    if (active && sub_clock[drone][SUB_LFO].rejoining) {
+        /* RANDOM's cycle histories differ after a freeze even when its phase
+         * has rejoined. Blend the two LFO outputs before the local path ends. */
+        const sub_clock_t *c = &sub_clock[drone][SUB_LFO];
+        const float u = fm_clampf(c->elapsed / c->duration, 0.0f, 1.0f);
+        const float mix = u * u * (3.0f - 2.0f * u);
+        const float master = tap == DR_LFO_BOTH ? lfo_tick[0][t] + lfo_tick[1][t]
+                           : tap == DR_LFO_I ? lfo_tick[0][t] : tap == DR_LFO_II ? lfo_tick[1][t] : 0.0f;
+        value += (master - value) * mix;
+    }
+    return value;
 }
 
 static inline float fr(float x) { return x - fm_floorf(x); }
@@ -1693,6 +1874,25 @@ float dr_lfo_rmod_k(float rm, int src, int w1, int w2)
 
 /* the LFO for the n frames ahead, one value a control tick; a light slew (~0.7 ms) so its squares
  * don't click */
+static float lfo_local_random(int g)
+{
+    uint32_t x = lfo_local_seed[g];
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    lfo_local_seed[g] = x;
+    return (float)(int32_t)x * (1.0f / 2147483648.0f);
+}
+static float lfo_shape_dr(int g, int tap, int shape, float ph)
+{
+    if (shape == DR_LFO_RANDOM) {
+        const float *r = lfo_local_rnd[g];
+        const float f = sub_phase_wrap(ph);
+        if (!tap) return r[2];
+        return r[1] + (r[2] - r[1]) * (0.5f - 0.5f * fm_cosf(FM_PI * f));
+    }
+    return lfo_shape(tap, shape, ph);
+}
 static void lfo_run(uint32_t n)
 {
     /* on a MIDI clock (v0.3): a cycle a division of the beat (P_LFO_DIV), steered toward the beat as the Swell is, more
@@ -1717,7 +1917,7 @@ static void lfo_run(uint32_t n)
             lfo_wx[i] = 0.0f;
         }
     for (t = 0; t < nt; t++) {
-        float inc;
+        float inc, master_ph = lfo_ph;
         uint32_t q0 = lfo_q;
         for (i = 0; i < 2; i++) {
             float a = lfo_shape(i, lfo_wc[i], lfo_ph);
@@ -1739,15 +1939,68 @@ static void lfo_run(uint32_t n)
             lfo_rk = fm_maxf(lfo_rk - (float)CR / (0.12f * DR_SR), 0.0f);
         }
         inc = rm != 0.0f ? step * rk * fm_exp2f(rm * fm_clampf(lfo_at_now(rsrc), -1.0f, 1.0f)) : step;
-        lfo_q += (uint32_t)(int32_t)(fm_minf(inc, 0.99f) * 2147483648.0f) << 1;   /* turns, in 32 bits */
-        if (lfo_q < q0) {
-            lfo_rnd[0] = lfo_rnd[1];             /* a new cycle: a new random level */
-            lfo_rnd[1] = lfo_rnd[2];
-            lfo_rnd[2] = rnd_next();
+        if (dr_lfo_transport == DR_LFO_STOPPING)
+            lfo_stop_speed = fm_minf(inc, 0.99f) / (float)CR;
+        {   /* Local positions follow the shared clock in RUN, remain fixed
+             * in PAUSE, or retreat toward zero at its natural rate in STOP. */
+            int g;
+            for (g = 0; g < DR_NGROUPS; g++) {
+                const float dt = (float)CR / DR_SR;
+                float ph;
+                const int active = dr_lfo_transport == DR_LFO_STOPPING ||
+                                   sub_depth[g][2] > 0.0001f || sub_clock[g][SUB_LFO].rejoining ||
+                                   fm_fabsf(sub_clock[g][SUB_LFO].error) > 0.00001f;
+                if (dr_lfo_transport == DR_LFO_PAUSE)
+                    ph = dr_lfo_dr_ph[g];
+                else if (dr_lfo_transport == DR_LFO_STOPPING) {
+                    lfo_stop_local[g] = fm_maxf(0.0f, lfo_stop_local[g] - fm_minf(inc, 0.99f));
+                    ph = lfo_stop_local[g];
+                } else
+                    ph = sub_phase_tick(&sub_clock[g][SUB_LFO], master_ph, inc, dt, sub_depth[g][2]);
+                int wv;
+                dr_lfo_dr_ph[g] = ph;
+                if (active && !lfo_local_active[g]) {
+                    dr_memcpy(lfo_local_rnd[g], lfo_rnd, sizeof lfo_rnd);
+                    lfo_local_s[g][0] = lfo_s[0];
+                    lfo_local_s[g][1] = lfo_s[1];
+                    lfo_local_prev_ph[g] = ph;
+                }
+                lfo_local_active[g] = (uint8_t)active;
+                if (!active) continue;
+                if (ph + 0.5f < lfo_local_prev_ph[g]) {
+                    lfo_local_rnd[g][0] = lfo_local_rnd[g][1];
+                    lfo_local_rnd[g][1] = lfo_local_rnd[g][2];
+                    lfo_local_rnd[g][2] = lfo_local_random(g);
+                }
+                lfo_local_prev_ph[g] = ph;
+                for (wv = 0; wv < 2; wv++) {
+                    float a = lfo_shape_dr(g, wv, lfo_wc[wv], ph);
+                    if (lfo_wx[wv] < 1.0f) {
+                        float b = lfo_shape_dr(g, wv, lfo_wp[wv], ph);
+                        a = b + (a - b) * lfo_wx[wv];
+                    }
+                    lfo_local_s[g][wv] += (a - lfo_local_s[g][wv]) * 0.5f;
+                    lfo_tick_dr[g][wv][t] = lfo_local_s[g][wv] *
+                                             fm_clampf(pfs[P_LFO_AMP1 + wv] * 0.01f, 0.0f, 1.0f);
+                }
+            }
+        }
+        {
+            const uint32_t dq = (uint32_t)(int32_t)(fm_minf(inc, 0.99f) * 2147483648.0f) << 1;
+            if (dr_lfo_transport == DR_LFO_RUN) {
+                lfo_q += dq;
+                if (lfo_q < q0) {
+                    lfo_rnd[0] = lfo_rnd[1];     /* a new cycle: new random level */
+                    lfo_rnd[1] = lfo_rnd[2];
+                    lfo_rnd[2] = rnd_next();
+                }
+            } else if (dr_lfo_transport == DR_LFO_STOPPING) {
+                lfo_q = lfo_q > dq ? lfo_q - dq : 0u;
+            }
         }
         lfo_ph = (float)(lfo_q >> 8) * (1.0f / 16777216.0f);
     }
-    if (ext) {
+    if (ext && dr_lfo_transport == DR_LFO_RUN) {
         float x = ext_beats() / lbeats, e;
         x -= fm_floorf(x);
         e = x - lfo_ph;
@@ -1764,6 +2017,22 @@ static void lfo_run(uint32_t n)
  * random shapes draw a new level (they froze, locked to a bar shorter than the LFO's cycle) */
 static void lfo_restart(void)
 {
+    const float old_master = lfo_ph;
+    int g;
+    /* A locked LFO may restart on a Swell bar; an independent STILL voice
+     * retains its audible position even while the master is reset. */
+    for (g = 0; g < DR_NGROUPS; g++) {
+        sub_clock_t *c = &sub_clock[g][SUB_LFO];
+        if (sub_depth[g][2] > 0.0f || c->rejoining || c->error != 0.0f) {
+            c->error += old_master;
+            if (c->rejoining) {
+                c->duration = fm_maxf(c->duration - c->elapsed, 0.02f);
+                c->start_error = c->error;
+                c->start_velocity = c->velocity;
+                c->elapsed = 0.0f;
+            }
+        }
+    }
     lfo_rnew = 1;
     lfo_rk = 1.0f;
     lfo_q = 0u;
@@ -1912,10 +2181,10 @@ static inline float lfo_fit(float b, float o, float s)
         return fm_clampf(fm_clampf(b, s, 1.0f - s) + o, 0.0f, 1.0f);
     return fm_clampf(0.5f + o * (0.5f / s), 0.0f, 1.0f);   /* wider than the range: fills it */
 }
-static inline float route_at(const grp_t *v, int i, uint32_t t)
+static inline float route_at(int g, const grp_t *v, int i, uint32_t t)
 {
-    float b = lfo_at(v->rt[i], t);
-    return v->rw[i] >= 1.0f ? b : lfo_at(v->rp[i], t) + (b - lfo_at(v->rp[i], t)) * v->rw[i];
+    float b = lfo_at(g, v->rt[i], t);
+    return v->rw[i] >= 1.0f ? b : lfo_at(g, v->rp[i], t) + (b - lfo_at(g, v->rp[i], t)) * v->rw[i];
 }
 
 static void render_group(int g, uint32_t n)
@@ -1925,14 +2194,15 @@ static void render_group(int g, uint32_t n)
     const float *pv = &pfs[DR_GP(g, 0)];          /* the continuous settings, as they glide */
     const float pw = 0.5f - 0.45f * pv[GP_WIDTH] * 0.01f;
     /* OSC MIX: an equal-power crossfade from the oscillators (main + partner) to the sub */
-    const float mix = pv[GP_MIX] * 0.01f;
+    const float strip = sub_depth[g][0], dark = sub_depth[g][1], tail = sub_depth[g][3];
+    const float mix = pv[GP_MIX] * 0.01f * (1.0f - strip);
     const float omix = fm_sqrtf(1.0f - mix), sub = 0.8f * fm_sqrtf(mix);
     /* NOISE: a level added to the oscillators, as a synth's mixer (they stay as they are): 100 is as loud as
      * they are, 50 -6 dB, 25 -12 (a straight level: heard all along the knob); its colour's shelves
      * (g) and the loudness made up for them. White from the generator is +-1, RMS 1/sqrt 3 */
     const float nmix = pv[GP_NOISE] * 0.01f;
     const float ncol = 0.5f * v->nc, nsh = fm_exp2f(-2.0f * ncol);
-    const float namp = nmix * NZ_TOP * NZ_RMS * 1.7320508f * nz_gain(ncol) * (1.0f / 2147483648.0f);
+    const float namp = nmix * (1.0f - strip) * NZ_TOP * NZ_RMS * 1.7320508f * nz_gain(ncol) * (1.0f / 2147483648.0f);
     /* the LFO: how much each route moves (its waves and destinations crossfade on a switch: morph_tick) */
     /* ... each scaled by the MOVEMENT (OCT- / OCT+: every route's depth at once, their balance kept) */
     const float mv = pfs[P_MOVE] * 0.02f;
@@ -1946,7 +2216,7 @@ static void render_group(int g, uint32_t n)
      * middle of the knob is heard: in a straight line it was ~6.4 kHz at 50, now ~3 kHz), a little x^2 (a bent
      * saw, even harmonics; its DC taken out), pitch jitter (about +-12 cents, ~20 Hz), the drones
      * apart (II up to 6 cents sharp), a whisper of noise (-44 dB) */
-    const float chr = pfs[P_CHAR] * 0.01f, asym = CHR_ASYM * chr, nz = 0.006f * chr;
+    const float chr = pfs[P_CHAR] * 0.01f * (1.0f - dark), asym = CHR_ASYM * chr, nz = 0.006f * chr;
     const float rk = 1.0f - fm_exp2f(-9.06472f * 8000.0f * fm_exp2f(-CHR_K * chr) * (1.0f / DR_SR));
     const float mm = g == 1 ? 0.06f * chr : 0.0f;
     /* FEEDBACK: its gain into the filter, in a straight line, bounded by its ceiling (it ran away from ~50 at
@@ -1970,7 +2240,7 @@ static void render_group(int g, uint32_t n)
     /* DRIVE: the soft clip's input gain, 0.5 (clean: a sine comes through with its 3rd harmonic near -40 dB)
      * to 16 (as before at 100); the make-up keeps a signal of DRV_REF's size as loud as it went in, so the
      * knob adds grit, not level (1/sqrt(gain) took 6 dB off from 20 to 100) */
-    const float drv = 0.5f * fm_exp2f(pv[GP_DRIVE] * 0.05f), mk = DRV_REF / sat(DRV_REF * drv);
+    const float drv = 0.5f * fm_exp2f(pv[GP_DRIVE] * 0.05f * (1.0f - dark)), mk = DRV_REF / sat(DRV_REF * drv);
     /* the drive's antialiasing (sat_aa), blended in from 40 to 60: below 40 the clip barely folds anything back, and
      * the sound and its cost stay as they were (the starting sound's drive is 20) */
     const float aaw = fm_clampf((pv[GP_DRIVE] - 40.0f) * 0.05f, 0.0f, 1.0f);
@@ -1991,7 +2261,7 @@ static void render_group(int g, uint32_t n)
     const float pan0 = g ? 0.5f + 0.5f * width : 0.5f - 0.5f * width;
     const float pan_depth = pv[GP_FLFO_DEPTH] * 0.005f * mv * v->dp;
     const float pan = fm_fabsf(pan_depth) > 1e-6f ?
-        lfo_fit(pan0, route_at(v, 1, 0) * pan_depth,
+        lfo_fit(pan0, route_at(g, v, 1, 0) * pan_depth,
                 fm_fabsf(pan_depth) * route_n(v, 1)) : pan0;
     const float gl1 = fm_sqrtf(1.0f - pan) * 1.41421356f, gr1 = fm_sqrtf(pan) * 1.41421356f;
     float pdl, pdr, gl, gr;
@@ -2128,7 +2398,7 @@ static void render_group(int g, uint32_t n)
         }
         /* the switches, a tick nearer their settings (MORPH) */
         morph_tick(g, mstep);
-        og = (0.9f - 0.28f * v->pg) * omix;      /* main alone 0.9, with its partner 0.62 each */
+        og = (0.9f - 0.28f * v->pg * (1.0f - strip)) * omix;      /* main alone 0.9, with its partner 0.62 each */
         sg = sub * v->sg;
         sw = v->sw;
         xd = xamt * v->xm;
@@ -2141,8 +2411,8 @@ static void render_group(int g, uint32_t n)
         sync = v->sync;
         /* the LFO: the oscillator's (pitch, up to +-24 semitones, or X-WAVE) and the filter's (cutoff, up
          * to +-5 octaves, or the resonance, its whole range at depth 100), each its route's wave(s) */
-        om = route_at(v, 0, j0 / CR) * oamt;
-        fl = route_at(v, 1, j0 / CR);
+        om = route_at(g, v, 0, j0 / CR) * oamt;
+        fl = route_at(g, v, 1, j0 / CR);
         fmod = fm_maxf(0.0f, 1.0f - v->dw[1] - v->dp) * fl * famt * 5.0f;
         r = lfo_fit(r0, v->dw[1] * fl * ramt, v->dw[1] * fm_fabsf(ramt) * route_n(v, 1));
         dr_reso[g] = r * 1000.0f;                /* as it sounds, with the LFO (the screen) */
@@ -2156,7 +2426,7 @@ static void render_group(int g, uint32_t n)
         pmod = (1.0f - v->dw[0]) * 24.0f * om;
         dr_pitch_live[g] = v->ps2 + tune + pmod + mac_p[g];
         xw = fm_clampf(lfo_fit(xw0, 0.5f * v->dw[0] * om, v->dw[0] * fm_fabsf(xwamt) * route_n(v, 0)) + dw * 0.12f * v->wn[1],
-                       0.0f, 1.0f) * 3.0f;
+                       0.0f, 1.0f) * (3.0f * (1.0f - dark));
         dr_xw[g] = xw * (100.0f / 3.0f);          /* as it sounds, with the LFO and Wander (the screen) */
         wi = (int)(xw + 0.025f);                 /* within 0.02 of a wave (2 of the knob's 300ths): that */
         wf = xw - (float)wi;                     /* wave alone, as dr_param_text names it (33 is the */
@@ -2279,7 +2549,7 @@ static void render_group(int g, uint32_t n)
                 }
             }
             if (v->pg > 0.0f)                   /* the partner, as loud as it's faded in */
-                x = (x * mlk + v->pg * v->ig * plk * xosc(wi, wf, pph, cp, pw)) * og;
+                x = (x * mlk + v->pg * (1.0f - strip) * v->ig * plk * xosc(wi, wf, pph, cp, pw)) * og;
             else
                 x *= og * mlk;
             if (sg > 0.0f)
@@ -2362,8 +2632,8 @@ static void render_group(int g, uint32_t n)
             y *= a;
             gl += pdl;
             gr += pdr;
-            mixl[j] += y * gl * pgain[g][j];
-            mixr[j] += y * gr * pgain[g][j];
+            mixl[j] += y * gl * pgain[g][j] * (1.0f - tail);
+            mixr[j] += y * gr * pgain[g][j] * (1.0f - tail);
             peak = fm_maxf(peak * 0.99995f, fm_fabsf(y));
             if (v->sc_n < DR_SCOPE_N) {         /* the scope: a point every sc_dec samples, from a cycle's start */
                 if (++v->sc_cnt >= v->sc_dec) {
@@ -2573,8 +2843,9 @@ static void pulse_run(uint32_t n)
     const float shape = (float)par[P_PULSE_SHAPE] * 0.01f, b1 = 1.0f + (float)par[P_PULSE_SWING] * 0.01f;
     float ph = pulse_ph, g = pulse_g, g2 = pulse_g2, pt = 1.0f, pt2 = 1.0f;
     const float phase = (float)par[P_SWELL_PHASE] * 0.01f;
+    float local_ph[DR_NGROUPS] = {ph, ph};
     uint32_t j;
-    if (ext) {                                   /* steered by the clock: at its place when it starts (or a Start), else
+    if (ext && !swell_transport_hold) {                                   /* steered by the clock: at its place when it starts (or a Start), else
                                                   * a fiftieth of the way a block */
         float tg = ext_target(dbeats), e = tg - ph;
         e -= e >= 1.0f ? 2.0f : e < -1.0f ? -2.0f : 0.0f;
@@ -2596,15 +2867,39 @@ static void pulse_run(uint32_t n)
         if (pa > 0.0f) {
             if (!(j & 3u)) {                     /* each drone's offset envelope, evaluated every fourth sample */
                 const float d = pa >= 1.0f ? depth : dn * (1.0f - fm_exp2f(lf * pa));
-                pt = pulse_gain(ph, d, shape, b1, hz, 0.0f);
-                pt2 = phase > 0.0f ? pulse_gain(ph, d, shape, b1, hz, phase) : pt;
+                /* Account for MIDI-clock phase steering as well as nominal
+                 * progression: at 100% STILL the audible envelope must not jump. */
+                float master = ph * 0.5f;
+                float advance = master - swell_master_prev;
+                if (advance < -0.5f) advance += 1.0f;
+                else if (advance > 0.5f) advance -= 1.0f;
+                swell_master_prev = master;
+                if (swell_transport_hold) {
+                    int g;
+                    for (g = 0; g < DR_NGROUPS; g++) {
+                        if (dr_lfo_transport == DR_LFO_STOPPING)
+                            swell_stop_local[g] = fm_maxf(0.0f, swell_stop_local[g] -
+                                                         8.0f * lfo_stop_speed);
+                        local_ph[g] = swell_stop_local[g];
+                    }
+                    if (dr_lfo_transport == DR_LFO_STOPPING)
+                        swell_stop_master = fm_maxf(0.0f, swell_stop_master -
+                                                   8.0f * lfo_stop_speed);
+                    ph = swell_stop_master; /* master and both drone phases retreat separately */
+                } else {
+                    local_ph[0] = sub_phase_tick(&sub_clock[0][SUB_SWELL], master,
+                                                 advance, 4.0f / DR_SR, sub_depth[0][2]) * 2.0f;
+                    local_ph[1] = sub_phase_tick(&sub_clock[1][SUB_SWELL], master,
+                                                 advance, 4.0f / DR_SR, sub_depth[1][2]) * 2.0f;
+                }
+                pt = pulse_gain(local_ph[0], d, shape, b1, hz, 0.0f);
+                pt2 = pulse_gain(local_ph[1], d, shape, b1, hz, phase);
             }
             t = pt;
-            ph += step;
-            if (ph >= 2.0f) {
-                ph -= 2.0f;
-                if (on && par[P_LFO_LOCK])             /* a new bar: the LFO, locked to the pulse, starts over */
-                    lfo_restart();
+            if (!swell_transport_hold) {
+                ph += step;
+                if (ph >= 2.0f)
+                    ph -= 2.0f;
             }
         }
         g += (t - g) * 0.00753f;                 /* 1 - exp(-1 / (3 ms * SR)) */
@@ -2612,9 +2907,42 @@ static void pulse_run(uint32_t n)
         pgain[0][j] = g;
         pgain[1][j] = g2;
     }
-    pulse_ph = pa > 0.0f || ext ? ph : 0.0f;     /* off (and out): the next one starts on a beat (on a clock, where it is) */
+    /* Off Swell still returns its displayed phase continuously on STOP. */
+    if (swell_transport_hold && pa <= 0.0f) {
+        int g;
+        for (g = 0; g < DR_NGROUPS; g++) {
+            if (dr_lfo_transport == DR_LFO_STOPPING)
+                swell_stop_local[g] = fm_maxf(0.0f, swell_stop_local[g] -
+                                             2.0f * lfo_stop_speed * (float)n);
+            local_ph[g] = swell_stop_local[g];
+        }
+        if (dr_lfo_transport == DR_LFO_STOPPING)
+            swell_stop_master = fm_maxf(0.0f, swell_stop_master -
+                                       2.0f * lfo_stop_speed * (float)n);
+        ph = swell_stop_master;
+    }
+    if (dr_lfo_transport == DR_LFO_STOPPING && lfo_q == 0u &&
+        lfo_stop_local[0] <= 0.0f && lfo_stop_local[1] <= 0.0f &&
+        swell_stop_local[0] <= 0.0f && swell_stop_local[1] <= 0.0f &&
+        swell_stop_master <= 0.0f) {
+        int g;
+        /* Rubber-band turnaround: on reaching zero, resume forward motion
+         * immediately, without an extra tap or a stationary hold. */
+        dr_lfo_transport = DR_LFO_RUN;
+        swell_transport_hold = 0;
+        ph = 0.0f;
+        for (g = 0; g < DR_NGROUPS; g++) {
+            dr_memset(&sub_clock[g][SUB_LFO], 0, sizeof(sub_clock[g][SUB_LFO]));
+            dr_memset(&sub_clock[g][SUB_SWELL], 0, sizeof(sub_clock[g][SUB_SWELL]));
+            lfo_local_active[g] = 0;
+        }
+        swell_master_prev = 0.0f;
+    }
+    pulse_ph = (pa > 0.0f || ext || swell_transport_hold) ? ph : 0.0f;
     pulse_a = pa;
     dr_pulse_ph = pulse_ph;
+    dr_pulse_dr_ph[0] = local_ph[0];
+    dr_pulse_dr_ph[1] = local_ph[1];
     pulse_g = g;
     pulse_g2 = g2;
     dr_pulse = g;

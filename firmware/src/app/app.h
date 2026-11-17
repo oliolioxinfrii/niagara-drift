@@ -101,6 +101,17 @@ _Static_assert(sizeof(bank8_t) <= PLAT_STORE_MAX, "a bank must fit one flash obj
 #define MTIME_DEF 50                     /* Gesture time to start: the gestures' own swells */
 #define BANK_MAGIC 0x314B4E42u           /* "BNK1" */
 
+/* An authored four-step pitch progression saved alongside each user scene.
+ * Transport, cursor position and STILL clock offsets remain performance state. */
+#define SEQ_STEPS 4
+typedef struct {
+    uint8_t count, drone, phase, reserved;
+    uint16_t gap_s[SEQ_STEPS];
+    int8_t shape[SEQ_STEPS];
+    int16_t note[2][SEQ_STEPS];
+} seq_scene_t;
+_Static_assert(sizeof(seq_scene_t) == 32, "sequencer scene layout");
+
 extern project_t proj;
 
 void project_defaults(void);
@@ -113,6 +124,8 @@ const char *project_slot_name(int bank, int slot); /* 0 for an unnamed user scen
 int project_slot_rename(int bank, int slot, const char *name); /* never edits factory Presets */
 const char *preset_name(int n);          /* the Preset's name (P1 "NIAGARA" ..) */
 int scene_put(int bank, int n);         /* the sound now into scene n of a bank of yours (marks it to save); 0 ok */
+int project_seq_put(int bank, int n, const seq_scene_t *s); /* save edited sequence with a user scene */
+const seq_scene_t *project_seq_get(int bank, int n);     /* null: no authored sequence (legacy slot) */
 void project_apply(void);                /* every value to the engine (boot, load) */
 
 void ui_init(void);

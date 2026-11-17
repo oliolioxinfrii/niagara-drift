@@ -1,0 +1,22 @@
+# FX rubber-band animation: both trace rows scroll forward and backward
+# through the same noise texture, easing to a stop before each reversal.
+# Visual checkpoints over one 9.24 s cycle; the audio parameters are unchanged.
+notips
+page 15
+expect view 15
+set 62 75                        # Delay mix
+set 63 75                        # Reverb mix
+wait 200
+shot fx-bounce-start.png
+wait 2310
+shot fx-bounce-forward.png
+wait 2310
+shot fx-bounce-far-end.png
+wait 2310
+shot fx-bounce-reverse.png
+wait 2310
+shot fx-bounce-return.png
+page 16
+expect view 16
+wait 150
+shot fx-details-bounce.png

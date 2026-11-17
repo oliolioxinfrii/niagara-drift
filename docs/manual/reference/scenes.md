@@ -1,61 +1,77 @@
 ---
-title: Scenes and banks
-intro: The white keys: your sounds, gliding or crossfaded in by pressure
+title: Scenes and the SAVE browser
+intro: Store and recall sounds together with their programmed pitch sequences
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-## Scenes and banks
+## Scenes and the SAVE browser
 
-The white keys play your saved sounds, gliding in, or crossfading as you press.
+A **scene** is a saved sound together with its authored pitch progression. Volcano has **48 writable scenes** (banks A–F, eight slots each) and **16 immutable factory presets** (two banks of eight). Press **[[SAVE]]** to manage them; the white keys are performance gestures, not scene pads.
 
-## Scenes
+> **Screenshot needed — SAVE Orbit browser:** Capture the current feature branch with the active bank, slot, action, and orbit nodes.
 
-<img src="../../img/panel-keys.png" width="720" alt="The FM-1's keys: white keys 1 to 8 are scenes; the eight gesture keys above them each pick a bank with SEL (A to F, P1–8, P9–16); the black keys are switches">
+### Browser controls
 
-White keys 1–8 hold scenes, in 8 banks of 8: A to F are yours, and two hold the Presets.
+| Control | Assignment |
+|---|---|
+| **KNOB 1** | Select bank: Presets 1–8, Presets 9–16, A, B, C, D, E, F |
+| **KNOB 2** | Select slot 1–8 |
+| **KNOB 3** | Select SAVE, LOAD or TRANSITION |
+| **KNOB 4** | Set the target MORPH percentage for TRANSITION |
+| **SAVE** | Confirm the selected action |
+| **HOME** | Cancel or leave the browser |
+| **REC** | Rename a user-scene slot |
 
-### Tap
+The orbital browser moves from the two preset banks through A–F, with gradually brighter blue bank accents. This indicates the selected bank; it does not reflect the sound's modulation.
 
-Glides to the scene, and stays.
+### SAVE: store your sound and sequence
 
-### Press
+1. Select a writable bank (A–F) and a slot.
+2. Set KNOB 3 to **SAVE** and press SAVE.
+3. If the slot already contains a scene, confirm **OVERWRITE?** with a second SAVE or cancel with HOME.
 
-Crossfades toward the scene, as far as you press. Let go and it glides back.
+**Both the sound and its current sequencer pattern are stored**, including one to four event pitches, event spacing, transition shapes, selected drone, and drone II's phase offset. Factory presets cannot be overwritten.
 
-### Keep a blend
+> **Screenshot needed — Save and overwrite:** Show a selected user slot and the occupied-slot confirmation.
 
-Tap [[SEL]] while pressing: the blend stays.
+### LOAD: recall immediately
 
-### Take it
+Select an occupied slot, choose **LOAD**, then press SAVE. The sound and its authored sequence are applied **immediately**, without using Scene Time. The progression is **stopped and reset to step 1**, ready to be restarted with **SEL + PLAY**. The saved pitches apply even if Pitch Lock is enabled. The browser identifies the action with **TIME: NOW**.
 
-Press all the way and hold a moment: the scene stays when you let go.
+Loading a factory preset restores its sound with a **one-step** sequence. Loading an older user scene that has no stored sequence data likewise starts with one step. A user scene created on this feature branch can recall the multistep sequence you saved.
 
-### Undo
+### TRANSITION: move toward another sound over time
 
-[[SEL]] + [[SAVE]]: back to the sound before. Again: forward.
+Select a target, choose **TRANSITION**, set a percentage with KNOB 4, then press SAVE. This uses the configured **Scene Time** (or clock-synchronized bars), unlike LOAD.
 
-## Banks
+- **0%** leaves the sound unchanged.
+- **40%** reaches a sound 40% of the way toward the target.
+- **100%** reaches the target sound.
 
-### Save
+**Partial transitions keep the current pitch sequence.** At **100%**, the target sequence is restored **only after the timed sound transition completes**, avoiding a pitch-sequence jump at the beginning. The destination sequence then starts stopped at step 1. See [Setup](setup.md) for Scene Time.
 
-Hold [[SAVE]], tap a key.
+> **Screenshot needed — Partial transition:** Show TRANSITION at 40% and the Scene Time setting.
 
-### Pick a bank
+### Rename a user slot
 
-[[SEL]] + a gesture key: [[G4]] A, [[A4]] B, [[B4]] C, [[C5]] D, [[D5]] E, [[E5]] F; [[F5]] P1–P8, [[G5]] P9–P16.
+Select the slot in the SAVE browser and press **REC**. KNOB 1 selects a character position; KNOB 2 changes the character. Press SAVE to confirm or HOME to cancel. Names are up to 11 characters; factory presets cannot be renamed.
 
-## Good to know
+## What a scene stores
 
-- **The glide** takes the Scene time (Setup 1). Turn a knob to stop it part way.
-- **A tap** is anything let go within half a second, however hard.
-- **The screen** says how far a press has gone ("A5 40%"), "KEPT" for a kept blend, and "→ A5" as it glides back.
-- **SAVE first:** a key pressed before SAVE plays its scene. The Presets can't be saved over.
-- **A scene keeps the sound and its Tuning,** not the room: Pressure, Stereo, Tune, Sync, Pitch lock and the Setup
-  times stay.
-- **The keys' lights:** lit keys hold a scene; the one you're on blinks slowly until you change something.
-- **Keys 9–16** are the [gestures](gestures.md).
-- **From 0.2:** scenes on keys 9–12 moved to empty keys 1–8 (the screen says how many). 0.2's Presets that 0.3
-  doesn't keep (Eerie, Glass, Tanpura, Whistle, Cathedral, Metal) are in bank F, keys 1–6; Heaven is now Sibyl, Clean
-  is Bare. Feedback moved to KNOB 1 on Life, Cross-mod to KNOB 4 on Mods, Tune to KNOB 2 on Setup 2; HOME opens
-  Drones, FX opens Space.
+| State | Stored in a user scene? |
+|---|---|
+| Oscillators, filters, routing, effects, sound parameters | **Yes** |
+| Musical Tuning | **Yes** |
+| One to four programmed pitches per drone, event intervals, transition shapes, selected drone, phase offset | **Yes** |
+| Sequencer transport (running/paused), current playhead, editor cursor | **No** — recall starts stopped at step 1 |
+| STRIP, DARK, STILL and TAIL amounts | **No** — performance/session state |
+| Original eight gesture latch values | **Yes** |
+| Recorded Motion Loop | **No** — performance state |
+| Fade, Morph Time, Scene Time, MIDI Sync, stereo, Speaker, reference Tune and Pitch Lock | **No** — global instrument settings |
+
+The scene format uses compatible sequence trailers for the six user banks; it does not require changing the original sound/project binary layout. **Still offsets remain active while sounds are loaded** but are not included in a saved scene.
+
+**SEL + SAVE** offers undo/redo of the supported sound change; it should not be treated as a backup of your performed motion loop or sequence transport.
+
+See [Scenes and saving](../recipes/scenes.md) for a complete exercise, [First pitch sequence](../recipes/sequencing.md) to program a progression, and [Presets](presets.md) for the factory sounds.

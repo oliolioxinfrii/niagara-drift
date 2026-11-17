@@ -1,53 +1,58 @@
-# Focused key-map and tap/hold regression for Swell/LFO controls.
-# There are 11 black keys, b0=F#3, b4=D#4, b8=C#5, b9=D#5.
+# Focused LFO pause/resume/stop key regression.
+# b8=C#5 on every non-note-entry page. b4 retains drone-II filter routing.
 notips
 set 39 0
-set 67 0
+set 67 0                       # legacy LFO-to-Swell parameter is no longer a key action
 set 45 0
+set 47 104                      # LFO period short enough for a 5 s stop test
+set 55 1                        # Swell enabled (transport also returns both envelopes)
 tap LFO
 expect view 6
-# On all LFO pages b4=D#4 selects drone II's filter destination;
-# b8=C#5 now owns Swell lock/reset.
 tapkey b4
 expect par39 1
-expect par67 0
 tapkey b4
 expect par39 2
 tapkey b4
 expect par39 0
 tapkey b8
-expect par67 1
-# Holding C#5 should reset the LFO without changing the Swell lock.
+expect lfo_transport 1
+expect par67 0
+wait 450
+expect lfo_transport 1
+tapkey b8
+expect lfo_transport 0
+wait 450
+# Long press rewinds both waveforms and Swell phases at the LFO rate.
+# When they reach zero, playback automatically rebounds forward; no tap.
+# The legacy lock parameter remains unchanged.
 key b8 down
 wait 700
 key b8 up
-expect par67 1
-tapkey b8
 expect par67 0
-# The new waveform page and the old routing/mod pages keep their order.
+wait 5000
+expect lfo_transport 0
+# The following tap must PAUSE, proving the long press auto-resumed.
+tapkey b8
+expect lfo_transport 1
+tapkey b8
+expect lfo_transport 0
 tap LFO
 expect view 7
 tapkey b8
-expect par67 1
+expect lfo_transport 1
 tap LFO
 expect view 8
 tapkey b8
-expect par67 0
+expect lfo_transport 0
 tap HOME
 expect view 0
-# Outside LFO pages, C#5 (b8) still locks/frees the LFO to Swell,
-# and a long hold resets phase without toggling the lock. D#4 (b4) is now Pitch Link.
+# The same physical key works in normal and LFO contexts; D#4 stays Pitch Link.
 tapkey b8
-expect par67 1
+expect lfo_transport 1
 expect par45 0
-key b8 down
-wait 700
-key b8 up
-expect par67 1
 tapkey b8
-expect par67 0
+expect lfo_transport 0
 tapkey b4
 expect par45 1
-expect par67 0
 tapkey b4
 expect par45 0

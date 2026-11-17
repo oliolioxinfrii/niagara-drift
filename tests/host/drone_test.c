@@ -2337,7 +2337,7 @@ int main(void)
             run(secs(3.0f));
             levels[m] = rms();
         }
-        printf("    Resonant Body GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\\n",
+        printf("    Resonant Body GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
                (double)levels[0], (double)levels[1], (double)levels[2]);
         check("Resonant Body remains silent at zero and grows toward 100",
               levels[0] < 0.000001f &&

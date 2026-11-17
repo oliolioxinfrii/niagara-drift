@@ -19,12 +19,18 @@ Hold **SEL** and turn **PRESETS**. The four modes cycle in both directions, with
 
 | Mode | Processing | What it tests |
 | --- | --- | --- |
-| **Original** | Existing cubic/quadratic interaction, using each drone's Swell envelope | The stuttering/snarl-like baseline |
-| **Upper** | Original interaction through an additional two-pole, approximately 250 Hz high-pass | Whether existing upper combination tones are perceptually distinct without pitch shifting |
-| **Sustained** | Compute the interaction before Swell attenuation, then apply a faster-attack, approximately 1 s-release joint Swell envelope | Whether reduced amplitude pumping produces a more continuous third voice |
-| **Octave Mix** | Original interaction blended with a time-preserving, grain-overlap **+12 semitone pitch-shifted** copy | Whether an actual octave-up layer establishes a separate upper register |
+| **Original** | Unchanged cross-only cubic/quadratic interaction, including each drone's Swell | Preserves the cinematic low-register warble; reference |
+| **Orig + Oct** | 95% Original + 55% granular octave-up copy | Preserve the original bass/wobble while adding the electrical upper register |
+| **Sub + Oct** | 68% octave-down copy + 58% octave-up copy (no dry Original) | Whether octave displacement makes a new dual-register voice |
+| **Focused** | 74% Original + a narrow, driven resonator centered on `2*f(I)+f(II)` | Test a distinct, pitch-following upper combination tone without adding an oscillator |
 
-The Upper filter is a provisional fixed cutoff, not a note tracker. The Sustained interaction **still requires both source drone waveforms**; its envelope simply does not follow both swells instantaneously. The Octave Mix uses two overlap-add delay grains (2048 samples each), so audible grain coloration is possible and is part of the comparison. All four modes share Volcano's stereo delay, drive and reverb.
+The two shifted copies use one 4096-sample delay ring and complementary grain windows of 2048 samples. The octave-up read head advances 2 input samples per output; the octave-down head advances 0.5 samples per output with linear interpolation. Both maintain real-time output duration, but the ~46 ms grain cycle can impart additional roughness or rhythmic artifacts. These are audible experiments rather than transparent pitch shifters.
+
+**Focused** is not a third generator. It is a narrow, decaying resonant filter excited by GHOST's existing interaction signal, with its center frequency calculated from the two parent drone pitches. Its target (the cubic **sum** product) changes with the parents' pitches. A slow bounded boost aims to make that component audible without giving it independent excitation. If one parent stops, the resonator decays; GHOST cannot continue playing its own notes.
+
+Compared with the prior listening set, **Upper** and **Sustained** have been removed because neither produced a reliably audible distinction from Original during headphone testing. User listening also confirmed GHOST becomes inaudible with one drone off, while the preceding Octave Mix generated a strong electrical/substation-like buzz but sacrificed much of the original low body. The revised **Orig + Oct** deliberately restores that body. The alternative mixes are bounded in amplitude before the shared effects, but **are not perceptually loudness-matched**. At level 100, shared summing and effects can still produce substantially louder, harsher material; compare at a moderate GHOST level before exploring 100.
+
+All modes still pass through Volcano's existing stereo delay, drive, and reverb. No additional screen, oscillator, project format, or user pitch control was added.
 
 **Simulator only for now:** The extra 4096-float octave buffer and dual processing paths are deliberate exploratory costs. Hardware RAM/CPU and anti-aliasing have not been verified. This branch should not yet be built or flashed as release firmware.
 

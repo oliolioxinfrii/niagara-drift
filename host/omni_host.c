@@ -494,8 +494,12 @@ static int expect(const char *what, const char *val)
         got = keymap_on();
     else if (!strcmp(what, "mtime"))              /* Gesture time, 0..100 (PRESETS; 50 as set, higher slower) */
         got = proj.mtime;
-    else if (!strcmp(what, "ghostmode"))            /* SEL+PRESETS listening mode (0..3) */
+    else if (!strcmp(what, "ghostmode"))            /* SEL+PRESETS listening mode */
         got = dr_ghost_mode_get();
+    else if (!strcmp(what, "ghostmonitor"))         /* SEL+white Key 1: parent output removed */
+        got = dr_ghost_monitor_get();
+    else if (!strcmp(what, "ghostmute"))            /* SEL+white Key 2: GHOST output removed */
+        got = dr_ghost_mute_get();
     else if (!strcmp(what, "dirty"))
         got = ui.dirty;
     else if (!strcmp(what, "loop"))                /* the motion loop: 0 idle, 1 recording, 2 playing */

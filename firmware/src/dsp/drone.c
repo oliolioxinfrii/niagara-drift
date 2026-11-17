@@ -3002,10 +3002,12 @@ static void clean_hold(float *l, float *r, uint32_t k)
 }
 
 /* ---------------------------------------------------------- GHOST ---
- * Four web-emulator listening modes, all derived from the same nonlinear
- * intermodulation of the two audible post-filter drones. In particular,
- * octave shifts process the interaction, not either independent parent.
- * SEL+PRESETS selects a RAM-only comparison mode; scene format unchanged.
+ * Four web-emulator tests. Original is the two-source cross-only cubic/
+ * quadratic intermodulation; Sub/Octave shift that exact interaction,
+ * and Difference isolates its low-frequency quadratic interaction.
+ * A shared moderate dynamic compressor evens each mode's level before
+ * mixing with the untouched two parent drones and existing shared FX.
+ * SEL+PRESETS selects a RAM-only mode; scene format unchanged.
  */
 typedef struct {
     float in[2][2], power[2], pair_dc, low_dc, out_lp;
@@ -3024,11 +3026,12 @@ static float ghost_mode_fade = 1.0f;
 static float ghost_oct_ring[GH_OCT_RING];
 static uint32_t ghost_oct_write, ghost_oct_phase;
 
-/* A narrow, driven resonator centered on the third-order sum product
- * 2*f(drone I)+f(drone II). No free-running oscillator: its energy can
- * originate only from the two drones' generated intermodulation signal. */
-static float ghost_focus_re, ghost_focus_im;
-static float ghost_focus_in_power, ghost_focus_out_power, ghost_focus_gain = 1.0f;
+/* Difference-only mode is deliberately sparse and bass-focused, unlike
+ * Original's broad cubic products. No additional oscillator is involved. */
+static float ghost_diff_lp[2], ghost_diff_dc;
+/* One envelope follows the selected GHOST output across mode switches.
+ * Attack ~16ms, release ~375ms at 44.1kHz. */
+static float ghost_comp_power;
 
 void dr_ghost_mode_set(int mode)
 {
@@ -3043,9 +3046,8 @@ static void ghost_clear(void)
     ghost.gain = 1.0f;
     dr_memset(ghost_oct_ring, 0, sizeof ghost_oct_ring);
     ghost_oct_write = ghost_oct_phase = 0;
-    ghost_focus_re = ghost_focus_im = 0.0f;
-    ghost_focus_in_power = ghost_focus_out_power = 0.0f;
-    ghost_focus_gain = 1.0f;
+    ghost_diff_lp[0] = ghost_diff_lp[1] = ghost_diff_dc = 0.0f;
+    ghost_comp_power = 0.0f;
     ghost_mode_now = ghost_mode_prev = ghost_mode_req;
     ghost_mode_fade = 1.0f;
 }
@@ -3116,19 +3118,51 @@ static void ghost_pitch_pair(float x, float *up, float *down)
     ghost_oct_write = (ghost_oct_write + 1u) & (GH_OCT_RING - 1u);
     ghost_oct_phase = (ghost_oct_phase + 1u) & (GH_OCT_GRAIN - 1u);
 }
+static float ghost_difference(void)
+{
+    /* The difference tone does not require tracking oscillator pitches.
+     * Multiplying the two band-limited post-filter waveforms yields
+     * sum and difference products. Two ~245Hz low-pass poles isolate
+     * the lowest interactions; a slow DC remover rejects zero offset.
+     * Unlike Original this has NO cubic spectral expansion. */
+    const float xy = ghost.in[0][1] * ghost.in[1][1];
+    ghost_diff_lp[0] += 0.035f * (xy - ghost_diff_lp[0]);
+    ghost_diff_lp[1] += 0.035f * (ghost_diff_lp[0] - ghost_diff_lp[1]);
+    ghost_diff_dc += 0.00020f * (ghost_diff_lp[1] - ghost_diff_dc);
+    return fm_clampf(7.0f * (ghost_diff_lp[1] - ghost_diff_dc), -0.75f, 0.75f);
+}
+static float ghost_compress(float x)
+{
+    /* Mild upward levelling below -18.4dBFS and 2:1 downwards above.
+     * +/-3 dB soft knee, ~16ms attack and ~375ms release on RMS power.
+     * Below threshold the maximum lift is 3.5dB: genuinely silent
+     * parents remain silent. Do not normalize to an always-on output. */
+    const float p = x * x;
+    const float coeff = p > ghost_comp_power ? 0.00140f : 0.000060f;
+    float rms, d, level_gain_db;
+    float g, blend;
+    ghost_comp_power += coeff * (p - ghost_comp_power);
+    /* Computed only in GHOST-enabled path; floating-point expense is
+     * intentional during the browser-only listening experiment. */
+    rms = fm_sqrtf(fm_maxf(ghost_comp_power, 1e-10f));
+    d = 6.0205999f * fm_log2f(fm_maxf(rms, 0.00001f) / 0.12f);
+    if (d <= -3.0f) {
+        level_gain_db = fm_minf(-0.25f * d, 3.5f);
+    } else if (d >= 3.0f) {
+        level_gain_db = -0.50f * d;
+    } else {
+        blend = (d + 3.0f) * (1.0f / 6.0f);
+        blend = blend * blend * (3.0f - 2.0f * blend);
+        level_gain_db = (1.0f - blend) * (-0.25f * d) +
+                        blend * (-0.50f * d);
+    }
+    g = fm_exp2f(level_gain_db * (1.0f / 6.0205999f));
+    return x * g;
+}
 static void ghost_run(uint32_t n)
 {
     const float amount = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
-    /* The target follows the actual two drone pitches and is *not* a
-     * separate oscillator. Its resonant color changes with their interval. */
-    const float f0 = 440.0f * fm_exp2f((dr_pitch[0] - 69.0f) * (1.0f / 12.0f));
-    const float f1 = 440.0f * fm_exp2f((dr_pitch[1] - 69.0f) * (1.0f / 12.0f));
-    const float focus_hz = fm_clampf(2.0f * f0 + f1, 45.0f, 5000.0f);
-    const float focus_turn = focus_hz / DR_SR;
-    const float fc = fm_cosf(FM_TWO_PI * focus_turn);
-    const float fs = fm_sin_turns(focus_turn);
-    const float fr = 0.99935f;                 /* ~35 ms resonant decay */
     uint32_t j;
     if (amount <= 0.0f) {
         ghost_clear();
@@ -3142,43 +3176,26 @@ static void ghost_run(uint32_t n)
     for (j = 0; j < n; j++) {
         const float u = xbuf[j] * pgain[0][j] * t0, v = ybuf[j] * pgain[1][j] * t1;
         const float full = ghost_signal(u, v);
-        float up, down, focus, modes[DR_NGHOSTMODES], out;
-        const float re = ghost_focus_re, im = ghost_focus_im;
+        float up, down, modes[DR_NGHOSTMODES], out;
         ghost_pitch_pair(full, &up, &down);
-        ghost_focus_re = fr * (fc * re - fs * im) + 2.0f * (1.0f - fr) * full;
-        ghost_focus_im = fr * (fs * re + fc * im);
-        focus = ghost_focus_re;
-        ghost_focus_in_power += 0.00001f * (full * full - ghost_focus_in_power);
-        ghost_focus_out_power += 0.00001f * (focus * focus - ghost_focus_out_power);
-        focus = fm_clampf(focus * ghost_focus_gain, -0.75f, 0.75f);
-        /* Preserve Original's full low end in mode 1. Each alternate mix is
-         * bounded <1 pre-FX at full GHOST level, despite added components. */
         modes[DR_GHOST_ORIGINAL] = full;
-        modes[DR_GHOST_OCTAVE] = 0.95f * full + 0.55f * up;
-        modes[DR_GHOST_DUAL_OCTAVE] = 0.68f * down + 0.58f * up;
-        modes[DR_GHOST_FOCUS] = 0.74f * full + 0.60f * focus;
+        modes[DR_GHOST_SUB] = down;
+        modes[DR_GHOST_OCTAVE] = up;
+        modes[DR_GHOST_DIFFERENCE] = ghost_difference();
         out = modes[ghost_mode_now];
         if (ghost_mode_fade < 1.0f) {
             ghost_mode_fade = fm_minf(ghost_mode_fade + 1.0f / (0.08f * DR_SR), 1.0f);
             out = modes[ghost_mode_prev] + (out - modes[ghost_mode_prev]) * ghost_mode_fade;
         }
-        out *= amount;
+        out = ghost_compress(out) * amount;
         mixl[j] += out;
         mixr[j] += out;
     }
     ghost_gain(n);
-    {
-        /* Slow gain on the selected sum product keeps its narrow resonant
-         * component audible without tracking individual intermodulation beats. */
-        const float target = fm_clampf(0.45f * fm_sqrtf(ghost_focus_in_power /
-                         (ghost_focus_out_power + 1e-8f)), 1.0f, 10.0f);
-        ghost_focus_gain += (target - ghost_focus_gain) *
-                            fm_minf((float)n / (1.0f * DR_SR), 1.0f);
-    }
-    ghost_focus_re = fm_flush(ghost_focus_re);
-    ghost_focus_im = fm_flush(ghost_focus_im);
-    ghost_focus_in_power = fm_flush(ghost_focus_in_power);
-    ghost_focus_out_power = fm_flush(ghost_focus_out_power);
+    ghost_diff_lp[0] = fm_flush(ghost_diff_lp[0]);
+    ghost_diff_lp[1] = fm_flush(ghost_diff_lp[1]);
+    ghost_diff_dc = fm_flush(ghost_diff_dc);
+    ghost_comp_power = fm_flush(ghost_comp_power);
 }
 
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)

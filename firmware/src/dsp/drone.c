@@ -9,6 +9,42 @@
 #include "drone.h"
 #include "fastmath.h"
 
+/* RAM-resident audio, adapted from Niagara Drift 0.3.1 (Evan Yerburgh).
+ * The Jieli FM-1 fetches flash-resident DSP through a small instruction cache.
+ * Put the per-sample drone loop in .app_ram to reduce cache stalls. The effects
+ * loop is separately selectable: Volcano's expanded DSP may exceed 32 KiB when
+ * both are resident. The firmware build checks the exact linked size.
+ * OM_RAM_CODE=0 disables both; OM_RAM_FX_CODE=1 opts into effects placement. */
+#ifndef OM_RAM_CODE
+#define OM_RAM_CODE 0
+#endif
+#ifndef OM_RAM_FX_CODE
+#define OM_RAM_FX_CODE 0
+#endif
+#if OM_RAM_FX_CODE && !OM_RAM_CODE
+#error "OM_RAM_FX_CODE requires OM_RAM_CODE"
+#endif
+#if OM_RAM_CODE
+#define DR_RAM_CODE __attribute__((section(".app_ram"), noinline, flatten))
+#define DR_INL __attribute__((always_inline))
+#define DR_FAR(fn) fn##_far
+#define DR_FAR_FN(ret, fn, args) static ret (*volatile const fn##_far) args = fn;
+#else
+#define DR_RAM_CODE
+#define DR_INL
+#define DR_FAR(fn) fn
+#define DR_FAR_FN(ret, fn, args)
+#endif
+#if OM_RAM_FX_CODE
+#define FX_RAM_CODE DR_RAM_CODE
+#define FX_FAR(fn) DR_FAR(fn)
+#define FX_FAR_FN(ret, fn, args) DR_FAR_FN(ret, fn, args)
+#else
+#define FX_RAM_CODE
+#define FX_FAR(fn) fn
+#define FX_FAR_FN(ret, fn, args)
+#endif
+
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define CR 16u                                  /* control rate: one update every 16 samples */
 #define BLK 256u
@@ -812,6 +848,7 @@ float dr_partner_semi(int g, int iv)
         return DR_IV_SEMI[iv];
     return dr_tun_over(g, fm_floorf(DR_IV_SEMI[iv] + 0.5f), IV_J[iv]);
 }
+DR_FAR_FN(float, dr_partner_semi, (int, int))
 /* SHIFT along the Tuning (Evan, 2026-11-07): its knob steps from note to note of the Tuning over drone I (SEL: a cent,
  * off the notes); on a note the move is so many of the Tuning's notes, and each drone moves that many from its own
  * nearest note; off a note, its cents (an older sound's +700c on 19-tone stays 700c) */
@@ -1632,7 +1669,7 @@ static inline float sub_wave(int w, float ph, float dt)
 #define OSC_TRI_K 1.7f
 /* the square brought down 3 dB: it was the loudest wave on the speaker, 2.7-4.1 dB over the saw (Evan, 2026-10-30) */
 #define OSC_SQ_K 0.70794578f
-static inline float osc(int wave, float ph, float dt, float pw)
+static inline DR_INL float osc(int wave, float ph, float dt, float pw)
 {
     switch (wave) {
     case DR_SINE:
@@ -2187,7 +2224,7 @@ static inline float route_at(int g, const grp_t *v, int i, uint32_t t)
     return v->rw[i] >= 1.0f ? b : lfo_at(g, v->rp[i], t) + (b - lfo_at(g, v->rp[i], t)) * v->rw[i];
 }
 
-static void render_group(int g, uint32_t n)
+static DR_RAM_CODE void render_group(int g, uint32_t n)
 {
     grp_t *v = &grp[g];
     const int16_t *p = &par[DR_GP(g, 0)];
@@ -2286,7 +2323,7 @@ static void render_group(int g, uint32_t n)
     {   /* on a Tuning the interval follows the drone's note (dr_partner_semi): when the drone's pitch moves under it, it
          * glides there (~20 ms) as the pitch does, no step; a new interval switches at once, as it always has (and on
          * 12-tone and Quarter it never moves) */
-        const float it = dr_partner_semi(g, iv);
+        const float it = DR_FAR(dr_partner_semi)(g, iv);
         if (v->ivi != iv || fm_fabsf(it - v->ivs) < 1e-4f)
             v->ivs = it;
         else
@@ -2997,6 +3034,9 @@ static void clean_hold(float *l, float *r, uint32_t k)
         }
 }
 
+DR_FAR_FN(void, render_group, (int, uint32_t))
+FX_FAR_FN(void, fx_run, (float *, float *, uint32_t))
+
 static uint32_t master_cached_q12 = ~0u;
 static float master_cached_gain, master_cached_trim;
 
@@ -3030,7 +3070,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         pulse_run(k);
         if (fade > 0.0f || fade_target > 0.0f) {
             for (g = 0; g < DR_NGROUPS; g++)
-                render_group(g, k);
+                DR_FAR(render_group)(g, k);
         } else {                                 /* stopped: the pitches go straight where they're set, */
             pulse_a = par[P_PULSE] ? 1.0f : 0.0f;    /* and the switches are where they're set */
             pf_run(0);
@@ -3064,7 +3104,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
          * rest until PLAY */
         if (fade > 0.0f || fade_target > 0.0f || fx_quiet < 160u) {
             float pk = 0.0f;
-            fx_run(mixl, mixr, k);
+            FX_FAR(fx_run)(mixl, mixr, k);
             clean_hold(mixl, mixr, k);
             for (j = 0; j < k; j++)
                 pk = fm_maxf(pk, fm_maxf(fm_fabsf(mixl[j]), fm_fabsf(mixr[j])));

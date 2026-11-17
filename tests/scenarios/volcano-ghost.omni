@@ -7,7 +7,8 @@ expect ghostmode 0
 spin PRESET 1
 expect ghostmode 0
 press SEL
-spin PRESET 1
+# Multi-detent browser drags must not wrap to the same mode.
+spin PRESET 4
 expect ghostmode 1
 spin PRESET 1
 expect ghostmode 2
@@ -16,6 +17,10 @@ expect ghostmode 3
 spin PRESET 1
 expect ghostmode 0
 spin PRESET -1
+expect ghostmode 3
+spin PRESET -4
+expect ghostmode 2
+spin PRESET 8
 expect ghostmode 3
 release SEL
 spin ALGO 25

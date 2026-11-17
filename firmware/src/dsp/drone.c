@@ -3132,6 +3132,9 @@ static void ghost_run(uint32_t n)
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
     uint32_t j;
     if (amount <= 0.0f) {
+        /* When the level is zero, settle the diagnostic output gate too.
+         * Turning GHOST up while muted must not leak an initial 12-ms pulse. */
+        ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;
         ghost_clear();
         return;
     }

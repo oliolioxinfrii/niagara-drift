@@ -2154,9 +2154,7 @@ int main(void)
             dr_set(P_FADE, 0);
             dr_set(P_DRIFT, 0);
             dr_set(P_WIDTH, 0);
-            dr_set(P_PULSE, 1);
-            dr_set(P_PULSE_RATE, 65);
-            dr_set(P_PULSE_DEPTH, 90);
+            dr_set(P_PULSE, 0);   /* steady reference, no pulse-gate null */
             dr_set(P_FEEDBACK, 0);
             dr_set(P_DLY_DRIVE, 0);
             dr_set(P_CHAR, 0);

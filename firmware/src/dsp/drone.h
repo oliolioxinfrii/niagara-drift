@@ -265,6 +265,11 @@ const dr_param_t *dr_param_info(int i);
 void dr_param_text(int i, int v, char *buf);   /* the value as the screen shows it (12 bytes) */
 
 /* commands (main loop -> render) */
+/* Simulator comparison: transient GHOST algorithms, not stored in scenes.
+ * 0 original, 1 upper spectrum, 2 sustained, 3 original + octave shift. */
+enum { DR_GHOST_ORIGINAL, DR_GHOST_UPPER, DR_GHOST_SUSTAINED, DR_GHOST_OCTAVE, DR_NGHOSTMODES };
+void dr_ghost_mode_set(int mode);
+int dr_ghost_mode_get(void);
 void dr_init(void);
 void dr_set(int param, int value);
 void dr_play(int on);                          /* fade the whole drone in (1) / out (0) over P_FADE */

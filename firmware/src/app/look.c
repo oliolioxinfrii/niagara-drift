@@ -2311,14 +2311,6 @@ static void lk_pic_seq_shape(void);
 
 static void lk_pic(void)
 {
-    static uint8_t morph_picture_drawn;
-    const int morphing = ui.morph >= 0;
-    /* Hold the existing picture during scene interpolation. The header,
-     * controls, input and audio continue updating at their normal rates. */
-    if (!morphing)
-        morph_picture_drawn = 0;
-    else if (morph_picture_drawn && ui.sig[1])
-        return;
     const int msg = plat_ms() < ui.msg_until;
     uint32_t h = hash(hash(2166136261u, 0x4C50u | (uint32_t)msg | (uint32_t)lit(0) << 1 | (uint32_t)lit(2) << 2 |
                                             (ui.btn >> B_SEL & 1u) << 3 | (uint32_t)ui.view << 4),
@@ -2343,8 +2335,6 @@ static void lk_pic(void)
     if (h == ui.sig[1] && (still || ui.frame % SCOPE_EVERY))
         return;
     ui.sig[1] = h;
-    if (morphing)
-        morph_picture_drawn = 1;
     cv_begin(240, LK_PIC_H, LK_BG);
     switch (ui.view) {
     case V_PLAY2: lk_pic_drones1(); break;
@@ -3226,6 +3216,7 @@ static void lk_frame(void)
 {
     static int was = -1;                       /* into or out of overlays: every band afresh */
     static int drawn_view = -1;                /* visible page, independent of overlay state */
+    static uint8_t morph_frame_drawn;
     const int atlas = ui.hold_btn == B_HOME && !(ui.btn >> B_SEL & 1u) &&
                       !ui.hold_turned && plat_ms() - ui.hold_t >= HOLD_MS;
     /* SEL remains a modifier, but holding it never replaces the active page
@@ -3253,8 +3244,15 @@ static void lk_frame(void)
         lk_keymap();
         return;
     }
+    /* Scene interpolation continues in ui_frame and the audio ISR. Render
+     * the current page once during a morph, or once per newly selected page. */
+    if (ui.morph < 0)
+        morph_frame_drawn = 0;
+    else if (morph_frame_drawn && !changed)
+        return;
     lk_bar();
     lk_pic();
     if (!lk_readout())
         lk_values();
+    morph_frame_drawn = ui.morph >= 0;
 }

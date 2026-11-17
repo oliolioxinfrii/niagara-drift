@@ -238,6 +238,7 @@ static struct {
     float sub_amt[8];                  /* keys 1-8: four operations per drone */
     int16_t sub_sent[8];
     uint16_t key_held;                 /* all sixteen white keys, physical positions */
+    uint8_t ghost_key_consumed;       /* SEL+F3 monitor; release does not alter STRIP I */
     uint16_t key_was_returning;        /* state when the current press began */
     uint16_t key_initial_zero;         /* short touch from zero retains the small value */
     uint8_t key_mode[16];             /* 0: stationary, 1: returning, 2: paused return */
@@ -2406,6 +2407,22 @@ static void input(void)
     }
     ch = keys ^ ui.keys;                               /* the black keys: switches, on the press */
     ui.keys = keys;
+    /* Emulator listening diagnostic: SEL + white Key 1 (F3).
+     * Capture both its press and release so it cannot also trigger
+     * STRIP I's latched gesture. No project setting is changed.
+     * The note-entry sequencer and legacy scene-key test take precedence. */
+    if (ui.view != V_SEQ_NOTES && !ui.scene_keys_enabled &&
+        (btn & (1u << B_SEL)) &&
+        (ch & keys & (1u << WHITE_K[0]))) {
+        ui.ghost_key_consumed = 1u;
+        ui.btn_used |= 1u << B_SEL;
+        ui.sel_turned = 1;
+        dr_ghost_monitor_set(!dr_ghost_monitor_get());
+        scopy(ui.glab[0], "GHOST MONITOR");
+        scopy(ui.glab[1], dr_ghost_monitor_get() ? "GHOST ONLY" : "FULL MIX");
+        ui.glab_until = plat_ms() + 1800u;
+        ui.act_t = plat_ms();
+    }
     if (ui.view == V_SEQ_NOTES) {
         /* All 27 physical keys belong to pitch entry on the sequence page.
          * SEL+K1 remains a knob-only modifier; holding SEL here must not
@@ -2492,12 +2509,15 @@ static void input(void)
     }
     for (i = 0; i < NWHITE; i++) {
         if (i < NPLAY && ui.scene_keys_enabled) continue; /* legacy scenario only */
+        if (i == 0u && ui.ghost_key_consumed) continue; /* SEL+F3 monitor, not STRIP I */
         if ((ch & keys) >> WHITE_K[i] & 1u)
             gesture_down((int)i);
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
             gesture_up((int)i);
     }
     } /* end normal keyboard dispatch; sequencer's keyboard is handled separately */
+    if (ch & ~keys & (1u << WHITE_K[0]))
+        ui.ghost_key_consumed = 0u; /* consume F3 release even if SEL was released first */
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();

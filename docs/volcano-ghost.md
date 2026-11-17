@@ -13,7 +13,7 @@ Status: **experimental**. Created from `main` on `feature/volcano-ghost-intermod
 
 ## DSP experiment
 
-At each audio sample, let `x` and `y` be the two post-filter drone outputs **before** the per-drone TAIL output attenuation. After duplicating and low-pass filtering these signals:
+At each audio sample, let `x` and `y` be the two post-filter drone outputs, multiplied by their **audible Swell envelopes** and per-drone TAIL attenuation. The common PLAY fade applies afterward to the three-voice mix. After duplicating and low-pass filtering these signals:
 
 ```text
 Px[n] = (1-alpha)*Px[n-1] + alpha*u[n]^2

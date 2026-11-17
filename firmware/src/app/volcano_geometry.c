@@ -24,6 +24,15 @@ static int vg_min(int x, int y) { return x < y ? x : y; }
 static int vg_max(int x, int y) { return x > y ? x : y; }
 static uint16_t vg_dim(uint16_t c, float f) { return vl_bright(c, f); }
 
+/* Cubic interpolation for the atlas's independently defined warp curve. */
+static int vg_interpolate(const int8_t *p, int n, int u, int w)
+{
+    const int scaled = u * (n - 1), idx = vg_min(scaled / w, n - 2);
+    const int t = scaled - idx * w;
+    const int f = t * t * (3 * w - 2 * t) * 100 / (w * w * w);
+    return ((int)p[idx] * (100 - f) + (int)p[idx + 1] * f) / 100;
+}
+
 /* Exact integer samples of the two fixed cubic section curves.
  * The drawing's remaining displacement depends on live parameters. */
 static const int8_t VG_FOLD_BASE[2][105] = {

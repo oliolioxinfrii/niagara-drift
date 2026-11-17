@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# GHOST: one level knob, no spectral display; SEL+ALGORITHM retains Movement.
+notips
+expect par112 0
+expect par75 50
+spin ALGO 25
+expect par112 25
+expect par75 50
+press SEL
+spin ALGO 7
+expect par75 57
+expect par112 25
+release SEL
+spin ALGO -10
+expect par112 15
+expect par75 57
+spin ALGO -15
+expect par112 0
+# Saved sound parameter survives project serialization.
+spin ALGO 70
+expect par112 70
+save
+wait 150
+reboot
+expect par112 70
+expect par75 57

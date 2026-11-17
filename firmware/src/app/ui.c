@@ -2410,8 +2410,9 @@ static void input(void)
     /* Emulator listening diagnostic: SEL + white Key 1 (F3).
      * Capture both its press and release so it cannot also trigger
      * STRIP I's latched gesture. No project setting is changed.
-     * The note-entry sequencer and legacy scene-key test take precedence. */
-    if (ui.view != V_SEQ_NOTES && !ui.scene_keys_enabled &&
+     * The legacy scene-key test takes precedence. On the sequence page,
+     * only this captured F3 key is excluded from note entry. */
+    if (!ui.scene_keys_enabled &&
         (btn & (1u << B_SEL)) &&
         (ch & keys & (1u << WHITE_K[0]))) {
         ui.ghost_key_consumed = 1u;
@@ -2427,7 +2428,12 @@ static void input(void)
         /* All 27 physical keys belong to pitch entry on the sequence page.
          * SEL+K1 remains a knob-only modifier; holding SEL here must not
          * recall scenes, banks, or the black-key settings. */
-        sd_keys(keys, ch & keys);
+        /* SEL+F3 is the monitor only, not a sequence pitch entry. */
+        {
+            const uint32_t note_keys = ui.ghost_key_consumed ?
+                keys & ~(1u << WHITE_K[0]) : keys;
+            sd_keys(note_keys, ch & note_keys);
+        }
         if (btn >> B_SEL & 1u && keys)
             ui.btn_used |= 1u << B_SEL;
     } else {

@@ -86,6 +86,7 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     {"Sub wave", 0, DR_NSUBW - 1, DR_SUBW_SQUARE}, {"Sub wave", 0, DR_NSUBW - 1, DR_SUBW_SQUARE},
     {"Tuning", 0, DR_NTUNING - 1, DR_TUN_12},
     {"Sync", 0, 1, 1},
+    {"Ghost", 0, 100, 0},       /* off by default: older sounds keep their exact audio */
 };
 const char *const DR_REV_NAME[DR_NREV] = {"Room", "Hall", "Cathedral", "Chorus hall", "Shimmer"};
 const char *const DR_DIV_NAME[DR_NDIV] = {"32 bars", "16 bars", "8 bars", "4 bars", "2 bars", "1 bar", "1/2", "1/4"};
@@ -655,7 +656,7 @@ void dr_param_text(int i, int v, char *b)
 enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
-#define QN 128u
+#define QN 256u
 typedef char qn_holds_a_load[DR_NPARAMS + 16 <= QN ? 1 : -1];
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -1000,6 +1001,7 @@ static float fade_rate(void)                      /* per sample: 0.05 s * 1200^(
 }
 
 static void fx_clear(void);                      /* drone_fx.c, included below */
+static void ghost_clear(void);                   /* the third-order cross-interaction, below */
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
 void dr_init(void)
@@ -1064,6 +1066,7 @@ void dr_init(void)
     spk_x = dr_phones ? 0.0f : 1.0f;
     spk_f = SPK_CUT;
     fx_clear();
+    ghost_clear();
     q_r = q_w;
 }
 
@@ -2997,6 +3000,66 @@ static void clean_hold(float *l, float *r, uint32_t k)
         }
 }
 
+/* ---------------------------------------------------------- GHOST ---
+ * A third sound from the already filtered, separately audible drones. No
+ * oscillator or pitch tracker: the harmonics, detuning and motion of each
+ * drone interact directly. All filtering here is on private copies; the
+ * original drones are unchanged. No allocation, division or libm per sample.
+ * The two-pole input lows (~3 kHz each) limit cubic aliasing; the output is
+ * band-limited again, though residual aliasing must be checked on hardware.
+ * Both drones feed the same effects and PLAY fade as before. */
+typedef struct {
+    float in[2][2], power[2], pair_dc, low_dc, out_lp;
+} ghost_t;
+static ghost_t ghost;
+static void ghost_clear(void) { dr_memset(&ghost, 0, sizeof ghost); }
+static void ghost_run(uint32_t n)
+{
+    const float amount = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+    const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
+    uint32_t j;
+    if (amount <= 0.0f) {
+        ghost_clear();                            /* off costs nothing per sample */
+        return;
+    }
+    for (j = 0; j < n; j++) {
+        float u = xbuf[j] * t0, v = ybuf[j] * t1, xy, cubic, exc, shaped;
+        /* Cascaded pre-lows (~3 kHz): no change to either dry source. */
+        ghost.in[0][0] += 0.348f * (u - ghost.in[0][0]);
+        ghost.in[0][1] += 0.348f * (ghost.in[0][0] - ghost.in[0][1]);
+        ghost.in[1][0] += 0.348f * (v - ghost.in[1][0]);
+        ghost.in[1][1] += 0.348f * (ghost.in[1][0] - ghost.in[1][1]);
+        u = ghost.in[0][1];
+        v = ghost.in[1][1];
+        ghost.power[0] += 0.00022f * (u * u - ghost.power[0]);
+        ghost.power[1] += 0.00022f * (v * v - ghost.power[1]);
+        xy = u * v;
+        ghost.pair_dc += 0.00022f * (xy - ghost.pair_dc);
+        /* Cross-only cubic distortion, with estimated carrier contributions
+         * removed. The smaller quadratic term supports difference tones. */
+        cubic = (u * u - ghost.power[0]) * v +
+                (v * v - ghost.power[1]) * u;
+        exc = 9.0f * cubic + 0.50f * (xy - ghost.pair_dc);
+        /* Level-independent soft saturation: ALGORITHM changes gain, not tone. */
+        shaped = exc / (1.0f + 1.5f * fm_fabsf(exc));
+        ghost.low_dc += 0.005f * (shaped - ghost.low_dc); /* ~35 Hz high-pass */
+        shaped -= ghost.low_dc;
+        ghost.out_lp += 0.52f * (shaped - ghost.out_lp); /* ~5 kHz low-pass */
+        shaped = ghost.out_lp * amount;                 /* GHOST is centered */
+        mixl[j] += shaped;
+        mixr[j] += shaped;
+    }
+    ghost.in[0][0] = fm_flush(ghost.in[0][0]);
+    ghost.in[0][1] = fm_flush(ghost.in[0][1]);
+    ghost.in[1][0] = fm_flush(ghost.in[1][0]);
+    ghost.in[1][1] = fm_flush(ghost.in[1][1]);
+    ghost.out_lp = fm_flush(ghost.out_lp);
+    ghost.low_dc = fm_flush(ghost.low_dc);
+    ghost.pair_dc = fm_flush(ghost.pair_dc);
+    ghost.power[0] = fm_flush(ghost.power[0]);
+    ghost.power[1] = fm_flush(ghost.power[1]);
+}
+
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
 {
     /* MASTER: a volume up to 4/5 of its turn (there as loud as the old full turn); past that it drives the
@@ -3045,6 +3108,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                 v->slide = v->lslide = 0.0f;
             }
         }
+        ghost_run(k);                             /* into the same stereo space and FX */
         for (j = 0; j < k; j++) {                /* PLAY fade after the individual swells */
             float a;
             fade = fade_target > fade ? fm_minf(fade + frate, fade_target) : fm_maxf(fade - frate, fade_target);

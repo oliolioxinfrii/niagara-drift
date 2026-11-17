@@ -2,6 +2,7 @@
 notips
 legacykeys
 set 52 0
+set 70 0
 tap PLAY
 wait 100
 expect ledw9 0

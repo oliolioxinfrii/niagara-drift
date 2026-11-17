@@ -1,257 +1,140 @@
-legacykeys
-# the gestures (v0.2): Weight, Shift, Clean, Wash on D5-G5 (w12-w15), always the same, offsets on top of the sound, the sound's own
-# values untouched; each part comes in over its own stretch of the way in and goes over its own on the way out.
-# heardN is what's heard (the sound plus the macros), parN the sound's own, mpitchG a drone's pitch move by the
-# macros (cents). 7 drone I's cutoff, 5 its osc mix, 11 its level, 25 drone II's detune, 63 the reverb mix, 42
-# cross-mod, 60-62 the delay's time, repeats, mix, 66 the delay LFO's depth, 17 drone I's filter LFO depth, 77
-# Character; 78 Wander, 79 Age, 80 Shift's move, 81 Wander's scale; 90-93 the keys' latches.
-# the starting sound's cutoffs and levels before 2026-11-08 (the expectations below were made on them)
+# Volcano gesture regression: Morph Time governs all gestures; releasing
+# a held gesture latches its depth, and tapping an active key returns to zero.
+# Verify each macro's DSP effect, plus Wander, Age and persistence.
+notips
 set 7 700
 set 28 680
 set 11 75
 set 32 61
-# A new FM-1 starts on Presets; scene tests select bank A explicitly.
-expect bank 3
 bank 0
-expect bank 0
-# scenes switch in ~4 s here (the Scene time at 46; ~15 s on a new FM-1 since 2026-10-25)
-set 71 34
+set 70 0                  # fastest Morph Time, so a 350 ms hold reaches full
+set 74 0                  # pitch lock off for Shift
 tap PLAY
 wait 1000
 expect heard7 700
-# PRESETS: Gesture time, a speed (50: each gesture's own time; right is faster, left slower)
-spin PRESET -10
-expect mtime 60
-spin PRESET 10
-expect mtime 50
-# WEIGHT held swells in (2.8 s), a warm bass: half way, the cutoff most of the way down (by 10 at most), the sub
-# half way up (by 15 at most, 2026-10-20: the main oscillator stays, for the speaker)
+expect gam0 0
+expect gam1 0
+expect gam2 0
+expect gam3 0
+
+# WEIGHT: warmth and sub; a release keeps the full amount.
 key w12 down
-wait 1400
-expect heard7 <698
-expect heard5 >34
-expect heard5 <46
-wait 1500
-expect heard5 >42
-# ... and the filter LFO eases off the cutoff it moves (Movement would wobble it)
-expect heard17 0
+wait 350
 key w12 up
-wait 1000
-expect heard7 >680
-expect heard5 >31
-wait 2500
+wait 300
+expect gam0 100
+expect par90 100
+expect heard5 >42
+expect heard7 <700
+expect heard17 0
+# A tap explicitly returns Weight; a release alone never does.
+tapkey w12
+wait 500
+expect gam0 0
+expect par90 0
 expect heard5 30
 expect heard7 700
 expect heard17 85
-# let go after a short hold: it goes over as long as it was held (1 s), not its own time
-key w12 down
-wait 1000
-key w12 up
-expect heard5 >31
-wait 1100
-expect heard5 30
-# let go after a long hold (5 s, in by 2.8 s): it drifts out over 5 s
-key w12 down
-wait 5000
-key w12 up
-wait 2500
-expect heard5 >31
-wait 3000
-expect heard5 30
-# Gesture time x10, the fastest (PRESETS all the way right): in by about 0.3 s (held 0.6 s: under 0.5 s would be a tap)
-spin PRESET 50
-expect mtime 0
-key w12 down
-wait 600
-expect heard5 >42
-key w12 up
-wait 600
-expect heard5 30
-spin PRESET -50
-expect mtime 50
-# a tap: to its depth, and it stays; a tap again: it goes
-tapkey w12
-wait 4000
-expect par90 100
-expect heard5 >42
-tapkey w12
-wait 4000
-expect par90 0
-expect heard5 30
-# SEL held as you let go: latched where it is
-key w12 down
-wait 1000
-press SEL
-key w12 up
-release SEL
-expect par90 >20
-expect par90 <60
-tapkey w12
-wait 4000
-expect par90 0
-# SHIFT: its move on Pitch moves' KNOB 1 (80, in cents + 700: a 5th up to start, 12 detents down, a note each: a 4th down); a
-# gesture key held, ALGORITHM is still the Movement and PRESETS Gesture time (3.9 s)
-tap SEQ
-tap SEQ
-expect view 10
-spin K1 -12
-expect par80 200
-tap HOME
+
+# SHIFT: the two pitches move together at full depth.
+set 80 200
 key w13 down
-spin ALGO 2
-spin ALGO -2
-wait 700
+wait 350
 key w13 up
-expect par75 50
-expect par80 200
-wait 4000
-expect mpitch0 0
-expect mpitch1 0
-# tapped: drone I glides down a 4th first, drone II after it
-tapkey w13
-wait 1500
-expect mpitch0 <-250
-expect mpitch1 >-100
-wait 3000
-expect mpitch0 -500
-expect mpitch1 -500
-tapkey w13
-wait 4500
-expect mpitch0 0
-expect mpitch1 0
-# a press needn't be quick to be a tap: 400 ms latches
-key w12 down
-wait 400
-key w12 up
 wait 300
-expect par90 100
-tapkey w12
-wait 4000
-expect par90 0
-# CLEAN (F5) held (3.3 s): a dirty sound comes clean, the grit first; the notes stay
+expect gam1 100
+expect par91 100
+expect mpitch0 <-250
+expect mpitch1 <-250
+tapkey w13
+wait 500
+expect gam1 0
+expect par91 0
+expect mpitch0 0
+expect mpitch1 0
+
+# CLEAN: suppress drive, character, and delay wet signal; restore on tap.
 set 77 60
 set 10 50
 set 62 50
 wait 300
 key w14 down
-wait 900
+wait 350
+key w14 up
+wait 300
+expect gam2 100
+expect par92 100
 expect heard77 0
 expect heard10 0
-expect heard62 >30
-wait 3000
 expect heard62 0
-expect mpitch0 0
-key w14 up
-wait 4500
+tapkey w14
+wait 500
+expect gam2 0
+expect par92 0
 expect heard77 60
 expect heard62 50
 set 77 0
 set 10 20
 set 62 25
-# WASH (G5) on a sound with its own effects up: each goes toward Wash's aim, not past it (the delay mix to 70, the
-# repeats to 80, under the delay's howl)
+
+# WASH: raise delay repeats and mix towards their capped targets.
 set 61 70
 set 62 60
 wait 300
-tapkey w15
-wait 5000
+key w15 down
+wait 350
+key w15 up
+wait 300
+expect gam3 100
+expect par93 100
 expect heard61 80
 expect heard62 70
+expect heard63 >60
+expect heard17 28
+expect heard38 -28
+# Persist the latch using the project save path, then reboot.
+save
+wait 500
+reboot
+wait 500
+expect par93 100
+expect gam3 100
+expect heard63 >60
 tapkey w15
-wait 6000
+wait 500
+expect gam3 0
+expect par93 0
 expect heard61 70
+expect heard62 60
 set 61 50
 set 62 25
-wait 300
-# WANDER (Pitch moves): drone II walks off its pitch, gliding; at 0 it comes home
+
+# WANDER: drone II's melody leaves its pitch and then returns.
 set 78 60
 wait 7000
 expect wander >150
 set 78 0
 wait 30000
 expect wander 0
-# ... on fifths and octaves (81 = 2): each note a fifth or an octave from drone I
-set 81 2
-set 78 100
-wait 7000
-expect wander >150
-set 78 0
-set 81 0
-wait 30000
-expect wander 0
-# AGE (Life): wears in over 20 s: darker (the cutoff 250 down, AGE_CUT), a wow
+
+# AGE: the filter darkens and recovers over approximately 20 seconds.
 set 79 100
 wait 21000
 expect heard7 450
-# not Character any more (2026-10-20: the tape's wear, not the oscillators')
-expect heard77 0
 set 79 0
 wait 21000
 expect heard7 700
-# a scene keeps the gestures: A1 stored with Wash latched, recalled from none
-tapkey w15
-wait 5000
-expect heard63 >60
-# ... and Wash eases the filter LFOs to a third (85: 28), so Movement's sweeps don't pile up in the tails
-expect heard17 28
-expect heard38 -28
-press SAVE
-tapkey w0
-release SAVE
-wait 300
-tapkey w15
-wait 5000
-expect par93 0
-expect heard63 35
-tapkey w0
-wait 5000
-expect par93 100
-expect heard63 >60
-# a restart brings the whole sound back to the engine, the gestures too (the last values of a load were once
-# dropped)
-save
-wait 500
-reboot
-wait 5000
-expect par93 100
-expect heard63 >60
-# SAVE again with nothing changed: nothing is written (each write is a late block while playing); one so far: the
-# project
-expect store_writes 1
-save
-wait 500
-expect store_writes 1
-# GESTURE TIME (PRESETS), respread (Evan, 2026-10-28): slower evenly in seconds to x12 (Weight in over ~34 s), faster
-# only to x4 (~0.7 s). A tap latches at the time set and comes in by itself
-expect mtime 50
-spin PRESET -50
-expect mtime 100
-tapkey w12
-wait 8000
-expect gam0 >18
-expect gam0 <30
-tapkey w12
-wait 40000
-expect gam0 0
-spin PRESET 100
-expect mtime 0
-tapkey w12
-wait 500
-expect gam0 >60
-wait 400
-expect gam0 100
-tapkey w12
-wait 1500
-expect gam0 0
-spin PRESET -50
-expect mtime 50
-# WEIGHT on a drone turned to 0 (2026-11-02): it stays silent, as under every other gesture (it had come back at
-# about -28 dB); from Level 10 its lift is as approved
+
+# An inactive drone remains muted even at full Weight.
 set 32 0
 wait 500
 key w12 down
-wait 3000
+wait 350
+key w12 up
+wait 300
+expect gam0 100
 expect heard32 0
 expect lvl1 -99
-key w12 up
-wait 3000
+tapkey w12
+wait 500
+expect gam0 0

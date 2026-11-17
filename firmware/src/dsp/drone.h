@@ -288,6 +288,12 @@ void dr_seed(uint32_t s);                      /* mix s into the random generato
 /* the render (audio ISR): n stereo frames, 24-bit in int32; gain Q12 (the MASTER pot) */
 void dr_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);
 
+/* Optional hardware stage profiler (OM_DSP_PROFILE=1): moving average and
+ * peak of elapsed Timer4 ticks, per 256-frame audio block. Returns zero if off.
+ * Timer4 is 24 MHz on FM-1; each bin's end is the next bin's start. */
+enum { DR_PROF_CTRL, DR_PROF_I, DR_PROF_II, DR_PROF_FADE, DR_PROF_FX, DR_PROF_POST, DR_PROF_N };
+void dr_profile_read(uint32_t average_ticks[DR_PROF_N], uint32_t peak_ticks[DR_PROF_N]);
+
 /* state for the screen (UI) */
 extern volatile float dr_level[DR_NGROUPS];    /* each drone's output level, 0..~1 (peak, decaying) */
 extern volatile float dr_fade;                 /* the PLAY fade, 0..1 */

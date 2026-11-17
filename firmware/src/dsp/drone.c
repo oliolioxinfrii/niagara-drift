@@ -48,6 +48,50 @@
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define CR 16u                                  /* control rate: one update every 16 samples */
 #define BLK 256u
+
+/* Optional FM-1 Timer4 stage timing, derived from Frasil's DSP profiling
+ * approach (the profiling implementation is independent GPL source).
+ * Disabled in release builds; 24 MHz ticks are read between pipeline stages. */
+#ifndef OM_DSP_PROFILE
+#define OM_DSP_PROFILE 0
+#endif
+#if OM_DSP_PROFILE
+#ifdef OM_HOST
+#include <time.h>
+static uint32_t dr_profile_clock(void) { return (uint32_t)clock(); }
+#else
+extern uint32_t dr_profile_clock(void);
+#endif
+static volatile uint32_t dr_prof_avg[DR_PROF_N], dr_prof_max[DR_PROF_N];
+static inline void dr_prof_note(int stage, uint32_t elapsed)
+{
+    uint32_t avg = dr_prof_avg[stage];
+    dr_prof_avg[stage] = avg ? (uint32_t)((int32_t)avg +
+                                         ((int32_t)elapsed - (int32_t)avg) / 16) : elapsed;
+    if (elapsed > dr_prof_max[stage])
+        dr_prof_max[stage] = elapsed;
+}
+#define PROF_START uint32_t _dr_prof_at = dr_profile_clock()
+#define PROF_MARK(stage) do { uint32_t _p = dr_profile_clock(); \
+                              dr_prof_note((stage), _p - _dr_prof_at); _dr_prof_at = _p; } while (0)
+#else
+#define PROF_START
+#define PROF_MARK(stage) ((void)0)
+#endif
+
+void dr_profile_read(uint32_t avg[DR_PROF_N], uint32_t peak[DR_PROF_N])
+{
+    int i;
+    for (i = 0; i < DR_PROF_N; i++) {
+#if OM_DSP_PROFILE
+        avg[i] = dr_prof_avg[i];
+        peak[i] = dr_prof_max[i];
+#else
+        avg[i] = peak[i] = 0u;
+#endif
+    }
+}
+
 /* Frasil-inspired inner-loop specializations: independent A/B toggles.
  * Default is the staged/specialized path; set each to 0 for comparison. */
 #ifndef OM_NOISE_CHUNK
@@ -3263,6 +3307,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         uint32_t k = n > BLK ? BLK : n, j;
         int g;
         float frate = fade_rate();
+        PROF_START;
         for (j = 0; j < k; j++)
             mixl[j] = mixr[j] = 0.0f;
         pf_run(k);
@@ -3272,9 +3317,12 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             sbuf[j] = 0;
         }
         pulse_run(k);
+        PROF_MARK(DR_PROF_CTRL);
         if (fade > 0.0f || fade_target > 0.0f) {
-            for (g = 0; g < DR_NGROUPS; g++)
+            for (g = 0; g < DR_NGROUPS; g++) {
                 DR_FAR(render_group)(g, k);
+                PROF_MARK(DR_PROF_I + g);
+            }
         } else {                                 /* stopped: the pitches go straight where they're set, */
             pulse_a = par[P_PULSE] ? 1.0f : 0.0f;    /* and the switches are where they're set */
             pf_run(0);
@@ -3303,6 +3351,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             mixl[j] *= a;
             mixr[j] *= a;
         }
+        PROF_MARK(DR_PROF_FADE);
         /* the effects, after the fade: the tails ring on when stopped. Stopped, and silent (below -120 dB)
          * for longer than the delay's line (743 ms: an echo still in it would have come out by then), they
          * rest until PLAY */
@@ -3318,6 +3367,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             fx_rest();
             dr_tail = 0.0f;
         }
+        PROF_MARK(DR_PROF_FX);
         {                                        /* FEEDBACK: this block's sound, for the drones 256 samples on */
             float pk = 0.0f;
             for (j = 0; j < k; j++) {
@@ -3393,6 +3443,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             out[2 * j] = (int32_t)(outclip(mixl[j] * gain) * o);
             out[2 * j + 1] = (int32_t)(outclip(mixr[j] * gain) * o);
         }
+        PROF_MARK(DR_PROF_POST);
         out += 2 * k;
         n -= k;
     }

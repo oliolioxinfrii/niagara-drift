@@ -24,6 +24,11 @@ static int plat_analog_led_ok(uint32_t col, uint32_t rowbit);
 #include "fm1_xip.h"
 #include "fm1_perf.h"
 
+#if OM_DSP_PROFILE
+/* The DSP is linked separately; Timer4 is also the audio-timing reference. */
+uint32_t dr_profile_clock(void) { return fm1_ticks(); }
+#endif
+
 #include "libc.c"
 #include "lcd.c"
 #include "gfx.c"

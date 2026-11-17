@@ -128,6 +128,13 @@ every listening scene against the reference path. Use
 path independently. Any differences should be investigated before
 deploying a new firmware build.
 
+For on-device stage timings, `OM_DSP_PROFILE=1 ./build.sh` instruments the
+control setup, each drone, fade/mix, effects and remaining postprocessing.
+`dr_profile_read(average_ticks, peak_ticks)` returns a 1/16-smoothed average
+and the peak in raw Timer4 ticks for each stage (24 ticks per microsecond on
+the FM-1). The profiler is disabled by default; reading these counters
+requires a debugging hook or instrumented UI, not the browser emulator.
+
 
 
 The build also generates `build/gen/` (the font). It fails if a soft-double routine is linked

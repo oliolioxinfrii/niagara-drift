@@ -2997,14 +2997,21 @@ static void clean_hold(float *l, float *r, uint32_t k)
         }
 }
 
+static uint32_t master_cached_q12 = ~0u;
+static float master_cached_gain, master_cached_trim;
+
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
 {
-    /* MASTER: a volume up to 4/5 of its turn (there as loud as the old full turn); past that it drives the
-     * soft clip harder (up to 5x) at about the same loudness, as the DS-2's volume knobs push into overdrive: the
-     * output comes down by the drive^0.72 (QA 2026-10-20: 1/(1 + 0.6 x) left the top fifth 3-8 dB louder; now the
-     * six presets measured are within +-2.3 dB, 0 on average) */
-    const float m = (float)gain_q12 * (1.0f / 4096.0f), over = fm_maxf((m - 0.8f) * 5.0f, 0.0f);
-    const float gain = fm_minf(m, 0.8f) * 1.78f * (1.0f + 4.0f * over), mout = fm_exp2f(-0.72f * fm_log2f(1.0f + 4.0f * over));
+    /* The master transfer function depends only on the quantized knob value.
+     * Cache its nonlinear trim across audio blocks while that value is fixed. */
+    if (gain_q12 != master_cached_q12) {
+        const float m = (float)gain_q12 * (1.0f / 4096.0f);
+        const float over = fm_maxf((m - 0.8f) * 5.0f, 0.0f);
+        master_cached_gain = fm_minf(m, 0.8f) * 1.78f * (1.0f + 4.0f * over);
+        master_cached_trim = fm_exp2f(-0.72f * fm_log2f(1.0f + 4.0f * over));
+        master_cached_q12 = gain_q12;
+    }
+    const float gain = master_cached_gain, mout = master_cached_trim;
     drain();
     if (mac_dirty || mv_moving)
         macro_apply(n);

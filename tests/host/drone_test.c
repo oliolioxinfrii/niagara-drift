@@ -2142,11 +2142,14 @@ int main(void)
         }
     }
 
-    {   /* Same two drones, four GHOST algorithms. Every mode must produce
-         * an objectively different output, not merely a changed UI label. */
-        static float mode_audio[DR_NGHOSTMODES][8192];
-        int m, k, separate = 1;
-        for (m = 0; m < DR_NGHOSTMODES; m++) {
+    {   /* Batch 1: each mode must yield its own audible relational signal.
+         * Compare against a bit-identically initialized GHOST-off control,
+         * not just against Original (silence also differs from Original).
+         * Then turn drone II off, verify no spurious GHOST excitation. */
+        static float baseline[8192], modes[DR_NGHOSTMODES][8192];
+        static float one_parent[2][8192];
+        int m, k, j, independent = 1, audible = 1, dependent = 1;
+        for (m = -1; m < DR_NGHOSTMODES; m++) {
             dry_init();
             dr_set(P_FADE, 0);
             dr_set(P_DRIFT, 0);
@@ -2167,26 +2170,75 @@ int main(void)
             }
             dr_set(DR_GP(0, GP_PITCH), 4100);
             dr_set(DR_GP(1, GP_PITCH), 5900);
-            dr_set(P_GHOST, 100);
-            dr_ghost_mode_set(m);
+            dr_set(P_GHOST, m < 0 ? 0 : 100);
+            if (m >= 0) dr_ghost_mode_set(m);
             dr_play(1);
             run(secs(3.0f));
-            capture(mode_audio[m], 8192, 0);
-            separate &= dr_ghost_mode_get() == m;
+            capture(m < 0 ? baseline : modes[m], 8192, 0);
+            if (m >= 0) independent &= dr_ghost_mode_get() == m;
         }
-        for (m = 1; m < DR_NGHOSTMODES; m++) {
-            float delta = 0.0f;
+        for (m = 0; m < DR_NGHOSTMODES; m++) {
+            float effect = 0.0f, difference = 0.0f;
+            const float dry_rms = rms_of(baseline, 8192);
             for (k = 0; k < 8192; k++) {
-                float x = mode_audio[m][k] - mode_audio[0][k];
-                delta += x * x;
+                const float v = modes[m][k] - baseline[k];
+                effect += v*v;
+                if (m) {
+                    const float d = modes[m][k] - modes[0][k];
+                    difference += d*d;
+                }
             }
-            printf("    GHOST mode %d vs original, difference RMS %.6f\n",
-                   m, (double)sqrtf(delta / 8192.0f));
-            separate &= delta > 0.00001f;
+            const float effect_rms = sqrtf(effect / 8192.0f);
+            printf("    GHOST Batch 1 mode %d effect RMS %.6f (%5.1f %% of dry)\n",
+                   m, (double)effect_rms,
+                   (double)(100.0f * effect_rms/(dry_rms+1e-9f)));
+            /* Strong enough to measure as a real contributor and not just
+             * inaudible numerical noise, but not an unbounded full-scale
+             * takeover. These are provisional acoustic-not-perceptual tests. */
+            audible &= effect_rms > 0.035f*dry_rms &&
+                       effect_rms < 1.8f*dry_rms;
+            if (m)
+                independent &= difference > 0.0001f;
+            for (j = 0; j < 2; j++) {
+                /* Both runs have drone II muted; their ONLY difference
+                 * is whether the GHOST algorithm is engaged. */
+                dry_init();
+                dr_set(P_FADE, 0); dr_set(P_DRIFT, 0); dr_set(P_WIDTH, 0);
+                dr_set(P_PULSE, 0); dr_set(P_FEEDBACK, 0);
+                dr_set(P_DLY_DRIVE, 0); dr_set(P_CHAR, 0);
+                for (k = 0; k < 2; k++) {
+                    dr_set(DR_GP(k, GP_PARTNER), 0);
+                    dr_set(DR_GP(k, GP_MIX), 0);
+                    dr_set(DR_GP(k, GP_WAVE), 0);
+                    dr_set(DR_GP(k, GP_RESO), 0);
+                    dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                    dr_set(DR_GP(k, GP_LEVEL), k ? 0 : 80);
+                }
+                dr_set(DR_GP(0, GP_PITCH), 4100);
+                dr_set(DR_GP(1, GP_PITCH), 5900);
+                dr_set(P_GHOST, j ? 100 : 0);
+                dr_ghost_mode_set(m);
+                dr_play(1);
+                run(secs(2.0f));
+                capture(one_parent[j], 8192, 0);
+            }
+            {
+                float absent = 0.0f;
+                for (k = 0; k < 8192; k++) {
+                    const float d = one_parent[1][k] - one_parent[0][k];
+                    absent += d*d;
+                }
+                printf("    GHOST Batch 1 mode %d one-parent RMS %.8f\n",
+                       m, (double)sqrtf(absent/8192.0f));
+                dependent &= absent < 1e-7f;
+            }
         }
-        check("GHOST four mode algorithms all change the audible output", separate);
+        check("GHOST all Batch 1 modes measurably present at 100", audible);
+        check("GHOST Batch 1 modes independently affect sound", independent);
+        check("GHOST all Batch 1 modes require BOTH drones", dependent);
         dr_init();
-        check("GHOST mode resets to Original on startup", dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
+        check("GHOST mode resets to Original on startup",
+              dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
     }
 
     check("output finite throughout", finite_ok);

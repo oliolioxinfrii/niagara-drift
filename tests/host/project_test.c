@@ -86,7 +86,7 @@ int main(void)
     const int16_t *a1, *a12, *b1, *b4;
     old_project(19u);
     check("a 0.1 project loads", project_load() == 0);
-    check("now format 45, on bank A", proj.format == 45u && PROJ_FORMAT == 45u && proj.bank == 0 && proj.mtime == MTIME_DEF);
+    check("now format 46, on bank A", proj.format == 46u && PROJ_FORMAT == 46u && proj.bank == 0 && proj.mtime == MTIME_DEF);
     check("a value 0.1 didn't have (Weight's depth) at its default", proj.par[P_GD_0] == dr_param_info(P_GD_0)->def);
     check("its sound is kept", proj.par[DR_GP(0, GP_PITCH)] == 4321);
     check("Colour pink (1) becomes 100, white stays 0",
@@ -622,8 +622,8 @@ int main(void)
     }
     {   /* 43: the LFO rate 0..152, every second from 100 s to 10 s (Evan, 2026-11-07): a 41 rate (the project) and a 42
          * one (bank B, #78's test build) become the nearest step of the same speed */
-        static project_t o;
-        static bank_t bb;
+        static proj_v45_t o;
+        static bank_v45_t bb;
         int i, k;
         memset(store_n, 0, sizeof store_n);
         project_defaults();
@@ -631,11 +631,11 @@ int main(void)
         o.magic = PROJ_MAGIC;
         o.format = 41u;
         o.mtime = MTIME_DEF;
-        for (k = 0; k < DR_NPARAMS; k++)
+        for (k = 0; k < NP45; k++)
             o.par[k] = dr_param_info(k)->def;
         o.par[P_LFO_RATE] = 8;
         o.tun_off[1] = 7;
-        for (k = 0; k < DR_NPARAMS; k++)
+        for (k = 0; k < NP45; k++)
             o.scene[0][k] = dr_param_info(k)->def;
         o.scene_used = 0x001u;
         o.scene[0][P_LFO_RATE] = 0;
@@ -646,7 +646,7 @@ int main(void)
         bb.format = 42u;
         bb.used = 3u << 3;
         for (i = 0; i < NSCENES; i++)
-            for (k = 0; k < DR_NPARAMS; k++)
+            for (k = 0; k < NP45; k++)
                 bb.scene[i][k] = dr_param_info(k)->def;
         bb.scene[3][P_LFO_RATE] = 54;              /* 42: 0.53 Hz */
         bb.scene[4][P_LFO_RATE] = 100;             /* 42: 70 Hz */
@@ -663,8 +663,8 @@ int main(void)
     }
     {   /* format 43 (Evan, 2026-11-08): the LFO on X-Wave and the resonance turns at their ends, its depth 100 their
          * whole range; a saved sound keeps the range it reached */
-        static project_t o;
-        static bank8_t bx;
+        static proj_v45_t o;
+        static bank8_v45_t bx;
         int k;
         memset(store_n, 0, sizeof store_n);
         project_defaults();
@@ -672,7 +672,7 @@ int main(void)
         o.magic = PROJ_MAGIC;
         o.format = 43u;
         o.mtime = MTIME_DEF;
-        for (k = 0; k < DR_NPARAMS; k++)
+        for (k = 0; k < NP45; k++)
             o.par[k] = dr_param_info(k)->def;
         o.par[P_MOVE] = 50;
         o.par[DR_GP(0, GP_OLFO_DEST)] = DR_TO_XWAVE;     /* saw (67), depth 40: reached 51..83 */
@@ -689,7 +689,7 @@ int main(void)
         bx.magic = BANK_MAGIC;
         bx.format = 43u;
         bx.used = 3u;
-        for (k = 0; k < DR_NPARAMS; k++)
+        for (k = 0; k < NP45; k++)
             bx.scene[0][k] = bx.scene[1][k] = dr_param_info(k)->def;
         bx.scene[0][DR_GP(0, GP_FLFO_DEST)] = DR_TO_RESO;   /* Reso 250, depth 20: reached 5..45 % */
         bx.scene[0][DR_GP(0, GP_FLFO_DEPTH)] = 20;
@@ -748,6 +748,51 @@ int main(void)
         proj.bank = 9;
         project_save();
         check("a bank past the eight: A", project_load() == 0 && proj.bank == 0);
+    }
+    {   /* format 45: real old binary layouts, all six user banks and labels preserved. */
+        static proj_v45_t old;
+        static bank_v45_t b;
+        static bank8_v45_t d;
+        int i;
+        memset(store_n, 0, sizeof store_n);
+        memset(&old, 0, sizeof old);
+        old.magic = PROJ_MAGIC;
+        old.format = 45u;
+        old.bank = BANK_D;
+        old.mtime = MTIME_DEF;
+        for (i = 0; i < NP45; i++)
+            old.par[i] = dr_param_info(i)->def;
+        old.par[P_MOVE] = 67;
+        old.scene_used = 1u;
+        memcpy(old.scene[0], old.par, sizeof old.par);
+        old.scene[0][DR_GP(0, GP_PITCH)] = 4700;
+        memcpy(old.slot_name[0][0], "OLD GHOST", 10);
+        memcpy(store[OBJ_PROJ], &old, sizeof old);
+        store_n[OBJ_PROJ] = (int)sizeof old;
+        memset(&b, 0, sizeof b);
+        b.magic = BANK_MAGIC; b.format = 45u; b.used = 1u;
+        memcpy(b.scene[0], old.par, sizeof old.par);
+        b.scene[0][DR_GP(0, GP_PITCH)] = 4800;
+        memcpy(store[OBJ_BANKB], &b, sizeof b);
+        store_n[OBJ_BANKB] = (int)sizeof b;
+        memset(&d, 0, sizeof d);
+        d.magic = BANK_MAGIC; d.format = 45u; d.used = 1u;
+        memcpy(d.scene[0], old.par, sizeof old.par);
+        d.scene[0][DR_GP(0, GP_PITCH)] = 4900;
+        memcpy(store[OBJ_BANKD], &d, sizeof d);
+        store_n[OBJ_BANKD] = (int)sizeof d;
+        check("format-45 sound, scene arrays, and slot names migrate without shifted offsets",
+              project_load() == 0 && proj.par[P_MOVE] == 67 && proj.par[P_GHOST] == 0 &&
+              scene_get(0, 0)[DR_GP(0, GP_PITCH)] == 4700 &&
+              scene_get(1, 0)[DR_GP(0, GP_PITCH)] == 4800 &&
+              scene_get(BANK_D, 0)[DR_GP(0, GP_PITCH)] == 4900 &&
+              scene_get(0, 0)[P_GHOST] == 0 && scene_get(1, 0)[P_GHOST] == 0 &&
+              scene_get(BANK_D, 0)[P_GHOST] == 0 &&
+              !strcmp(proj.slot_name[0][0], "OLD GHOST"));
+        proj.par[P_GHOST] = 64;
+        check("GHOST level and migrated banks persist on save and reload",
+              project_save() == 0 && project_load() == 0 &&
+              proj.par[P_GHOST] == 64 && scene_get(BANK_D, 0)[DR_GP(0, GP_PITCH)] == 4900);
     }
     printf("project: %s\n", fails ? "FAILED" : "all ok");
     {   /* Complete authored progressions round-trip with each of A-F's eight slots.

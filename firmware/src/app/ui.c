@@ -2541,7 +2541,10 @@ static void input(void)
             static const char *const GMODE[DR_NGHOSTMODES] = {
                 "ORIGINAL", "UPPER", "SUSTAINED", "OCTAVE MIX"
             };
-            int m = (dr_ghost_mode_get() + (int)(e % DR_NGHOSTMODES) + DR_NGHOSTMODES) % DR_NGHOSTMODES;
+            /* A web drag may deliver 4, 8, etc. detents in one event.
+             * Using e % 4 silently maps those gestures to *no change*.
+             * Treat each encoder event as a single step for type selection. */
+            int m = (dr_ghost_mode_get() + (e > 0 ? 1 : DR_NGHOSTMODES - 1)) % DR_NGHOSTMODES;
             ui.btn_used |= 1u << B_SEL;
             ui.sel_turned = 1;
             dr_ghost_mode_set(m);

@@ -266,8 +266,10 @@ void dr_param_text(int i, int v, char *buf);   /* the value as the screen shows 
 
 /* commands (main loop -> render) */
 /* Simulator comparison: transient GHOST algorithms, not stored in scenes.
- * 0 original, 1 upper spectrum, 2 sustained, 3 original + octave shift. */
-enum { DR_GHOST_ORIGINAL, DR_GHOST_UPPER, DR_GHOST_SUSTAINED, DR_GHOST_OCTAVE, DR_NGHOSTMODES };
+ * The voice must derive from both audible drones, never a third oscillator.
+ * 0 original; 1 original + octave-up; 2 octave-down + up;
+ * 3 original + pitch-tracking resonant combination tone. */
+enum { DR_GHOST_ORIGINAL, DR_GHOST_OCTAVE, DR_GHOST_DUAL_OCTAVE, DR_GHOST_FOCUS, DR_NGHOSTMODES };
 void dr_ghost_mode_set(int mode);
 int dr_ghost_mode_get(void);
 void dr_init(void);

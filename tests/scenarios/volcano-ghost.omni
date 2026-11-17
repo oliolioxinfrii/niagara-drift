@@ -1,8 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# GHOST: one level knob, no spectral display; SEL+ALGORITHM retains Movement.
+# GHOST modes: PRESETS Morph unchanged; SEL+PRESETS cycles four transient test calculations.
 notips
 expect par112 0
 expect par75 50
+expect ghostmode 0
+spin PRESET 1
+expect ghostmode 0
+press SEL
+spin PRESET 1
+expect ghostmode 1
+spin PRESET 1
+expect ghostmode 2
+spin PRESET 1
+expect ghostmode 3
+spin PRESET 1
+expect ghostmode 0
+spin PRESET -1
+expect ghostmode 3
+release SEL
 spin ALGO 25
 expect par112 25
 expect par75 50
@@ -24,3 +39,4 @@ wait 150
 reboot
 expect par112 70
 expect par75 57
+expect ghostmode 0

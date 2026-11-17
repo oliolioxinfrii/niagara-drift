@@ -1066,6 +1066,7 @@ void dr_init(void)
     spk_x = dr_phones ? 0.0f : 1.0f;
     spk_f = SPK_CUT;
     fx_clear();
+    dr_ghost_mode_set(DR_GHOST_ORIGINAL);
     ghost_clear();
     q_r = q_w;
 }
@@ -3001,22 +3002,108 @@ static void clean_hold(float *l, float *r, uint32_t k)
 }
 
 /* ---------------------------------------------------------- GHOST ---
- * A third sound from the already filtered, separately audible drones. No
- * oscillator or pitch tracker: the harmonics, detuning and motion of each
- * drone interact directly. All filtering here is on private copies; the
- * original drones are unchanged. No allocation, division or libm per sample.
- * The two-pole input lows (~3 kHz each) limit cubic aliasing; the output is
- * band-limited again, though residual aliasing must be checked on hardware.
- * Both drones feed the same effects and PLAY fade as before. */
+ * Experimental comparison modes. Only the audible outputs of the two
+ * existing drones excite this stage; no third oscillator is introduced.
+ * The mode is intentionally RAM-only (SEL+PRESETS), not a saved parameter.
+ * For comparison, both nonlinear models run continuously; the fourth mode
+ * uses a two-window delay-grain pitch shift, intended for the web emulator.
+ */
 typedef struct {
     float in[2][2], power[2], pair_dc, low_dc, out_lp;
-    float out_power, gain; /* slow RMS calibration, not another player control */
+    float out_power, gain;
 } ghost_t;
-static ghost_t ghost;
+static ghost_t ghost_voice[2];                 /* [0] original, [1] pre-Swell */
+static volatile uint8_t ghost_mode_req;         /* main loop -> audio render */
+static uint8_t ghost_mode_now, ghost_mode_prev;
+static float ghost_mode_fade = 1.0f;
+static float ghost_upper_lp[2], ghost_sustain_env;
+
+/* The pitch-shift is a genuine 2:1 tape-head transposition, overlapping two
+ * grains at complementary Hann weights. It changes pitch without changing
+ * duration; grain boundary coloration remains a listening-test variable.
+ * 4096 floats are intentional for the simulator, not approved FM-1 RAM. */
+#define GH_OCT_GRAIN 2048u
+#define GH_OCT_RING 4096u
+static float ghost_oct_ring[GH_OCT_RING];
+static uint32_t ghost_oct_write, ghost_oct_phase;
+
+void dr_ghost_mode_set(int mode)
+{
+    if ((unsigned)mode < DR_NGHOSTMODES)
+        ghost_mode_req = (uint8_t)mode;
+}
+int dr_ghost_mode_get(void) { return (int)ghost_mode_req; }
+
 static void ghost_clear(void)
 {
-    dr_memset(&ghost, 0, sizeof ghost);
-    ghost.gain = 1.0f;
+    dr_memset(ghost_voice, 0, sizeof ghost_voice);
+    ghost_voice[0].gain = ghost_voice[1].gain = 1.0f;
+    dr_memset(ghost_upper_lp, 0, sizeof ghost_upper_lp);
+    dr_memset(ghost_oct_ring, 0, sizeof ghost_oct_ring);
+    ghost_sustain_env = 0.0f;
+    ghost_oct_write = ghost_oct_phase = 0;
+    ghost_mode_now = ghost_mode_prev = ghost_mode_req;
+    ghost_mode_fade = 1.0f;
+}
+static float ghost_signal(ghost_t *s, float u, float v)
+{
+    float xy, cubic, exc, shaped;
+    /* Private copies low-passed before multiplication (~3 kHz, two poles). */
+    s->in[0][0] += 0.348f * (u - s->in[0][0]);
+    s->in[0][1] += 0.348f * (s->in[0][0] - s->in[0][1]);
+    s->in[1][0] += 0.348f * (v - s->in[1][0]);
+    s->in[1][1] += 0.348f * (s->in[1][0] - s->in[1][1]);
+    u = s->in[0][1];
+    v = s->in[1][1];
+    s->power[0] += 0.00022f * (u * u - s->power[0]);
+    s->power[1] += 0.00022f * (v * v - s->power[1]);
+    xy = u * v;
+    s->pair_dc += 0.00022f * (xy - s->pair_dc);
+    cubic = (u * u - s->power[0]) * v + (v * v - s->power[1]) * u;
+    exc = 9.0f * cubic + 0.50f * (xy - s->pair_dc);
+    /* Original polynomial limiter, plus low-cut and ~5 kHz top. */
+    shaped = fm_clampf(exc, -1.0f, 1.0f);
+    shaped *= 1.0f - (1.0f / 3.0f) * shaped * shaped;
+    s->low_dc += 0.005f * (shaped - s->low_dc);
+    shaped -= s->low_dc;
+    s->out_lp += 0.52f * (shaped - s->out_lp);
+    s->out_power += 0.000005f * (s->out_lp * s->out_lp - s->out_power);
+    shaped = fm_clampf(s->out_lp * s->gain, -1.0f, 1.0f);
+    return shaped * (1.0f - (1.0f / 3.0f) * shaped * shaped);
+}
+static void ghost_gain(ghost_t *s, uint32_t n)
+{
+    const float parent = s->power[0] + s->power[1];
+    const float target = fm_clampf(0.45f * fm_sqrtf(parent / (s->out_power + 1e-8f)), 1.0f, 32.0f);
+    s->gain += (target - s->gain) * fm_minf((float)n * (1.0f / (2.0f * DR_SR)), 1.0f);
+    s->gain = fm_clampf(s->gain, 1.0f, 32.0f);
+    s->in[0][0] = fm_flush(s->in[0][0]);
+    s->in[0][1] = fm_flush(s->in[0][1]);
+    s->in[1][0] = fm_flush(s->in[1][0]);
+    s->in[1][1] = fm_flush(s->in[1][1]);
+    s->out_lp = fm_flush(s->out_lp);
+    s->low_dc = fm_flush(s->low_dc);
+    s->pair_dc = fm_flush(s->pair_dc);
+    s->power[0] = fm_flush(s->power[0]);
+    s->power[1] = fm_flush(s->power[1]);
+    s->out_power = fm_flush(s->out_power);
+}
+static float ghost_octave(float x)
+{
+    /* 2x read speed in each 2048-sample grain, staggered by half a grain.
+     * Read distances are >=128, so we never access the current write.
+     * This fixed latency is a test of octave-blending, not a studio shifter. */
+    const uint32_t ph0 = ghost_oct_phase;
+    const uint32_t ph1 = (ph0 + GH_OCT_GRAIN / 2u) & (GH_OCT_GRAIN - 1u);
+    const uint32_t da = 128u + GH_OCT_GRAIN - ph0;
+    const uint32_t db = 128u + GH_OCT_GRAIN - ph1;
+    const float w = 0.5f - 0.5f * fm_cosf(FM_TWO_PI * (float)ph0 / (float)GH_OCT_GRAIN);
+    const float a = ghost_oct_ring[(ghost_oct_write - da) & (GH_OCT_RING - 1u)];
+    const float b = ghost_oct_ring[(ghost_oct_write - db) & (GH_OCT_RING - 1u)];
+    ghost_oct_ring[ghost_oct_write] = x;
+    ghost_oct_write = (ghost_oct_write + 1u) & (GH_OCT_RING - 1u);
+    ghost_oct_phase = (ghost_oct_phase + 1u) & (GH_OCT_GRAIN - 1u);
+    return a * w + b * (1.0f - w);
 }
 static void ghost_run(uint32_t n)
 {
@@ -3024,66 +3111,47 @@ static void ghost_run(uint32_t n)
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
     uint32_t j;
     if (amount <= 0.0f) {
-        ghost_clear();                            /* off costs nothing per sample */
+        ghost_clear();
         return;
     }
+    if (ghost_mode_req != ghost_mode_now) {
+        ghost_mode_prev = ghost_mode_now;
+        ghost_mode_now = ghost_mode_req;
+        ghost_mode_fade = 0.0f;
+    }
     for (j = 0; j < n; j++) {
-        float u = xbuf[j] * pgain[0][j] * t0, v = ybuf[j] * pgain[1][j] * t1, xy, cubic, exc, shaped;
-        /* Cascaded pre-lows (~3 kHz): no change to either dry source. */
-        ghost.in[0][0] += 0.348f * (u - ghost.in[0][0]);
-        ghost.in[0][1] += 0.348f * (ghost.in[0][0] - ghost.in[0][1]);
-        ghost.in[1][0] += 0.348f * (v - ghost.in[1][0]);
-        ghost.in[1][1] += 0.348f * (ghost.in[1][0] - ghost.in[1][1]);
-        u = ghost.in[0][1];
-        v = ghost.in[1][1];
-        ghost.power[0] += 0.00022f * (u * u - ghost.power[0]);
-        ghost.power[1] += 0.00022f * (v * v - ghost.power[1]);
-        xy = u * v;
-        ghost.pair_dc += 0.00022f * (xy - ghost.pair_dc);
-        /* Cross-only cubic distortion, with estimated carrier contributions
-         * removed. The smaller quadratic term supports difference tones. */
-        cubic = (u * u - ghost.power[0]) * v +
-                (v * v - ghost.power[1]) * u;
-        exc = 9.0f * cubic + 0.50f * (xy - ghost.pair_dc);
-        /* Level-independent soft saturation: ALGORITHM changes gain, not tone. */
-        /* Smooth saturator (C1 at +/-1), no costly float divide per sample. */
-        shaped = fm_clampf(exc, -1.0f, 1.0f);
-        shaped *= 1.0f - (1.0f / 3.0f) * shaped * shaped;
-        ghost.low_dc += 0.005f * (shaped - ghost.low_dc); /* ~35 Hz high-pass */
-        shaped -= ghost.low_dc;
-        ghost.out_lp += 0.52f * (shaped - ghost.out_lp); /* ~5 kHz low-pass */
-        /* Spectral dynamics stay in the excitation; a slow power estimate
-         * prevents small cubic products being buried tens of dB below the
-         * parents. Its several-second memory preserves Niagara's beating. */
-        ghost.out_power += 0.000005f * (ghost.out_lp * ghost.out_lp - ghost.out_power);
-        shaped = ghost.out_lp * ghost.gain;
-        /* A bounded output at 100: no unexpectedly massive peaks on hot patches.
-         * Apply the user level only after the gain and nonlinear shaping. */
-        shaped = fm_clampf(shaped, -1.0f, 1.0f);
-        shaped *= 1.0f - (1.0f / 3.0f) * shaped * shaped;
-        shaped *= amount;
-        mixl[j] += shaped;
-        mixr[j] += shaped;
+        const float x = xbuf[j] * t0, y = ybuf[j] * t1;
+        const float full = ghost_signal(&ghost_voice[0], x * pgain[0][j], y * pgain[1][j]);
+        const float unswelled = ghost_signal(&ghost_voice[1], x, y);
+        const float swell = fm_clampf(pgain[0][j] * pgain[1][j], 0.0f, 1.0f);
+        const float slew = swell > ghost_sustain_env ? 0.001f : 0.00002f;
+        float modes[DR_NGHOSTMODES], upper, pitched, out;
+        ghost_sustain_env += slew * (swell - ghost_sustain_env);
+        /* Upper mode: 2-pole ~250 Hz high-pass. All other products retained
+         * at their original frequencies, not newly synthesized notes. */
+        ghost_upper_lp[0] += 0.035f * (full - ghost_upper_lp[0]);
+        upper = full - ghost_upper_lp[0];
+        ghost_upper_lp[1] += 0.035f * (upper - ghost_upper_lp[1]);
+        upper -= ghost_upper_lp[1];
+        pitched = ghost_octave(full);
+        modes[DR_GHOST_ORIGINAL] = full;
+        modes[DR_GHOST_UPPER] = upper;
+        modes[DR_GHOST_SUSTAINED] = unswelled * ghost_sustain_env;
+        modes[DR_GHOST_OCTAVE] = 0.45f * full + 0.75f * pitched;
+        out = modes[ghost_mode_now];
+        if (ghost_mode_fade < 1.0f) {
+            ghost_mode_fade = fm_minf(ghost_mode_fade + 1.0f / (0.08f * DR_SR), 1.0f);
+            out = modes[ghost_mode_prev] + (out - modes[ghost_mode_prev]) * ghost_mode_fade;
+        }
+        out *= amount;
+        mixl[j] += out;
+        mixr[j] += out;
     }
-    {
-        /* Block-rate only: target RMS ~45% of the combined pre-FX parent
-         * energy at level 100. Cap boost to avoid lifting weak/noisy tails.
-         * The 2 s gain slew does not chase individual intermodulation beats. */
-        const float parent = ghost.power[0] + ghost.power[1];
-        const float target = fm_clampf(0.45f * fm_sqrtf(parent / (ghost.out_power + 1e-8f)), 1.0f, 32.0f);
-        ghost.gain += (target - ghost.gain) * fm_minf((float)n * (1.0f / (2.0f * DR_SR)), 1.0f);
-        ghost.gain = fm_clampf(ghost.gain, 1.0f, 32.0f);
-    }
-    ghost.in[0][0] = fm_flush(ghost.in[0][0]);
-    ghost.in[0][1] = fm_flush(ghost.in[0][1]);
-    ghost.in[1][0] = fm_flush(ghost.in[1][0]);
-    ghost.in[1][1] = fm_flush(ghost.in[1][1]);
-    ghost.out_lp = fm_flush(ghost.out_lp);
-    ghost.low_dc = fm_flush(ghost.low_dc);
-    ghost.pair_dc = fm_flush(ghost.pair_dc);
-    ghost.power[0] = fm_flush(ghost.power[0]);
-    ghost.power[1] = fm_flush(ghost.power[1]);
-    ghost.out_power = fm_flush(ghost.out_power);
+    ghost_gain(&ghost_voice[0], n);
+    ghost_gain(&ghost_voice[1], n);
+    ghost_upper_lp[0] = fm_flush(ghost_upper_lp[0]);
+    ghost_upper_lp[1] = fm_flush(ghost_upper_lp[1]);
+    ghost_sustain_env = fm_flush(ghost_sustain_env);
 }
 
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)

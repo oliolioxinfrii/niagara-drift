@@ -30,7 +30,18 @@ sequencer, scenes and existing UI behavior remain unchanged.
   On the sequencer's note-entry page, SEL + F3 toggles the monitor and does
   not enter an F3 note; all other note keys behave as before. Restarting
   resets to FULL MIX. If GHOST level is zero, GHOST ONLY intentionally gives silence.
-- **Shared FX caveat:** GHOST ONLY removes direct parent input *before* the
+- **SEL + white Key 2 (G3)** toggles **GHOST MUTED** / **GHOST ON**,
+  independently of the Key 1 monitor. The GHOST engine, resonance state,
+  and saved ALGORITHM amount all continue unaffected. Only GHOST's direct
+  output contribution fades to zero or back over ~12 ms. In ordinary
+  FULL MIX, this provides instant A/B listening to the same two parent
+  drones with and without GHOST at a fixed specified level. In GHOST ONLY,
+  muting GHOST produces silence (after common effects tails have decayed).
+  This temporary switch also works on the sequencer note-entry page without
+  entering G3, and SEL+G3 does not trigger Key 2's ordinary DARK I gesture.
+  It is neither saved in scenes nor carried across restart.
+- **Shared FX caveat:** Both monitoring shortcuts remove only pre-FX
+  audio contributions, not previously generated tails. GHOST ONLY removes direct parent input *before* the
   existing shared effects. Previously generated parent delay/reverb tails
   will take time to disappear; this is not a separate GHOST effects bus.
   With global FEEDBACK active, the changed output mix can also affect the

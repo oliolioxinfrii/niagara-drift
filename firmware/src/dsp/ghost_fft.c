@@ -14,8 +14,8 @@
 #define GHFFT_HOP 1024u
 #define GHFFT_RING 8192u
 #define GHFFT_PEAKS 8u
-#define GHFFT_IN_MIN 4u
-#define GHFFT_IN_MAX 260u       /* 43 .. 2799 Hz; includes bass and mids */
+#define GHFFT_IN_MIN 2u
+#define GHFFT_IN_MAX 260u       /* 21.5 .. 2799 Hz, including deep bass */
 #define GHFFT_DIFF_MAX 112u     /* <=1206 Hz */
 #define GHFFT_SUM_MAX 325u      /* <=3499 Hz */
 
@@ -156,7 +156,7 @@ static void ghost_fft_frame(void)
             ghost_fft_put(sum, 0.50f * scale * (x.r*y.r-x.i*y.i),
                                     0.50f * scale * (x.r*y.i+x.i*y.r));
         }
-        if (diff >= 3u && diff <= GHFFT_DIFF_MAX) {
+        if (diff >= 2u && diff <= GHFFT_DIFF_MAX) {
             const float dr = x.r*y.r + x.i*y.i;
             const float di = x.i*y.r - x.r*y.i;
             ghost_fft_put(diff, 1.50f * scale * dr,

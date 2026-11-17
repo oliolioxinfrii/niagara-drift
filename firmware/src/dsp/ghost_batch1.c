@@ -15,7 +15,7 @@ typedef struct {
 static ghost_body_mode_t gh_body[GH_BODY_MODES];
 static float gh_body_dc;
 static float gh_terrain_lp, gh_terrain_dc;
-static float gh_exp_power[2], gh_exp_gain[2] = {6.0f, 6.0f};
+static float gh_exp_power[2], gh_exp_gain[2] = {1.0f, 1.0f};
 
 /* Pitch is the performed MIDI note, not the raw integer pitch parameter. */
 static void ghost_body_tune(void)
@@ -87,7 +87,7 @@ static float ghost_terrain_sample(float u, float v)
     const float b = ghost_terrain_height(x,0.0f,bend);
     const float c = ghost_terrain_height(0.0f,y,bend);
     const float d = 0.34f;  /* F(0,0) = 0.34 (constant for all bend). */
-    const float cross = 0.48f * (a - b - c + d);
+    const float cross = 0.11f * (a - b - c + d);
     gh_terrain_lp += 0.48f * (cross - gh_terrain_lp);
     gh_terrain_dc += 0.00018f * (gh_terrain_lp - gh_terrain_dc);
     return gh_terrain_lp - gh_terrain_dc;
@@ -99,7 +99,7 @@ static void ghost_batch1_reset(void)
     gh_body_dc = gh_terrain_lp = gh_terrain_dc = 0.0f;
     for (i = 0u; i < 2u; ++i) {
         gh_exp_power[i] = 0.0f;
-        gh_exp_gain[i] = 6.0f;
+        gh_exp_gain[i] = 1.0f;
     }
 }
 static void ghost_batch1_levels(float body, float terrain)
@@ -118,7 +118,7 @@ static void ghost_batch1_gain_update(uint32_t n)
         /* At maximum GHOST level, aim around 40% of parents' combined RMS,
          * while respecting source dependence and bounding gain. */
         const float rms = fm_sqrtf(gh_exp_power[i] + 1e-6f);
-        const float target = fm_clampf(0.40f * parent / rms, 0.65f, 32.0f);
+        const float target = fm_clampf(0.40f * parent / rms, 0.18f, 32.0f);
         gh_exp_gain[i] += slew * (target - gh_exp_gain[i]);
         gh_exp_power[i] = fm_flush(gh_exp_power[i]);
     }

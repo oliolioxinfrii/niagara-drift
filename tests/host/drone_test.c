@@ -2130,10 +2130,16 @@ int main(void)
             float d = missing_parent[k] - (float)buf[2 * j] / FS;
             absent_diff += d * d;
         }
-        printf("    GHOST on/off delta RMS %.6f; one-parent delta RMS %.6f\n",
-               (double)sqrtf(diff / 16384.0f), (double)sqrtf(absent_diff / 16384.0f));
-        check("GHOST generates a signal only when both source drones are audible",
-              diff > 1e-5f && absent_diff < 1e-7f);
+        {
+            const float ghost_rms = sqrtf(diff / 16384.0f);
+            const float dry_rms = rms_of(original, 16384);
+            printf("    GHOST difference RMS %.6f (%.1f %% of dry); one-parent difference RMS %.6f\n",
+                   (double)ghost_rms, (double)(100.0f * ghost_rms / (dry_rms + 1e-9f)),
+                   (double)sqrtf(absent_diff / 16384.0f));
+            check("GHOST is audibly present, bounded, and requires both parent drones",
+                  ghost_rms > 0.08f * dry_rms && ghost_rms < 0.8f * dry_rms &&
+                  absent_diff < 1e-7f);
+        }
     }
 
     check("output finite throughout", finite_ok);

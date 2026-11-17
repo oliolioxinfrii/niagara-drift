@@ -61,7 +61,7 @@
  * entire short runs with no saw/pulse discontinuity and skip their BLEP
  * evaluation. Experimental reciprocal reuse is independently selectable. */
 #ifndef OM_OSC_RUNS
-#define OM_OSC_RUNS 1
+#define OM_OSC_RUNS 0   /* opt-in until hardware linker budget and audio parity are verified */
 #endif
 #ifndef OM_BLEP_RECIP
 #define OM_BLEP_RECIP 0

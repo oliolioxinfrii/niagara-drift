@@ -28,7 +28,7 @@ REFERENCE = [
 ]
 DEFAULT = [
     "-DOM_NOISE_CHUNK=1", "-DOM_FILTER_SPECIALIZE=1",
-    "-DOM_OSC_RUNS=1", "-DOM_BLEP_RECIP=0",
+    "-DOM_OSC_RUNS=0", "-DOM_BLEP_RECIP=0",
 ]
 
 
@@ -52,10 +52,14 @@ def digest(path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--osc-runs", action="store_true",
+                    help="test conservative BLEP-free oscillator runs")
     ap.add_argument("--reciprocal", action="store_true",
                     help="compare the experimental BLEP reciprocal path (not bit-identical by design)")
     args = ap.parse_args()
     candidate = [*DEFAULT]
+    if args.osc_runs or args.reciprocal:
+        candidate[-2] = "-DOM_OSC_RUNS=1"
     if args.reciprocal:
         candidate[-1] = "-DOM_BLEP_RECIP=1"
     with tempfile.TemporaryDirectory(prefix="volcano-dsp-") as tmp:

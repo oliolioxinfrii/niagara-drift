@@ -3028,7 +3028,7 @@ static void ghost_run(uint32_t n)
         return;
     }
     for (j = 0; j < n; j++) {
-        float u = xbuf[j] * t0, v = ybuf[j] * t1, xy, cubic, exc, shaped;
+        float u = xbuf[j] * pgain[0][j] * t0, v = ybuf[j] * pgain[1][j] * t1, xy, cubic, exc, shaped;
         /* Cascaded pre-lows (~3 kHz): no change to either dry source. */
         ghost.in[0][0] += 0.348f * (u - ghost.in[0][0]);
         ghost.in[0][1] += 0.348f * (ghost.in[0][0] - ghost.in[0][1]);

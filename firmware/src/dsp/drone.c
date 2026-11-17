@@ -3010,9 +3010,14 @@ static void clean_hold(float *l, float *r, uint32_t k)
  * Both drones feed the same effects and PLAY fade as before. */
 typedef struct {
     float in[2][2], power[2], pair_dc, low_dc, out_lp;
+    float out_power, gain; /* slow RMS calibration, not another player control */
 } ghost_t;
 static ghost_t ghost;
-static void ghost_clear(void) { dr_memset(&ghost, 0, sizeof ghost); }
+static void ghost_clear(void)
+{
+    dr_memset(&ghost, 0, sizeof ghost);
+    ghost.gain = 1.0f;
+}
 static void ghost_run(uint32_t n)
 {
     const float amount = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
@@ -3041,13 +3046,33 @@ static void ghost_run(uint32_t n)
                 (v * v - ghost.power[1]) * u;
         exc = 9.0f * cubic + 0.50f * (xy - ghost.pair_dc);
         /* Level-independent soft saturation: ALGORITHM changes gain, not tone. */
-        shaped = exc / (1.0f + 1.5f * fm_fabsf(exc));
+        /* Smooth saturator (C1 at +/-1), no costly float divide per sample. */
+        shaped = fm_clampf(exc, -1.0f, 1.0f);
+        shaped *= 1.0f - (1.0f / 3.0f) * shaped * shaped;
         ghost.low_dc += 0.005f * (shaped - ghost.low_dc); /* ~35 Hz high-pass */
         shaped -= ghost.low_dc;
         ghost.out_lp += 0.52f * (shaped - ghost.out_lp); /* ~5 kHz low-pass */
-        shaped = ghost.out_lp * amount;                 /* GHOST is centered */
+        /* Spectral dynamics stay in the excitation; a slow power estimate
+         * prevents small cubic products being buried tens of dB below the
+         * parents. Its several-second memory preserves Niagara's beating. */
+        ghost.out_power += 0.000005f * (ghost.out_lp * ghost.out_lp - ghost.out_power);
+        shaped = ghost.out_lp * ghost.gain;
+        /* A bounded output at 100: no unexpectedly massive peaks on hot patches.
+         * Apply the user level only after the gain and nonlinear shaping. */
+        shaped = fm_clampf(shaped, -1.0f, 1.0f);
+        shaped *= 1.0f - (1.0f / 3.0f) * shaped * shaped;
+        shaped *= amount;
         mixl[j] += shaped;
         mixr[j] += shaped;
+    }
+    {
+        /* Block-rate only: target RMS ~45% of the combined pre-FX parent
+         * energy at level 100. Cap boost to avoid lifting weak/noisy tails.
+         * The 2 s gain slew does not chase individual intermodulation beats. */
+        const float parent = ghost.power[0] + ghost.power[1];
+        const float target = fm_clampf(0.45f * fm_sqrtf(parent / (ghost.out_power + 1e-8f)), 1.0f, 32.0f);
+        ghost.gain += (target - ghost.gain) * fm_minf((float)n * (1.0f / (2.0f * DR_SR)), 1.0f);
+        ghost.gain = fm_clampf(ghost.gain, 1.0f, 32.0f);
     }
     ghost.in[0][0] = fm_flush(ghost.in[0][0]);
     ghost.in[0][1] = fm_flush(ghost.in[0][1]);
@@ -3058,6 +3083,7 @@ static void ghost_run(uint32_t n)
     ghost.pair_dc = fm_flush(ghost.pair_dc);
     ghost.power[0] = fm_flush(ghost.power[0]);
     ghost.power[1] = fm_flush(ghost.power[1]);
+    ghost.out_power = fm_flush(ghost.out_power);
 }
 
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)

@@ -154,6 +154,7 @@ enum {
                                      * 2026-10-30; a sound's since 2026-11-08, ledger 3): 0 12-tone .. the 22 shrutis */
     P_CLK_SYNC,                     /* follow a MIDI clock (1, as since v0.3's step 3) or not (0: the clock ignored, its
                                      * tempo forgotten); a room setting (v0.3, Evan 2026-11-01, ledger item 5) */
+    P_GHOST,                        /* GHOST: 0..100, relational intermodulation mixed into the common FX bus */
     DR_NPARAMS
 };
 /* Reuse the eight retired gesture-depth/time slots in format 45: no parameter

@@ -1078,7 +1078,7 @@ void dr_init(void)
     spk_x = dr_phones ? 0.0f : 1.0f;
     spk_f = SPK_CUT;
     fx_clear();
-    dr_ghost_mode_set(DR_GHOST_BODY);
+    dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
     ghost_monitor_req = 0u;
     ghost_parent_mix = 1.0f;
     ghost_dry_mix = 1.0f;
@@ -3020,61 +3020,28 @@ static void clean_hold(float *l, float *r, uint32_t k)
 }
 
 /* ---------------------------------------------------------- GHOST ---
- * Five parent-dependent engines, ten listening blends = fifteen modes.
- * Original intermodulation and Live Convolution are retired.
- * Shared post-filter input preprocessing stays; all five engines update
- * continuously for consistent RMS calibration and mode crossfades.
- * No changes to either parent drone, their sequencer, or their effects.
+ * Single relational mode for dual-core feasibility measurements.
+ * Mode 14 = Wave Terrain excites its own tuned eight-resonator body.
+ * The other 14 selectable modes and engines are absent from this build.
  */
-typedef struct {
-    float in[2][2], power[2];
-} ghost_t;
+typedef struct { float in[2][2], power[2]; } ghost_t;
 static ghost_t ghost;
-static volatile uint8_t ghost_mode_req;         /* main loop -> audio render */
-static uint8_t ghost_mode_now, ghost_mode_prev;
-static float ghost_mode_fade = 1.0f;
-
-/* Batch 1 modes use separate state, tuning and gain calibration.
- * This browser-only module is included in the DSP's single C compilation
- * unit, just as the previous FFT experiment was. */
-#include "ghost_batch1.c"
-/* Two new independent voices and their gain calibration; this uses the
- * same single-TU include as Batch 1 so the browser build needs only drone.c. */
-#include "ghost_batch2.c"
-/* Batch 3: independently processed convolution and coupled feedback. */
-#include "ghost_batch3.c"
-/* Six parallel pairs, two triples, split spectrum and terrain->body. */
-#include "ghost_blends.c"
-/* One envelope follows the selected GHOST output across mode switches.
- * Attack ~16ms, release ~375ms at 44.1kHz. */
+#include "ghost_mode14.c"
 static float ghost_comp_power;
-
-void dr_ghost_mode_set(int mode)
-{
-    if ((unsigned)mode < DR_NGHOSTMODES)
-        ghost_mode_req = (uint8_t)mode;
-}
-int dr_ghost_mode_get(void) { return (int)ghost_mode_req; }
+/* Preserve the numeric mode ID and API for UI, projects, and diagnostics. */
+void dr_ghost_mode_set(int mode) { (void)mode; }
+int dr_ghost_mode_get(void) { return DR_GHOST_TERRAIN_EXCITES_BODY; }
 void dr_ghost_monitor_set(int ghost_only) { ghost_monitor_req = ghost_only ? 1u : 0u; }
-int dr_ghost_monitor_get(void) { return (int)ghost_monitor_req; }
+int dr_ghost_monitor_get(void) { return ghost_monitor_req; }
 void dr_ghost_mute_set(int muted) { ghost_mute_req = muted ? 1u : 0u; }
-int dr_ghost_mute_get(void) { return (int)ghost_mute_req; }
+int dr_ghost_mute_get(void) { return ghost_mute_req; }
 
 static void ghost_clear(void)
 {
     dr_memset(&ghost, 0, sizeof ghost);
-    ghost_batch1_reset();
-    ghost_batch2_reset();
-    ghost_batch3_reset();
-    ghost_blends_reset();
-    ghost_xs_prepare();
+    gh14_reset();
     ghost_comp_power = 0.0f;
-    ghost_mode_now = ghost_mode_prev = ghost_mode_req;
-    ghost_mode_fade = 1.0f;
 }
-/* Preserve exactly the original private two-pole input filters and
- * slow energy tracking. These are shared with every retained engine;
- * the retired Original's cubic, DC and output-shaper DSP is removed. */
 static void ghost_input_sample(float u, float v)
 {
     ghost.in[0][0] += 0.348f * (u - ghost.in[0][0]);
@@ -3123,63 +3090,24 @@ static float ghost_compress(float x)
     g = fm_exp2f(level_gain_db * (1.0f / 6.0205999f));
     return x * g;
 }
+
 static void ghost_run(uint32_t n)
 {
     const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
     uint32_t j;
     if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
-        /* At the completely dry endpoint, skip and reset only GHOST. */
         ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;
         ghost_clear();
         return;
     }
-    if (ghost_mode_req != ghost_mode_now) {
-        ghost_mode_prev = ghost_mode_now;
-        ghost_mode_now = ghost_mode_req;
-        ghost_mode_fade = 0.0f;
-    }
-    ghost_body_tune();
-    ghost_batch2_tune();
+    gh14_tune(dr_pitch[0], dr_pitch[1]);
     for (j = 0; j < n; ++j) {
         const float u = xbuf[j] * pgain[0][j] * t0;
         const float v = ybuf[j] * pgain[1][j] * t1;
-        float modes[DR_NGHOSTMODES], out;
-        float body, terrain, hetero, cross, feedback, excited;
-
-        /* Source generation is unaffected by GHOST MIX or monitoring. */
+        float out;
         ghost_input_sample(u, v);
-        {
-            const float uu = ghost.in[0][1], vv = ghost.in[1][1];
-            body = ghost_body_sample(uu, vv);
-            terrain = ghost_terrain_sample(uu, vv);
-            hetero = ghost_heterodyne_sample(uu, vv);
-            cross = ghost_cross_synthesis_sample(uu, vv);
-            feedback = ghost_feedback_sample(uu, vv);
-        }
-        /* The special excitation-transfer mode owns independent modal
-         * states and receives the current, raw terrain signal. */
-        excited = ghost_terrain_excites_body_sample(terrain);
-
-        ghost_batch1_levels(body, terrain);
-        ghost_batch2_levels(hetero, cross);
-        ghost_batch3_levels(feedback);
-        ghost_blends_fill(modes,
-                          ghost_batch1_level(body, 0u),
-                          ghost_batch1_level(terrain, 1u),
-                          ghost_batch2_level(hetero, 0u),
-                          ghost_batch2_level(cross, 1u),
-                          ghost_batch3_level(feedback),
-                          excited);
-
-        out = modes[ghost_mode_now];
-        if (ghost_mode_fade < 1.0f) {
-            ghost_mode_fade = fm_minf(ghost_mode_fade +
-                                     1.0f/(0.08f*DR_SR), 1.0f);
-            out = modes[ghost_mode_prev] +
-                  (out - modes[ghost_mode_prev]) * ghost_mode_fade;
-        }
-        /* SEL+G3 is an output mute, not a reset of DSP or saved balance. */
+        out = gh14_output(gh14_excited(gh14_terrain(ghost.in[0][1], ghost.in[1][1])));
         {
             const float target = ghost_mute_req ? 0.0f : 1.0f;
             const float step = 1.0f / (0.012f * DR_SR);
@@ -3187,16 +3115,12 @@ static void ghost_run(uint32_t n)
                 fm_maxf(ghost_output_mix - step, target) :
                 fm_minf(ghost_output_mix + step, target);
         }
-        out = ghost_compress(out) * 1.70f *
-              ghost_wet_block[j] * ghost_output_mix;
+        out = ghost_compress(out) * 1.70f * ghost_wet_block[j] * ghost_output_mix;
         mixl[j] += out;
         mixr[j] += out;
     }
     ghost_input_flush();
-    ghost_batch1_gain_update(n);
-    ghost_batch2_gain_update(n);
-    ghost_batch3_gain_update(n);
-    ghost_blends_gain_update(n);
+    gh14_finish(n);
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 

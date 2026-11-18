@@ -1699,7 +1699,7 @@ static void fumarole_load(void)
     /* Independent pitch cursors must not inherit the room's pitch lock. */
     param_set(P_PLOCK, 0);
     sd_scene_restore(&pattern);     /* prepared but transport stays stopped */
-    dr_ghost_mode_set(DR_GHOST_CROSS_BODY_FEEDBACK);
+    dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
     dr_ghost_monitor_set(0);        /* predictable full-mix audition */
     dr_ghost_mute_set(0);           /* GHOST should be audible */
     mark_dirty();                   /* the authored sequence changed as well */
@@ -2614,23 +2614,11 @@ static void input(void)
     }
     if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: experimental GHOST type */
         if (ui.btn >> B_SEL & 1u) {
-            static const char *const GMODE[DR_NGHOSTMODES] = {
-                "RESONANT BODY", "WAVE TERRAIN", "HETERODYNE",
-                "CROSS-SYNTH", "COUPLED FB",
-                "CROSS + BODY", "CROSS + TERRAIN", "CROSS + FB",
-                "TERRAIN + BODY", "BODY + FB", "CROSS + HETERO",
-                "CROSS/BODY/FB", "CROSS/TERR/BODY",
-                "BODY LO/TERR HI", "TERRAIN -> BODY"
-            };
-            /* A web drag may deliver 4, 8, etc. detents in one event.
-             * Using e % DR_NGHOSTMODES can map those gestures to *no change*.
-             * Treat each encoder event as a single step for type selection. */
-            int m = (dr_ghost_mode_get() + (e > 0 ? 1 : DR_NGHOSTMODES - 1)) % DR_NGHOSTMODES;
+            /* This feasibility build has one fixed GHOST mode. */
             ui.btn_used |= 1u << B_SEL;
             ui.sel_turned = 1;
-            dr_ghost_mode_set(m);
             scopy(ui.glab[0], "GHOST TYPE");
-            scopy(ui.glab[1], GMODE[m]);
+            scopy(ui.glab[1], "TERRAIN -> BODY");
             ui.glab_until = plat_ms() + 1500u;
             ui.act_t = plat_ms();
         } else {

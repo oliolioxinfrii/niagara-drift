@@ -3255,8 +3255,8 @@ static void ghost_run(uint32_t n)
 #if OM_GHOST_CPU1 && !defined(OM_HOST)
     if (ghost_c1_run)
         ghost_run_cpu1(n);
-    else
-        ghost_run_single(n); /* no CPU1 initialized: preserved baseline */
+    /* No CPU1 available: preserve the parent drones, never overload CPU0
+     * by attempting this expensive GHOST DSP on the main audio core. */
 #else
     ghost_run_single(n);
 #endif

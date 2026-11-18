@@ -210,6 +210,9 @@ def build_app():
         v = os.environ.get(flag)    # unset: the default in firmware/src/main.c
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
+    if os.environ.get("OM_GHOST_CPU1", "0") == "1":
+        # Must agree with fm1_cpu1.S and fm1_cpu1.h.
+        flags.append("-DFM1_CPU1_USTACK_BYTES=4096")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
     if VERSION:
         flags.append(f'-DOM_VERSION="{VERSION}"')

@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# FUMAROLE: non-destructive, Acid Lake-inspired intro sound.
+# SEL+REC loads the scratch preset; ordinary REC must retain Motion Loop.
+notips
+bank 0
+expect bscenes 0
+expect seqcount 1
+expect seqstate 0
+expect ghostmode 0
+
+press SEL
+tap REC
+release SEL
+expect par0 4300
+expect par21 5000
+expect par112 62
+expect ghostmode 11
+expect seqcount 4
+expect seqnode2 14
+expect seqtotal 60
+expect seqphase 4
+expect seqnonhome 1
+expect seqstate 0
+expect loop 0
+expect bscenes 0
+
+# PLAY starts the drones; SEL+PLAY starts the authored progression.
+tap PLAY
+expect playing 1
+press SEL
+tap PLAY
+release SEL
+expect seqstate 1
+wait 200
+expect seqnonhome 1
+
+# Recalling the demonstration a second time stops sequence transport
+# but does not write to any A-F scene.
+press SEL
+tap REC
+release SEL
+expect seqstate 0
+expect bscenes 0
+expect ghostmode 11
+
+# Normal, unmodified REC is still Motion Loop, not the demo.
+tap REC
+expect loop 1
+tap REC
+expect loop 0

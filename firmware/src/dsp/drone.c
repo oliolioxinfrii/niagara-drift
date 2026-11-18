@@ -2094,12 +2094,15 @@ static float depth_amt(int d)
 
 
 #if OM_FX_CPU1 && !defined(OM_HOST)
-/* CPU0 owns parent/GHOST synthesis; CPU1 exclusively owns the effect state.
- * Two in-place stereo slots plus per-job immutable parameter/LFO snapshots
- * are kept in dedicated transient shared SRAM. CPU0 never reads the active
- * CPU1 slot or writes FX state. */
+/* CPU0 owns parent synthesis; CPU1 owns GHOST and shared FX.
+ * The aligned parent stereo signal, separate per-parent excitation and
+ * immutable control snapshots travel together in each shared SRAM slot.
+ * CPU0 never reads a slot while its CPU1 job is in flight. */
 typedef struct {
-    float l[BLK], r[BLK];
+    float l[BLK], r[BLK];  /* parent dry stereo, then GHOST and FX in-place */
+    float source_a[BLK], source_b[BLK], ghost_wet[BLK];
+    float ghost_pitch[2];
+    uint8_t ghost_mute, ghost_active;
     int16_t par[DR_NPARAMS];
     float pfs[DR_NPARAMS], lfo[2][BLK / CR + 1];
     float fade, fade_target, ext_spb;
@@ -2107,7 +2110,7 @@ typedef struct {
     uint32_t ticks;
 } fx_c1_slot_t;
 static fx_c1_slot_t fx_c1[2] __attribute__((section(".c1_shared"), aligned(32)));
-_Static_assert(sizeof fx_c1 <= 8192u, "FX CPU1 shared slots exceed the reserved scratch budget");
+_Static_assert(sizeof fx_c1 <= 14336u, "GHOST+FX shared slots exceed the reserved scratch budget");
 static fx_c1_slot_t *fx_c1_ctx = &fx_c1[0];
 static int (*fx_c1_run)(void (*fn)(uint32_t), uint32_t);
 static int (*fx_c1_busy)(void);
@@ -2118,6 +2121,7 @@ static uint8_t fx_c1_pending_slot, fx_c1_prepared_slot, fx_c1_frame_ready;
 static float fx_c1_frame_l[BLK], fx_c1_frame_r[BLK];
 static uint32_t fx_c1_jobs, fx_c1_misses, fx_c1_faults, fx_c1_avg_ticks, fx_c1_max_ticks;
 extern uint32_t dr_fx_cpu1_ticks(void);
+static void ghost_cpu1_mix(fx_c1_slot_t *s);  /* defined after mode-14 DSP, before dr_render */
 static float fx_c1_morph_s(void)
 {
     return dr_time_s(P_MORPH, fx_c1_ctx->par[P_MORPH]);
@@ -2166,13 +2170,14 @@ static void fx_c1_init_snapshot(void)
     fx_c1_ctx = &fx_c1[0];
     fx_c1_snapshot(fx_c1_ctx);
 }
-/* Only CPU1 executes this after the bind. Its recursion/loop state remains
- * on CPU1; a reset command is carried with the immutable block snapshot. */
+/* Only CPU1 executes this after the bind. GHOST, delay and reverb states
+ * are exclusively CPU1-owned after boot. The job times both stages. */
 static void fx_c1_job(uint32_t slot)
 {
     uint32_t j, t0 = dr_fx_cpu1_ticks();
     float pk = 0.0f;
     fx_c1_ctx = &fx_c1[slot & 1u];
+    ghost_cpu1_mix(fx_c1_ctx);  /* same source block as its parents, before FX */
     if (fx_c1_ctx->clear)
         fx_clear();
     if (fx_c1_ctx->fade > 0.0f || fx_c1_ctx->fade_target > 0.0f || fx_quiet < 160u) {
@@ -2218,8 +2223,8 @@ void dr_fx_cpu1_stats(uint32_t s[8])
     s[7] = 256u * 1000000u / 44100u;
 }
 /* Called once per DMA half, BEFORE CPU0 alters DSP parameters. Reap the
- * completed FX block, immediately launch the prepared block, and let CPU0
- * synthesize the next source block concurrently. No ISR waits for CPU1. */
+ * completed GHOST+FX block, launch the prepared block, and let CPU0 render
+ * the next pair of source drones concurrently. No ISR waits for CPU1. */
 static void fx_c1_begin(void)
 {
     uint32_t j;
@@ -2267,9 +2272,9 @@ static void fx_c1_begin(void)
         fx_c1_prepared = 0;
     }
 }
-/* Save current source for CPU1's NEXT block while playing the previously
- * completed output. The whole output is delayed; dry and GHOST stay aligned.
- * On CPU1 failure, bypass effects to retain sound without a blocking wait. */
+/* Publish parents' stereo mix AND independent excitation to CPU1.
+ * The whole output stays delayed by two blocks; parent and GHOST phases
+ * remain aligned. On CPU1 failure bypass GHOST+FX, retaining both parents. */
 static void fx_c1_exchange(float *l, float *r, uint32_t n)
 {
     uint32_t j;
@@ -2280,7 +2285,19 @@ static void fx_c1_exchange(float *l, float *r, uint32_t n)
          * Subsequent writes always target the slot opposite the active job. */
         uint32_t slot = fx_c1_pending ? (fx_c1_pending_slot ^ 1u) : 0u;
         fx_c1_slot_t *s = &fx_c1[slot];
-        for (j = 0; j < n; j++) { s->l[j] = l[j]; s->r[j] = r[j]; }
+        const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
+        for (j = 0; j < n; j++) {
+            s->l[j] = l[j];
+            s->r[j] = r[j];
+            s->source_a[j] = xbuf[j] * pgain[0][j] * t0;
+            s->source_b[j] = ybuf[j] * pgain[1][j] * t1;
+            s->ghost_wet[j] = ghost_wet_block[j];
+        }
+        s->ghost_pitch[0] = dr_pitch[0];
+        s->ghost_pitch[1] = dr_pitch[1];
+        s->ghost_mute = ghost_mute_req;
+        s->ghost_active = (pfs[P_GHOST] > 0.0f || ghost_wet_mix > 0.0f ||
+                           ghost_wet_block[0] > 0.0f);
         fx_c1_snapshot(s);
         s->clear = fx_c1_clear_req;
         fx_c1_clear_req = 0;
@@ -3313,6 +3330,8 @@ static float ghost_compress(float x)
     return x * g;
 }
 
+#if !(OM_FX_CPU1 && !defined(OM_HOST))
+/* Host and mono reference: generate GHOST inside CPU0's mix. */
 static void ghost_run_single(uint32_t n)
 {
     const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
@@ -3350,6 +3369,37 @@ static void ghost_run(uint32_t n)
 {
     ghost_run_single(n);
 }
+#else
+/* The real dual-core job receives the parents' PRE-MIX excitations and
+ * the already-faded per-sample GHOST crossfade. No CPU0 synthesis arrays
+ * or mutable controls are read here. GHOST's modal state stays on CPU1. */
+static void ghost_cpu1_mix(fx_c1_slot_t *s)
+{
+    const float step = 1.0f / (0.012f * DR_SR);
+    const float target = s->ghost_mute ? 0.0f : 1.0f;
+    uint32_t j;
+    if (!s->ghost_active) {
+        ghost_output_mix = target;
+        ghost_clear();
+        return;
+    }
+    gh14_tune(s->ghost_pitch[0], s->ghost_pitch[1]);
+    for (j = 0; j < BLK; j++) {
+        float out;
+        ghost_input_sample(s->source_a[j], s->source_b[j]);
+        out = gh14_output(gh14_excited(gh14_terrain(ghost.in[0][1], ghost.in[1][1])));
+        ghost_output_mix = target < ghost_output_mix ?
+            fm_maxf(ghost_output_mix - step, target) :
+            fm_minf(ghost_output_mix + step, target);
+        out = ghost_compress(out) * 1.70f * s->ghost_wet[j] * ghost_output_mix;
+        s->l[j] += out;
+        s->r[j] += out;
+    }
+    ghost_input_flush();
+    gh14_finish(BLK);
+    ghost_comp_power = fm_flush(ghost_comp_power);
+}
+#endif
 
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
 {
@@ -3425,21 +3475,34 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                                              ghost_parent_mix - monitor_step,
                                              ghost_parent_mix + monitor_step);
                 ghost_wet_block[j] = ghost_wet_mix;
-                mixl[j] *= ghost_dry_mix * ghost_parent_mix;
-                mixr[j] *= ghost_dry_mix * ghost_parent_mix;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+                /* With no CPU1, retain the parent drones at full level
+                 * rather than silencing them when GHOST MIX is at 100. */
+                if (fx_c1_run && !fx_c1_retired) {
+#endif
+                    mixl[j] *= ghost_dry_mix * ghost_parent_mix;
+                    mixr[j] *= ghost_dry_mix * ghost_parent_mix;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+                }
+#endif
             }
         }
+#if !(OM_FX_CPU1 && !defined(OM_HOST))
         ghost_run(k);                             /* into the same stereo space and FX */
+#endif
         for (j = 0; j < k; j++) {                /* PLAY fade after the individual swells */
             float a;
             fade = fade_target > fade ? fm_minf(fade + frate, fade_target) : fm_maxf(fade - frate, fade_target);
             a = fade * fade;
             mixl[j] *= a;
             mixr[j] *= a;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+            ghost_wet_block[j] *= a;  /* same fade as the dry parents */
+#endif
         }
 #if OM_FX_CPU1 && !defined(OM_HOST)
-        /* CPU0 has produced the complete dry+GHOST input. CPU1 processes
-         * an earlier block while CPU0 generates the next. */
+        /* CPU0 has produced the two parent source excitations and faded
+         * dry mix. CPU1 builds GHOST from this same block before FX. */
         fx_c1_exchange(mixl, mixr, k);
         clean_hold(mixl, mixr, k);
         {

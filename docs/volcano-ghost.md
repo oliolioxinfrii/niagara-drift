@@ -144,6 +144,10 @@ relative electrical targets, not validated loudness equivalence.
 difference relative to a GHOST-off reference, distinct results, and
 a requirement for two active parents. It also checks Resonant Body
 levels 0, 50 and 100, and both isolated output-monitor shortcuts.
+A separate `tests/host/ghost_batch3_test.c` verifies the convolution FFT's
+roundtrip accuracy, measurable output from two different pitched inputs,
+two-source dependency, and finite decay after excitation ends for both
+new algorithms. This is invoked by `tests/run_tests.sh` as `ghost-batch3`.
 `tests/scenarios/volcano-ghost.omni` checks seven-mode selector
 wraparound, the swapped ALGORITHM assignments, saved GHOST level, and
 independent monitor toggles.
@@ -157,7 +161,11 @@ not compiled.
 The source, test assertions and docs are committed. Full C host
 tests, scenarios, and the Emscripten web build must still be run on
 the user's Ubuntu machine; there is no verified full CI or rendered
-audio result for this revision. A passing compile does not establish
+audio result for this revision. The full test suite contains a separate
+`drone-cost` hardware timing budget; that may fail by design while
+seven browser-only algorithms are calculated concurrently. Do not treat
+a deliberate hardware-budget failure as proof that the browser synthesis
+does not function, but do not waive it for eventual FM-1 deployment. A passing compile does not establish
 musical efficacy, and browser CPU does not establish FM-1 headroom.
 
 ### Ubuntu/WSL runbook

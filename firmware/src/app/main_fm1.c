@@ -175,11 +175,11 @@ static void fm1_fault(const fm1_crash_t *c)
 }
 
 #if OM_FX_CPU1
-/* Update staging erases flash while CPU1 jobs normally execute from XIP.
- * PLAY off is insufficient: GHOST may still submit a job at nonzero MIX.
+/* Update staging erases flash while GHOST+FX CPU1 jobs execute from XIP.
+ * PLAY off is insufficient: the FX tail and GHOST can still occupy CPU1.
  * Serialize against the audio ISR, hold CPU1 (including an in-flight job),
- * then disable both the flash gate's CPU1 state and the DSP dispatcher.
- * After an aborted update GHOST stays offline until the next reboot. */
+ * then disable the flash gate's CPU1 state and the DSP dispatcher.
+ * After an aborted update CPU1 stays offline until the next reboot. */
 static void cpu1_quiesce_for_update(void)
 {
     uint32_t f = irq_save();
@@ -442,7 +442,7 @@ static void splash(void)
 }
 
 #if OM_FX_CPU1
-/* The platform owns CPU1; DSP only sees the worker's mailbox API. */
+/* The platform owns CPU1; GHOST+FX DSP uses only the worker's mailbox API. */
 static int fx_c1_submit(void (*fn)(uint32_t), uint32_t n) { return fm1_cpu1_run(fn, n); }
 static int fx_c1_is_busy(void) { return fm1_cpu1_busy(); }
 static int fx_c1_await(void) { return fm1_cpu1_wait(); }

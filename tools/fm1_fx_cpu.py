@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Measure CPU1 effects-pipeline jobs, misses, faults and processing times over USB MIDI.
+"""Measure CPU1 GHOST+FX pipeline jobs, misses, faults and execution times over USB MIDI.
 
 Usage: python3 tools/fm1_fx_cpu.py 15
 Requires mido and python-rtmidi, and a firmware built with OM_FX_CPU1=1.

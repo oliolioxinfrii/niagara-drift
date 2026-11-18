@@ -2236,7 +2236,12 @@ int main(void)
             dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
             dr_ghost_monitor_set(1);
             dr_play(1);
-            run(secs(3.0f));
+            /* Exclude startup fade and the 12-ms parent-monitor gate.
+             * At MIX 0 the transient is audible briefly, but a settled
+             * GHOST-only monitor must be truly silent. Preserve the
+             * original strict zero threshold on the measured interval. */
+            run(secs(0.5f));
+            run(secs(2.5f));
             levels[m] = rms();
         }
         printf("    Terrain->Body GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",

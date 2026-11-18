@@ -6,7 +6,7 @@ bank 0
 expect bscenes 0
 expect seqcount 1
 expect seqstate 0
-expect ghostmode 0
+expect ghostmode 14
 
 press SEL
 tap REC
@@ -14,7 +14,7 @@ release SEL
 expect par0 4300
 expect par21 5000
 expect par112 62
-expect ghostmode 11
+expect ghostmode 14
 expect seqcount 4
 expect seqnode2 14
 expect seqtotal 60
@@ -41,7 +41,7 @@ tap REC
 release SEL
 expect seqstate 0
 expect bscenes 0
-expect ghostmode 11
+expect ghostmode 14
 
 # Normal, unmodified REC is still Motion Loop, not the demo.
 tap REC

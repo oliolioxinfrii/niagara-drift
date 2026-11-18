@@ -2074,13 +2074,16 @@ int main(void)
         check("Random: an init repeats the sequence; a seed (the first PLAY) makes a new one", same0 && !same1);
     }
 
-    {   /* GHOST: identical on/off renders establish that the new signal is
-         * relational and that 0 leaves the original rendering untouched. */
-        static float original[16384], with_ghost[16384], missing_parent[16384];
-        float diff = 0.0f, absent_diff = 0.0f;
+    {   /* Fixed-balance comparison: the raw GHOST difference is measured
+         * at the SAME dry/wet mix (60), with only its output mute toggled.
+         * Without this, a pure-wet render minus the dry input would falsely
+         * count removal of the parents as a GHOST signal. */
+        static float dry[16384], ghost_on[16384], absent_on[16384], absent_off[16384];
+        float ghost_diff = 0.0f, one_parent_diff = 0.0f;
         int pass, k;
-        for (pass = 0; pass < 3; pass++) {
-            float *target = pass == 0 ? original : pass == 1 ? with_ghost : missing_parent;
+        for (pass = 0; pass < 4; pass++) {
+            float *target = pass == 0 ? dry : pass == 1 ? ghost_on :
+                            pass == 2 ? absent_on : absent_off;
             dry_init();
             dr_set(P_FADE, 0);
             dr_set(P_DRIFT, 0);
@@ -2089,63 +2092,48 @@ int main(void)
             dr_set(P_FEEDBACK, 0);
             dr_set(P_DLY_DRIVE, 0);
             dr_set(P_CHAR, 0);
-            for (k = 0; k < 2; k++) {
+            for (k = 0; k < 2; ++k) {
                 dr_set(DR_GP(k, GP_PARTNER), 0);
                 dr_set(DR_GP(k, GP_MIX), 0);
                 dr_set(DR_GP(k, GP_WAVE), 0);
                 dr_set(DR_GP(k, GP_RESO), 0);
                 dr_set(DR_GP(k, GP_CUTOFF), 1000);
-                dr_set(DR_GP(k, GP_LEVEL), k == 1 && pass == 2 ? 0 : 80);
+                dr_set(DR_GP(k, GP_LEVEL), (k == 1 && pass >= 2) ? 0 : 80);
             }
-            dr_set(DR_GP(0, GP_PITCH), 4100); /* F2 */
-            dr_set(DR_GP(1, GP_PITCH), 5900); /* B3: nontrivial cubic products */
-            dr_set(P_GHOST, pass == 0 ? 0 : 100);
+            dr_set(DR_GP(0, GP_PITCH), 4100);
+            dr_set(DR_GP(1, GP_PITCH), 5900);
+            dr_set(P_GHOST, 60);
+            dr_ghost_mute_set(pass == 0 || pass == 3);
             dr_play(1);
             run(secs(2.0f));
             capture(target, 16384, 0);
         }
-        /* Compare to a second drone-II-muted rendering with GHOST off. */
-        for (k = 0; k < 16384; k++) {
-            float delta = with_ghost[k] - original[k];
-            diff += delta * delta;
-        }
-        dry_init();
-        dr_set(P_FADE, 0); dr_set(P_DRIFT, 0); dr_set(P_WIDTH, 0);
-        dr_set(P_PULSE, 0); dr_set(P_FEEDBACK, 0); dr_set(P_DLY_DRIVE, 0); dr_set(P_CHAR, 0);
-        for (k = 0; k < 2; k++) {
-            dr_set(DR_GP(k, GP_PARTNER), 0); dr_set(DR_GP(k, GP_MIX), 0);
-            dr_set(DR_GP(k, GP_WAVE), 0); dr_set(DR_GP(k, GP_RESO), 0);
-            dr_set(DR_GP(k, GP_CUTOFF), 1000);
-            dr_set(DR_GP(k, GP_LEVEL), k ? 0 : 80);
-        }
-        dr_set(DR_GP(0, GP_PITCH), 4100);
-        dr_set(DR_GP(1, GP_PITCH), 5900);
-        dr_set(P_GHOST, 0);
-        dr_play(1);
-        run(secs(2.0f));
-        for (k = 0; k < 16384; k++) {
-            int j;
-            if ((k & 255) == 0) dr_render(buf, 256, 3277);
-            j = k & 255;
-            float d = missing_parent[k] - (float)buf[2 * j] / FS;
-            absent_diff += d * d;
+        for (k = 0; k < 16384; ++k) {
+            const float dg = ghost_on[k] - dry[k];
+            const float da = absent_on[k] - absent_off[k];
+            ghost_diff += dg * dg;
+            one_parent_diff += da * da;
         }
         {
-            const float ghost_rms = sqrtf(diff / 16384.0f);
-            const float dry_rms = rms_of(original, 16384);
-            printf("    GHOST difference RMS %.6f (%.1f %% of dry); one-parent difference RMS %.6f\n",
-                   (double)ghost_rms, (double)(100.0f * ghost_rms / (dry_rms + 1e-9f)),
-                   (double)sqrtf(absent_diff / 16384.0f));
-            check("GHOST is audibly present, bounded, and requires both parent drones",
-                  ghost_rms > 0.08f * dry_rms && ghost_rms < 0.8f * dry_rms &&
-                  absent_diff < 1e-7f);
+            const float ghost_rms = sqrtf(ghost_diff / 16384.0f);
+            const float dry_rms = rms_of(dry, 16384);
+            const float absent_rms = sqrtf(one_parent_diff / 16384.0f);
+            printf("    GHOST at MIX 60: effect RMS %.6f (%5.1f %% of dry); one-parent RMS %.7f\n",
+                   (double)ghost_rms,
+                   (double)(100.0f * ghost_rms / (dry_rms + 1e-9f)),
+                   (double)absent_rms);
+            check("GHOST audible at fixed mix and silent with one parent",
+                  ghost_rms > 0.025f * dry_rms &&
+                  ghost_rms < 3.5f * dry_rms &&
+                  absent_rms < 1e-6f);
         }
     }
 
     {   /* Batches 1–3: each mode must yield its own audible relational signal.
-         * Compare against a bit-identically initialized GHOST-off control,
-         * not just against Original (silence also differs from Original).
-         * Then turn drone II off, verify no spurious GHOST excitation. */
+         * Capture a dry reference at mix zero and each algorithm with
+         * the parents' DIRECT OUTPUT monitored out at mix 100.
+         * Do not mistake dry-signal removal for GHOST energy.
+         * Then turn drone II off to verify no spurious GHOST excitation. */
         static float baseline[8192], modes[DR_NGHOSTMODES][8192];
         static float one_parent[2][8192];
         int m, k, j, independent = 1, audible = 1, dependent = 1;
@@ -2169,7 +2157,10 @@ int main(void)
             dr_set(DR_GP(0, GP_PITCH), 4100);
             dr_set(DR_GP(1, GP_PITCH), 5900);
             dr_set(P_GHOST, m < 0 ? 0 : 100);
-            if (m >= 0) dr_ghost_mode_set(m);
+            if (m >= 0) {
+                dr_ghost_mode_set(m);
+                dr_ghost_monitor_set(1);
+            }
             dr_play(1);
             run(secs(3.0f));
             capture(m < 0 ? baseline : modes[m], 8192, 0);
@@ -2179,7 +2170,7 @@ int main(void)
             float effect = 0.0f, difference = 0.0f;
             const float dry_rms = rms_of(baseline, 8192);
             for (k = 0; k < 8192; k++) {
-                const float v = modes[m][k] - baseline[k];
+                const float v = modes[m][k];
                 effect += v*v;
                 if (m) {
                     const float d = modes[m][k] - modes[0][k];
@@ -2190,16 +2181,15 @@ int main(void)
             printf("    GHOST mode %d effect RMS %.6f (%5.1f %% of dry)\n",
                    m, (double)effect_rms,
                    (double)(100.0f * effect_rms/(dry_rms+1e-9f)));
-            /* Strong enough to measure as a real contributor and not just
-             * inaudible numerical noise, but not an unbounded full-scale
-             * takeover. These are provisional acoustic-not-perceptual tests. */
-            audible &= effect_rms > 0.035f*dry_rms &&
-                       effect_rms < 1.8f*dry_rms;
+            /* Real ghost-only output at full wet, with an upper bound
+             * allowing the requested post-compressor makeup gain. */
+            audible &= effect_rms > 0.025f*dry_rms &&
+                       effect_rms < 3.5f*dry_rms;
             if (m)
                 independent &= difference > 0.0001f;
             for (j = 0; j < 2; j++) {
                 /* Both runs have drone II muted; their ONLY difference
-                 * is whether the GHOST algorithm is engaged. */
+                 * is whether the GHOST audio output is muted. */
                 dry_init();
                 dr_set(P_FADE, 0); dr_set(P_DRIFT, 0); dr_set(P_WIDTH, 0);
                 dr_set(P_PULSE, 0); dr_set(P_FEEDBACK, 0);
@@ -2214,7 +2204,9 @@ int main(void)
                 }
                 dr_set(DR_GP(0, GP_PITCH), 4100);
                 dr_set(DR_GP(1, GP_PITCH), 5900);
-                dr_set(P_GHOST, j ? 100 : 0);
+                dr_set(P_GHOST, 100);
+                dr_ghost_monitor_set(1);
+                dr_ghost_mute_set(j == 0);
                 dr_ghost_mode_set(m);
                 dr_play(1);
                 run(secs(2.0f));

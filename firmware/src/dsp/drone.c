@@ -16,6 +16,16 @@
 #define OM_FX_CPU1 0    /* opt-in dual-core source/effects pipeline */
 #endif
 
+/* Frasil-inspired short-buffer noise staging and settled-mode filter
+ * specialization. Each can be disabled independently for exact audio and
+ * processing-time comparisons against the original architecture C. */
+#ifndef OM_NOISE_CHUNK
+#define OM_NOISE_CHUNK 1
+#endif
+#ifndef OM_FILTER_SPECIALIZE
+#define OM_FILTER_SPECIALIZE 1
+#endif
+
 
 /* Freestanding STILL clock memory operations. The compiler barrier prevents
  * conversion into implicit libc calls in the embedded toolchain. */
@@ -2597,8 +2607,12 @@ static void render_group(int g, uint32_t n)
               sph = v->sph, om, fmod, fl, pmod, xw, wf, og, sg, xd, xpd, xh = v->xh, xc = v->xc, wl, wb, wh, sy, r, fbn, fsn;
         int wi, sync, sw = v->sw;
         float ic1 = v->ic1, ic2 = v->ic2, bc = v->bc, gf = v->gf, peak = v->peak, bk;
+#if OM_NOISE_CHUNK
+        float noise_run[CR];                   /* 16 samples: leave the six filter states outside the main loop */
+#else
         float z0 = v->nz[0], z1 = v->nz[1], z2 = v->nz[2], z3 = v->nz[3], z4 = v->nz[4], z5 = v->nz[5], nh = v->nh;
-        uint32_t nn = v->nn;                    /* the noise's states, kept in registers through the tick */
+        uint32_t nn = v->nn;
+#endif
         uint32_t j, je = j0 + CR < n ? j0 + CR : n;
         int i;
         /* control rate: glide, drift, pitch, cutoff, fade. A knob's detents slide (dr_slide: a straight line at
@@ -2751,6 +2765,47 @@ static void render_group(int g, uint32_t n)
         gstep = (gend - gf) * (1.0f / (float)CR);
         lend = lv + (lvl * fm_exp2f(dw * 0.4f * v->wn[2]) - lv) * 0.06f;   /* ~6 ms: a Level turn never clicks */
         lstep = (lend - lv) * (1.0f / (float)CR);
+#if OM_NOISE_CHUNK
+        /* Frasil's breath-noise staging, adapted to Volcano's six-pole colour.
+         * One short run before the oscillator/filter hot loop reduces live
+         * registers. This must preserve the exact random sequence, filtering
+         * order, and multiplication order of the original sample path. */
+        if (nmix > 0.0f) {
+            float z0 = v->nz[0], z1 = v->nz[1], z2 = v->nz[2];
+            float z3 = v->nz[3], z4 = v->nz[4], z5 = v->nz[5], nh = v->nh;
+            uint32_t nn = v->nn, ni;
+            for (ni = 0; ni < je - j0; ni++) {
+                float w;
+                nn = nn * 1664525u + 1013904223u;
+                w = (float)(int32_t)nn;
+                z0 += (w - z0) * NZ_A[0];
+                w = z0 + nsh * (w - z0);
+                z1 += (w - z1) * NZ_A[1];
+                w = z1 + nsh * (w - z1);
+                z2 += (w - z2) * NZ_A[2];
+                w = z2 + nsh * (w - z2);
+                z3 += (w - z3) * NZ_A[3];
+                w = z3 + nsh * (w - z3);
+                z4 += (w - z4) * NZ_A[4];
+                w = z4 + nsh * (w - z4);
+                z5 += (w - z5) * NZ_A[5];
+                w = z5 + nsh * (w - z5);
+                nh += (w - nh) * NZ_HP;
+                noise_run[ni] = namp * ilk * (w - nh);
+            }
+            v->nz[0] = z0; v->nz[1] = z1; v->nz[2] = z2;
+            v->nz[3] = z3; v->nz[4] = z4; v->nz[5] = z5;
+            v->nh = nh;
+            v->nn = nn;
+        }
+#endif
+#if OM_FILTER_SPECIALIZE
+        /* All filter states still advance each sample. Only the output mix
+         * is specialized when a mode has finished morphing to an exact end. */
+        const int filter_out = wb == 0.0f && wh == 0.0f ? 1 :
+                               wl == 0.0f && wh == 0.0f ? 2 :
+                               wl == 0.0f && wb == 0.0f ? 3 : 0;
+#endif
         for (j = j0; j < je; j++) {
             float ci = inc, cp = pinc, cs = sinc, x, y, v1, v2, v3, a;
             if (fnk > 0.0f && g == 1) {         /* SNARL on drone II: drone I's bend, the same sound's */
@@ -2815,6 +2870,10 @@ static void render_group(int g, uint32_t n)
                 x *= og * mlk;
             if (sg > 0.0f)
                 x += sg * slk * sub_wave(sw, sph, cs);
+#if OM_NOISE_CHUNK
+            if (nmix > 0.0f)
+                x += noise_run[j - j0];
+#else
             if (nmix > 0.0f) {                  /* NOISE, coloured, beside the oscillators */
                 float w;
                 nn = nn * 1664525u + 1013904223u;
@@ -2834,6 +2893,7 @@ static void render_group(int g, uint32_t n)
                 nh += (w - nh) * NZ_HP;
                 x += namp * ilk * (w - nh);
             }
+#endif
             if (chr > 0.0f) {                   /* CHARACTER */
                 float y2;
                 v->ns = v->ns * 1664525u + 1013904223u;
@@ -2886,7 +2946,16 @@ static void render_group(int g, uint32_t n)
             v2 = ic2 + a2 * ic1 + a3 * v3;
             ic1 = sat(2.0f * v1 - ic1);
             ic2 = 2.0f * v2 - ic2;
-            y += wl * v2 + wb * v1 + wh * (x - k * v1 - v2);   /* the mode, crossfading on a switch */
+#if OM_FILTER_SPECIALIZE
+            if (filter_out == 1)
+                y += wl * v2;
+            else if (filter_out == 2)
+                y += wb * v1;
+            else if (filter_out == 3)
+                y += wh * (x - k * v1 - v2);
+            else
+#endif
+                y += wl * v2 + wb * v1 + wh * (x - k * v1 - v2);   /* mode morphing */
             gf += gstep;
             lv += lstep;
             a = gf * gf * lv * sy * lk;
@@ -2946,6 +3015,7 @@ static void render_group(int g, uint32_t n)
         v->ic1 = fm_flush(ic1);
         v->ic2 = fm_flush(ic2);
         v->bc = fm_flush(bc);
+#if !OM_NOISE_CHUNK
         v->nz[0] = z0;
         v->nz[1] = z1;
         v->nz[2] = z2;
@@ -2954,6 +3024,7 @@ static void render_group(int g, uint32_t n)
         v->nz[5] = z5;
         v->nh = nh;
         v->nn = nn;
+#endif
         v->gf = gend;
         v->lv = lend;
         v->peak = peak;

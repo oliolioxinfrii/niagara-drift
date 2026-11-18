@@ -17,7 +17,8 @@ expect par42 2
 expect par55 1
 expect par58 102
 expect par64 4
-expect par85 4
+expect par85 -38
+expect par94 4
 expect par112 50
 expect ghostmode 14
 expect ghostmonitor 0

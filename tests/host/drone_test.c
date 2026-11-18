@@ -2142,7 +2142,7 @@ int main(void)
         }
     }
 
-    {   /* Batch 1 + 2: each mode must yield its own audible relational signal.
+    {   /* Batches 1–3: each mode must yield its own audible relational signal.
          * Compare against a bit-identically initialized GHOST-off control,
          * not just against Original (silence also differs from Original).
          * Then turn drone II off, verify no spurious GHOST excitation. */
@@ -2231,9 +2231,9 @@ int main(void)
                 dependent &= absent < 1e-7f;
             }
         }
-        check("GHOST all five modes measurably present at 100", audible);
-        check("GHOST five algorithms independently affect sound", independent);
-        check("GHOST all five modes require BOTH drones", dependent);
+        check("GHOST all seven modes measurably present at 100", audible);
+        check("GHOST seven algorithms independently affect sound", independent);
+        check("GHOST all seven modes require BOTH drones", dependent);
         dr_init();
         check("GHOST mode resets to Original on startup",
               dr_ghost_mode_get() == DR_GHOST_ORIGINAL);

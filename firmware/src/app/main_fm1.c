@@ -5,7 +5,7 @@
  * 10 kHz), audio (ALNK0), USB; then the main loop: UI at ~60 frames/s, input polled in between. */
 extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
 extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[];
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
 extern uint32_t _c1_shared_start[], _c1_shared_end[];
 #endif
 
@@ -174,7 +174,7 @@ static void fm1_fault(const fm1_crash_t *c)
     fm1_reboot();
 }
 
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
 /* Update staging erases flash while CPU1 jobs normally execute from XIP.
  * PLAY off is insufficient: GHOST may still submit a job at nonzero MIX.
  * Serialize against the audio ISR, hold CPU1 (including an in-flight job),
@@ -185,7 +185,7 @@ static void cpu1_quiesce_for_update(void)
     uint32_t f = irq_save();
     fm1_cpu1_stop();
     fm1_cpu1_on = 0;
-    dr_ghost_cpu1_unbind();
+    dr_fx_cpu1_unbind();
     irq_restore(f);
 }
 #endif
@@ -193,7 +193,7 @@ static void cpu1_quiesce_for_update(void)
 static void enter_uboot(const char *why)
 {
     fm1_audio_stop();
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
     cpu1_quiesce_for_update();
 #endif
     lcd_fill(0, 0, 240, 240, C_BLACK);
@@ -251,7 +251,7 @@ static void safe_main(void)
         ota_service();
         if (usb.ota_req) {
             usb.ota_req = 0;
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
             cpu1_quiesce_for_update();
 #endif
             ota_session();                          /* an install commits and resets; else back here (whatever
@@ -413,12 +413,12 @@ static void dbg_service(void)
         for (i = 0; i < 32u; i++)
             b[i] = (uint8_t)(w[i / 4u] >> (8u * (i % 4u)));
         ota_send_msg(0x7C, b, sizeof b);
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
     } else if (d == 7u && ota_dec[2] == 0x7D) {
         uint32_t w[8];
         uint8_t b[32];
         uint32_t i;
-        dr_ghost_cpu1_stats(w);
+        dr_fx_cpu1_stats(w);
         for (i = 0; i < 32u; i++)
             b[i] = (uint8_t)(w[i / 4u] >> (8u * (i % 4u)));
         ota_send_msg(0x7D, b, sizeof b);
@@ -441,12 +441,12 @@ static void splash(void)
     lcd_sync();
 }
 
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
 /* The platform owns CPU1; DSP only sees the worker's mailbox API. */
-static int ghost_c1_submit(void (*fn)(uint32_t), uint32_t n) { return fm1_cpu1_run(fn, n); }
-static int ghost_c1_is_busy(void) { return fm1_cpu1_busy(); }
-static int ghost_c1_await(void) { return fm1_cpu1_wait(); }
-static void ghost_c1_abort(void) { fm1_cpu1_retire(FM1_CPU1_LATE); }
+static int fx_c1_submit(void (*fn)(uint32_t), uint32_t n) { return fm1_cpu1_run(fn, n); }
+static int fx_c1_is_busy(void) { return fm1_cpu1_busy(); }
+static int fx_c1_await(void) { return fm1_cpu1_wait(); }
+static void fx_c1_abort(void) { fm1_cpu1_retire(FM1_CPU1_LATE); }
 #endif
 
 static void fm1_main(void)
@@ -496,7 +496,7 @@ static void fm1_main(void)
     dr_init();
     project_load();                                 /* defaults when nothing (or another format) is saved */
     project_apply();
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
     /* Start before DMA and timer interrupts (same sequence as Arctic Scream).
      * The mailbox has an integrity check. Some FM-1 units cannot safely use
      * CPU1: failure retires it, leaving the two parent drones available. */
@@ -506,7 +506,7 @@ static void fm1_main(void)
         while (*s) hash = (hash ^ (uint8_t)*s++) * 16777619u;
         fm1_cpu1_bar_build(hash);
         if (fm1_cpu1_start() == 0)
-            dr_ghost_cpu1_bind(ghost_c1_submit, ghost_c1_is_busy, ghost_c1_await, ghost_c1_abort);
+            dr_fx_cpu1_bind(fx_c1_submit, fx_c1_is_busy, fx_c1_await, fx_c1_abort);
     }
 #endif
     audio_init();
@@ -576,7 +576,7 @@ static void fm1_main(void)
             usb.ota_req = 0;
             dr_play(0);
             dr_panic();
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
             cpu1_quiesce_for_update();
 #endif
             ota_session();                          /* returns only if nothing was committed; an unknown flash
@@ -626,7 +626,7 @@ void fm1_cstart(void)
         *d = 0;
     for (d = _pool_start; d < _pool_end; d++)
         *d = 0;
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
     /* .c1_shared uses high SRAM (after .noinit) but is transient and must
      * be cleared at each boot before the CPU1 worker can see any jobs. */
     for (d = _c1_shared_start; d < _c1_shared_end; d++)

@@ -206,11 +206,11 @@ def build_loader():
 
 def build_app():
     flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
-    for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_GHOST_CPU1"):
+    for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_FX_CPU1"):
         v = os.environ.get(flag)    # unset: the default in firmware/src/main.c
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
-    if os.environ.get("OM_GHOST_CPU1", "0") == "1":
+    if os.environ.get("OM_FX_CPU1", "0") == "1":
         # Must agree with fm1_cpu1.S and fm1_cpu1.h.
         flags.append("-DFM1_CPU1_USTACK_BYTES=4096")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
@@ -222,7 +222,7 @@ def build_app():
              ("cc", "-c", FW / "hal" / "fm1_isr.S", "-o", OUT / "fm1_isr.o"),
              ("cc", *flags, "-c", FW / "src" / "main.c", "-o", OUT / "main.o")]
     objs = [OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o", OUT / "main.o"]
-    if os.environ.get("OM_GHOST_CPU1", "0") == "1":
+    if os.environ.get("OM_FX_CPU1", "0") == "1":
         units.append(("cc", "-DFM1_CPU1_USTACK_BYTES=4096", "-c", FW / "hal" / "fm1_cpu1.S", "-o", OUT / "fm1_cpu1.o"))
         objs.append(OUT / "fm1_cpu1.o")
     (OUT / "o2").mkdir(parents=True, exist_ok=True)

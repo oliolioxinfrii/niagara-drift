@@ -4,7 +4,7 @@
  * The instrument (dsp/drone.c) is a separate unit compiled at -O2 by tools/build.py; this one is
  * -Os. Order matters. */
 #include <stdint.h>
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
 #define FM1_CPU1 1
 #define FM1_CPU1_FALLBACK 1
 /* Bracket CPU1 job runs around flash writes; its loop itself is RAM resident. */
@@ -13,7 +13,7 @@
 #include "fm1_sys.h"
 #include "fm1_irq.h"
 #include "fm1_guard.h"
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
 #include "fm1_cpu1.h"
 #endif
 /* the key pressure (MONK-1's, from Velo): the scan tick hands each analog row sample to app/plat_fm1.c */
@@ -31,9 +31,9 @@ static int plat_analog_led_ok(uint32_t col, uint32_t rowbit);
 #include "fm1_flash.h"
 #include "fm1_xip.h"
 #include "fm1_perf.h"
-#if OM_GHOST_CPU1
+#if OM_FX_CPU1
 /* Timer4's 24 MHz counter is readable on both cores. */
-uint32_t dr_ghost_cpu1_ticks(void) { return fm1_ticks(); }
+uint32_t dr_fx_cpu1_ticks(void) { return fm1_ticks(); }
 #endif
 
 #include "libc.c"

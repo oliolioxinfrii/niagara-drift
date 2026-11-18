@@ -297,13 +297,12 @@ int dr_ghost_monitor_get(void);
 /* Temporary complementary diagnostic: remove only GHOST from the output,
  * retaining its level and DSP state so A/B toggles are immediate. */
 void dr_ghost_mute_set(int muted);
-#if OM_GHOST_CPU1 && !defined(OM_HOST)
-void dr_ghost_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
-                       int (*busy)(void), int (*wait)(void),
-                       void (*abort)(void));
-/* Called by the platform with audio interrupts disabled after holding CPU1. */
-void dr_ghost_cpu1_unbind(void);
-void dr_ghost_cpu1_stats(uint32_t stats[8]);
+#if OM_FX_CPU1 && !defined(OM_HOST)
+/* The platform owns CPU1; the effects pipeline receives mailbox callbacks. */
+void dr_fx_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
+                     int (*busy)(void), int (*wait)(void), void (*abort)(void));
+void dr_fx_cpu1_unbind(void);    /* after the platform holds CPU1 for OTA/UBOOT */
+void dr_fx_cpu1_stats(uint32_t stats[8]);
 #endif
 int dr_ghost_mute_get(void);
 void dr_init(void);

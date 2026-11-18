@@ -12,8 +12,8 @@
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define CR 16u                                  /* control rate: one update every 16 samples */
 #define BLK 256u
-#ifndef OM_GHOST_CPU1
-#define OM_GHOST_CPU1 0     /* isolated experiment: opt in with OM_GHOST_CPU1=1 */
+#ifndef OM_FX_CPU1
+#define OM_FX_CPU1 0    /* opt-in dual-core source/effects pipeline */
 #endif
 
 
@@ -1005,6 +1005,10 @@ static float fade_rate(void)                      /* per sample: 0.05 s * 1200^(
 }
 
 static void fx_clear(void);                      /* drone_fx.c, included below */
+#if OM_FX_CPU1 && !defined(OM_HOST)
+static void fx_c1_init_snapshot(void);
+static uint8_t fx_c1_clear_req, fx_c1_silence;
+#endif
 static void ghost_clear(void);                   /* relational GHOST state, below */
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
@@ -1081,6 +1085,10 @@ void dr_init(void)
     dr_pulse = 1.0f;
     spk_x = dr_phones ? 0.0f : 1.0f;
     spk_f = SPK_CUT;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+    fx_c1_clear_req = fx_c1_silence = 0;
+    fx_c1_init_snapshot();
+#endif
     fx_clear();
     dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
     ghost_monitor_req = 0u;
@@ -1596,6 +1604,9 @@ static void drain(void)
             break;
         case C_PLAY:
             fade_target = a ? 1.0f : 0.0f;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+            if (a) fx_c1_silence = 0;
+#endif
             break;
         case C_DUCK:
             duck_to = a ? 0.0f : 1.0f;
@@ -1606,7 +1617,13 @@ static void drain(void)
             break;
         case C_PANIC: {
             int g;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+            /* Effects state is CPU1-owned after startup. Reset in its next job,
+             * never concurrently from this audio interrupt. */
+            fx_c1_clear_req = fx_c1_silence = 1;
+#else
             fx_clear();                          /* silence now: the echoes and the tail too */
+#endif
             fade = fade_target = 0.0f;
             for (g = 0; g < DR_NGROUPS; g++)
                 grp[g].ic1 = grp[g].ic2 = grp[g].bc = 0.0f;
@@ -2075,7 +2092,203 @@ static float depth_amt(int d)
     return x * fm_fabsf(x);
 }
 
+
+#if OM_FX_CPU1 && !defined(OM_HOST)
+/* CPU0 owns parent/GHOST synthesis; CPU1 exclusively owns the effect state.
+ * Two in-place stereo slots plus per-job immutable parameter/LFO snapshots
+ * are kept in dedicated transient shared SRAM. CPU0 never reads the active
+ * CPU1 slot or writes FX state. */
+typedef struct {
+    float l[BLK], r[BLK];
+    int16_t par[DR_NPARAMS];
+    float pfs[DR_NPARAMS], lfo[2][BLK / CR + 1];
+    float fade, fade_target, ext_spb;
+    uint8_t clear;
+    uint32_t ticks;
+} fx_c1_slot_t;
+static fx_c1_slot_t fx_c1[2] __attribute__((section(".c1_shared"), aligned(32)));
+static fx_c1_slot_t *fx_c1_ctx = &fx_c1[0];
+static int (*fx_c1_run)(void (*fn)(uint32_t), uint32_t);
+static int (*fx_c1_busy)(void);
+static int (*fx_c1_wait)(void);
+static void (*fx_c1_abort)(void);
+static uint8_t fx_c1_pending, fx_c1_prepared, fx_c1_retired;
+static uint8_t fx_c1_pending_slot, fx_c1_prepared_slot, fx_c1_frame_ready;
+static float fx_c1_frame_l[BLK], fx_c1_frame_r[BLK];
+static uint32_t fx_c1_jobs, fx_c1_misses, fx_c1_faults, fx_c1_avg_ticks, fx_c1_max_ticks;
+extern uint32_t dr_fx_cpu1_ticks(void);
+static float fx_c1_morph_s(void)
+{
+    return dr_time_s(P_MORPH, fx_c1_ctx->par[P_MORPH]);
+}
+static float fx_c1_lfo_at_master(int tap, uint32_t t)
+{
+    const float a = fx_c1_ctx->lfo[0][t], b = fx_c1_ctx->lfo[1][t];
+    return tap == DR_LFO_BOTH ? a + b : tap == DR_LFO_I ? a : tap == DR_LFO_II ? b : 0.0f;
+}
+/* Redirect only the effect compilation unit's parameter references.
+ * Other DSP code retains the normal CPU0-owned par/pfs/LFO state. */
+#define par (fx_c1_ctx->par)
+#define pfs (fx_c1_ctx->pfs)
+#define fade (fx_c1_ctx->fade)
+#define fade_target (fx_c1_ctx->fade_target)
+#define dr_ext_spb (fx_c1_ctx->ext_spb)
+#define morph_s fx_c1_morph_s
+#define lfo_at_master fx_c1_lfo_at_master
+#endif
 #include "drone_fx.c"                    /* the effects: they use the LFO, sat() and depth_amt() above */
+#if OM_FX_CPU1 && !defined(OM_HOST)
+#undef par
+#undef pfs
+#undef fade
+#undef fade_target
+#undef dr_ext_spb
+#undef morph_s
+#undef lfo_at_master
+
+static void fx_c1_snapshot(fx_c1_slot_t *s)
+{
+    uint32_t i, j;
+    for (i = 0; i < DR_NPARAMS; i++) {
+        s->par[i] = par[i];
+        s->pfs[i] = pfs[i];
+    }
+    for (i = 0; i < 2; i++)
+        for (j = 0; j <= BLK / CR; j++)
+            s->lfo[i][j] = lfo_tick[i][j];
+    s->fade = fade;
+    s->fade_target = fade_target;
+    s->ext_spb = dr_ext_spb;
+}
+static void fx_c1_init_snapshot(void)
+{
+    fx_c1_ctx = &fx_c1[0];
+    fx_c1_snapshot(fx_c1_ctx);
+}
+/* Only CPU1 executes this after the bind. Its recursion/loop state remains
+ * on CPU1; a reset command is carried with the immutable block snapshot. */
+static void fx_c1_job(uint32_t slot)
+{
+    uint32_t j, t0 = dr_fx_cpu1_ticks();
+    float pk = 0.0f;
+    fx_c1_ctx = &fx_c1[slot & 1u];
+    if (fx_c1_ctx->clear)
+        fx_clear();
+    if (fx_c1_ctx->fade > 0.0f || fx_c1_ctx->fade_target > 0.0f || fx_quiet < 160u) {
+        fx_run(fx_c1_ctx->l, fx_c1_ctx->r, BLK);
+        for (j = 0; j < BLK; j++)
+            pk = fm_maxf(pk, fm_maxf(fm_fabsf(fx_c1_ctx->l[j]), fm_fabsf(fx_c1_ctx->r[j])));
+        fx_quiet = pk < 1e-6f ? fx_quiet + 1u : 0u;
+    } else {
+        fx_rest();
+    }
+    fx_c1_ctx->ticks = dr_fx_cpu1_ticks() - t0;
+}
+void dr_fx_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
+                     int (*busy)(void), int (*wait)(void), void (*abort)(void))
+{
+    fx_c1_run = run;
+    fx_c1_busy = busy;
+    fx_c1_wait = wait;
+    fx_c1_abort = abort;
+    fx_c1_pending = fx_c1_prepared = fx_c1_retired = fx_c1_frame_ready = 0;
+    fx_c1_jobs = fx_c1_misses = fx_c1_faults = fx_c1_avg_ticks = fx_c1_max_ticks = 0;
+}
+void dr_fx_cpu1_unbind(void)
+{
+    fx_c1_run = 0;
+    fx_c1_busy = 0;
+    fx_c1_wait = 0;
+    fx_c1_abort = 0;
+    fx_c1_pending = fx_c1_prepared = 0;
+    fx_c1_retired = 1;
+}
+/* Stats preserve the previous 0x7D diagnostic wire format. */
+void dr_fx_cpu1_stats(uint32_t s[8])
+{
+    s[0] = fx_c1_run && !fx_c1_retired;
+    s[1] = fx_c1_jobs;
+    s[2] = fx_c1_misses;
+    s[3] = fx_c1_faults;
+    s[4] = fx_c1_avg_ticks / 24u;
+    s[5] = fx_c1_max_ticks / 24u;
+    s[6] = fx_c1_pending;
+    s[7] = 256u * 1000000u / 44100u;
+}
+/* Called once per DMA half, BEFORE CPU0 alters DSP parameters. Reap the
+ * completed FX block, immediately launch the prepared block, and let CPU0
+ * synthesize the next source block concurrently. No ISR waits for CPU1. */
+static void fx_c1_begin(void)
+{
+    uint32_t j;
+    fx_c1_frame_ready = 0;
+    if (!fx_c1_run || fx_c1_retired)
+        return;
+    if (fx_c1_pending) {
+        if (fx_c1_busy()) {
+            fx_c1_misses++;
+            fx_c1_faults++;
+            if (fx_c1_abort)
+                fx_c1_abort();
+            fx_c1_retired = 1;
+            fx_c1_pending = fx_c1_prepared = 0;
+            return;
+        }
+        if (fx_c1_wait()) {
+            fx_c1_faults++;
+            fx_c1_retired = 1;
+            fx_c1_pending = fx_c1_prepared = 0;
+            return;
+        }
+        fx_c1_pending = 0;
+        for (j = 0; j < BLK; j++) {
+            fx_c1_frame_l[j] = fx_c1[fx_c1_pending_slot].l[j];
+            fx_c1_frame_r[j] = fx_c1[fx_c1_pending_slot].r[j];
+        }
+        {
+            uint32_t took = fx_c1[fx_c1_pending_slot].ticks;
+            if (took > fx_c1_max_ticks) fx_c1_max_ticks = took;
+            fx_c1_avg_ticks = (fx_c1_avg_ticks * 15u + took) / 16u;
+        }
+        fx_c1_frame_ready = 1;
+    }
+    if (fx_c1_prepared) {
+        fx_c1_pending_slot = fx_c1_prepared_slot;
+        fx_c1_ctx = &fx_c1[fx_c1_pending_slot];
+        if (fx_c1_run(fx_c1_job, fx_c1_pending_slot)) {
+            fx_c1_pending = 1;
+            fx_c1_jobs++;
+        } else {
+            fx_c1_retired = 1;
+            fx_c1_faults++;
+        }
+        fx_c1_prepared = 0;
+    }
+}
+/* Save current source for CPU1's NEXT block while playing the previously
+ * completed output. The whole output is delayed; dry and GHOST stay aligned.
+ * On CPU1 failure, bypass effects to retain sound without a blocking wait. */
+static void fx_c1_exchange(float *l, float *r, uint32_t n)
+{
+    uint32_t j;
+    if (!fx_c1_run || fx_c1_retired || n != BLK) return;
+    {
+        uint32_t slot = fx_c1_pending ? (fx_c1_pending_slot ^ 1u) : 0u;
+        fx_c1_slot_t *s = &fx_c1[slot];
+        for (j = 0; j < n; j++) { s->l[j] = l[j]; s->r[j] = r[j]; }
+        fx_c1_snapshot(s);
+        s->clear = fx_c1_clear_req;
+        fx_c1_clear_req = 0;
+        fx_c1_prepared_slot = slot;
+        fx_c1_prepared = 1;
+    }
+    for (j = 0; j < n; j++) {
+        l[j] = (fx_c1_frame_ready && !fx_c1_silence) ? fx_c1_frame_l[j] : 0.0f;
+        r[j] = (fx_c1_frame_ready && !fx_c1_silence) ? fx_c1_frame_r[j] : 0.0f;
+    }
+}
+#endif
+
 
 /* the X-WAVE: wave wi blended with the next by wf (0..1) */
 static inline float xosc(int wi, float wf, float ph, float dt, float pw)
@@ -3128,165 +3341,9 @@ static void ghost_run_single(uint32_t n)
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 
-#if OM_GHOST_CPU1 && !defined(OM_HOST)
-/* CPU0 publishes one complete GHOST job at a time, CPU1 owns all
- * GHOST DSP state. This proof-of-concept mixes the previously completed
- * GHOST block with current parent audio. It therefore introduces 256
- * samples (~5.8 ms) of relative GHOST delay. Not audio-equivalent to
- * the single-core reference: validate headroom before redesigning
- * phase-aligned rendering and feedback timing.
- *
- * The audio payload is shared SRAM, NOT serialized over any peripheral.
- * The mailbox worker supplies csync publish/complete barriers.
- */
-static struct {
-    float a[BLK], b[BLK], wet[BLK], out[BLK];
-    float pitch[2];
-    uint32_t mute;
-    volatile uint32_t ticks;
-/* The regular pool is almost full from FX delay lines. Use the separately
- * bounded high-SRAM region, after persistent crash/boot records and below
- * the reserved mailbox/vector area. fm1_cstart explicitly zeros this area
- * before starting CPU1; it must not acquire .noinit persistence semantics. */
-} ghost_c1 __attribute__((section(".c1_shared"), aligned(32)));
-static int (*ghost_c1_run)(void (*fn)(uint32_t), uint32_t);
-static int (*ghost_c1_busy)(void);
-static int (*ghost_c1_wait)(void);
-static void (*ghost_c1_abort)(void);
-static uint8_t ghost_c1_pending, ghost_c1_retired;
-static uint32_t ghost_c1_jobs, ghost_c1_missed, ghost_c1_faults;
-static uint32_t ghost_c1_max_ticks, ghost_c1_avg_ticks;
-/* The platform exposes Timer4, shared by both cores. */
-extern uint32_t dr_ghost_cpu1_ticks(void);
-
-static void ghost_cpu1_job(uint32_t n)
+static void ghost_run(uint32_t n)static void ghost_run(uint32_t n)
 {
-    uint32_t j, t0 = dr_ghost_cpu1_ticks();
-    const float step = 1.0f / (0.012f * DR_SR);
-    const float target = ghost_c1.mute ? 0.0f : 1.0f;
-    gh14_tune(ghost_c1.pitch[0], ghost_c1.pitch[1]);
-    for (j = 0; j < n; j++) {
-        float out;
-        ghost_input_sample(ghost_c1.a[j], ghost_c1.b[j]);
-        out = gh14_output(gh14_excited(gh14_terrain(ghost.in[0][1], ghost.in[1][1])));
-        ghost_output_mix = target < ghost_output_mix ?
-            fm_maxf(ghost_output_mix - step, target) :
-            fm_minf(ghost_output_mix + step, target);
-        ghost_c1.out[j] = ghost_compress(out) * 1.70f * ghost_c1.wet[j] * ghost_output_mix;
-    }
-    ghost_input_flush();
-    gh14_finish(n);
-    ghost_comp_power = fm_flush(ghost_comp_power);
-    ghost_c1.ticks = dr_ghost_cpu1_ticks() - t0;
-}
-
-void dr_ghost_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
-                       int (*busy)(void), int (*wait)(void), void (*abort)(void))
-{
-    ghost_c1_run = run;
-    ghost_c1_busy = busy;
-    ghost_c1_wait = wait;
-    ghost_c1_abort = abort;
-    ghost_c1_pending = 0;
-    ghost_c1_retired = 0;
-    ghost_c1_jobs = ghost_c1_missed = ghost_c1_faults = 0;
-    ghost_c1_max_ticks = ghost_c1_avg_ticks = 0;
-}
-/* CPU0 interrupts must be masked and CPU1 already held by the platform.
- * Discard any pending output and prevent further worker dispatch until reboot.
- * This is intentional shutdown for flash/update, not a CPU1 fault. */
-void dr_ghost_cpu1_unbind(void)
-{
-    ghost_c1_run = 0;
-    ghost_c1_busy = 0;
-    ghost_c1_wait = 0;
-    ghost_c1_abort = 0;
-    ghost_c1_pending = 0;
-    ghost_c1_retired = 1;
-}
-void dr_ghost_cpu1_stats(uint32_t stats[8])
-{
-    stats[0] = ghost_c1_run && !ghost_c1_retired;
-    stats[1] = ghost_c1_jobs;
-    stats[2] = ghost_c1_missed;
-    stats[3] = ghost_c1_faults;
-    stats[4] = ghost_c1_avg_ticks / 24u; /* Timer4: 24 MHz => microseconds */
-    stats[5] = ghost_c1_max_ticks / 24u;
-    stats[6] = ghost_c1_pending;
-    stats[7] = 256u * 1000000u / 44100u; /* audio block budget, us */
-}
-static void ghost_run_cpu1(uint32_t n)
-{
-    uint32_t j;
-    const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
-    const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
-    if (ghost_c1_pending) {
-        /* Never wait for a busy CPU1 in the real-time audio interrupt.
-         * Preserve both buffers until the previous job completes. */
-        if (ghost_c1_busy()) {
-            ghost_c1_missed++;
-            /* CPU1 took longer than the previous block: never block CPU0
-             * to wait for it. A third missed exchange retires this worker
-             * using the platform's nonblocking core-hold path. */
-            if (ghost_c1_missed >= 3u && ghost_c1_abort) {
-                ghost_c1_abort();
-                ghost_c1_pending = 0u;
-                ghost_c1_retired = 1u;
-                ghost_c1_faults++;
-            }
-            return;
-        }
-        if (ghost_c1_wait()) {
-            ghost_c1_faults++;
-            ghost_c1_retired = 1u;
-            ghost_c1_pending = 0u;
-            return;
-        }
-        ghost_c1_pending = 0u;
-        if (ghost_c1.ticks > ghost_c1_max_ticks)
-            ghost_c1_max_ticks = ghost_c1.ticks;
-        ghost_c1_avg_ticks = (ghost_c1_avg_ticks * 15u + ghost_c1.ticks) / 16u;
-        if (balance > 0.0f || ghost_wet_mix > 0.0f) {
-            for (j = 0; j < n; j++) {
-                mixl[j] += ghost_c1.out[j];
-                mixr[j] += ghost_c1.out[j];
-            }
-        }
-    }
-    if (ghost_c1_retired || !ghost_c1_run)
-        return; /* protect the original drones if CPU1 retired */
-    if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
-        ghost_clear();
-        return;
-    }
-    for (j = 0; j < n; j++) {
-        ghost_c1.a[j] = xbuf[j] * pgain[0][j] * t0;
-        ghost_c1.b[j] = ybuf[j] * pgain[1][j] * t1;
-        ghost_c1.wet[j] = ghost_wet_block[j];
-    }
-    ghost_c1.pitch[0] = dr_pitch[0];
-    ghost_c1.pitch[1] = dr_pitch[1];
-    ghost_c1.mute = ghost_mute_req;
-    if (ghost_c1_run(ghost_cpu1_job, n)) {
-        ghost_c1_pending = 1u;
-        ghost_c1_jobs++;
-    } else {
-        ghost_c1_retired = 1u;
-        ghost_c1_faults++;
-    }
-}
-#endif
-
-static void ghost_run(uint32_t n)
-{
-#if OM_GHOST_CPU1 && !defined(OM_HOST)
-    if (ghost_c1_run)
-        ghost_run_cpu1(n);
-    /* No CPU1 available: preserve the parent drones, never overload CPU0
-     * by attempting this expensive GHOST DSP on the main audio core. */
-#else
     ghost_run_single(n);
-#endif
 }
 
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
@@ -3297,6 +3354,9 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
      * six presets measured are within +-2.3 dB, 0 on average) */
     const float m = (float)gain_q12 * (1.0f / 4096.0f), over = fm_maxf((m - 0.8f) * 5.0f, 0.0f);
     const float gain = fm_minf(m, 0.8f) * 1.78f * (1.0f + 4.0f * over), mout = fm_exp2f(-0.72f * fm_log2f(1.0f + 4.0f * over));
+#if OM_FX_CPU1 && !defined(OM_HOST)
+    fx_c1_begin();
+#endif
     drain();
     if (mac_dirty || mv_moving)
         macro_apply(n);
@@ -3319,8 +3379,10 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         } else {                                 /* stopped: the pitches go straight where they're set, */
             pulse_a = par[P_PULSE] ? 1.0f : 0.0f;    /* and the switches are where they're set */
             pf_run(0);
+#if !(OM_FX_CPU1 && !defined(OM_HOST))
             dly_rt = dly_rp = (uint8_t)par[P_DLY_LFO];
             dly_rw = 1.0f;
+#endif
             lfo_wx[0] = lfo_wx[1] = 1.0f;
             for (g = 0; g < DR_NGROUPS; g++) {   /* so the screen shows them, and PLAY starts there */
                 grp_t *v = &grp[g];
@@ -3370,6 +3432,18 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             mixl[j] *= a;
             mixr[j] *= a;
         }
+#if OM_FX_CPU1 && !defined(OM_HOST)
+        /* CPU0 has produced the complete dry+GHOST input. CPU1 processes
+         * an earlier block while CPU0 generates the next. */
+        fx_c1_exchange(mixl, mixr, k);
+        clean_hold(mixl, mixr, k);
+        {
+            float pk = 0.0f;
+            for (j = 0; j < k; j++)
+                pk = fm_maxf(pk, fm_maxf(fm_fabsf(mixl[j]), fm_fabsf(mixr[j])));
+            dr_tail = pk;
+        }
+#else
         /* the effects, after the fade: the tails ring on when stopped. Stopped, and silent (below -120 dB)
          * for longer than the delay's line (743 ms: an echo still in it would have come out by then), they
          * rest until PLAY */
@@ -3385,6 +3459,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             fx_rest();
             dr_tail = 0.0f;
         }
+#endif
         {                                        /* FEEDBACK: this block's sound, for the drones 256 samples on */
             float pk = 0.0f;
             for (j = 0; j < k; j++) {

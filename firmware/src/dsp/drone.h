@@ -271,9 +271,12 @@ void dr_param_text(int i, int v, char *buf);   /* the value as the screen shows 
  * 1 Resonant Body (8 driven, damped, pitch-related modes)
  * 2 Wave Terrain (non-separable 2D cross-dependent surface)
  * 3 Heterodyne (selected complex difference partials)
- * 4 Cross-Synth (reciprocal 12-band spectral-envelope exchange). */
+ * 4 Cross-Synth (reciprocal 12-band spectral-envelope exchange)
+ * 5 Live Convolution (time-varying 512-tap bidirectional FIR convolution)
+ * 6 Coupled Feedback (two damped mutually modulated delay loops). */
 enum { DR_GHOST_ORIGINAL, DR_GHOST_BODY, DR_GHOST_TERRAIN,
-       DR_GHOST_HETERODYNE, DR_GHOST_CROSS_SYNTH, DR_NGHOSTMODES };
+       DR_GHOST_HETERODYNE, DR_GHOST_CROSS_SYNTH,
+       DR_GHOST_CONVOLUTION, DR_GHOST_FEEDBACK, DR_NGHOSTMODES };
 void dr_ghost_mode_set(int mode);
 int dr_ghost_mode_get(void);
 /* Browser-only listening diagnostic: suppress direct parent audio *after*

@@ -3192,6 +3192,18 @@ void dr_ghost_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
     ghost_c1_jobs = ghost_c1_missed = ghost_c1_faults = 0;
     ghost_c1_max_ticks = ghost_c1_avg_ticks = 0;
 }
+/* CPU0 interrupts must be masked and CPU1 already held by the platform.
+ * Discard any pending output and prevent further worker dispatch until reboot.
+ * This is intentional shutdown for flash/update, not a CPU1 fault. */
+void dr_ghost_cpu1_unbind(void)
+{
+    ghost_c1_run = 0;
+    ghost_c1_busy = 0;
+    ghost_c1_wait = 0;
+    ghost_c1_abort = 0;
+    ghost_c1_pending = 0;
+    ghost_c1_retired = 1;
+}
 void dr_ghost_cpu1_stats(uint32_t stats[8])
 {
     stats[0] = ghost_c1_run && !ghost_c1_retired;

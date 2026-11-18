@@ -301,6 +301,8 @@ void dr_ghost_mute_set(int muted);
 void dr_ghost_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
                        int (*busy)(void), int (*wait)(void),
                        void (*abort)(void));
+/* Called by the platform with audio interrupts disabled after holding CPU1. */
+void dr_ghost_cpu1_unbind(void);
 void dr_ghost_cpu1_stats(uint32_t stats[8]);
 #endif
 int dr_ghost_mute_get(void);

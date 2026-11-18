@@ -174,9 +174,28 @@ static void fm1_fault(const fm1_crash_t *c)
     fm1_reboot();
 }
 
+#if OM_GHOST_CPU1
+/* Update staging erases flash while CPU1 jobs normally execute from XIP.
+ * PLAY off is insufficient: GHOST may still submit a job at nonzero MIX.
+ * Serialize against the audio ISR, hold CPU1 (including an in-flight job),
+ * then disable both the flash gate's CPU1 state and the DSP dispatcher.
+ * After an aborted update GHOST stays offline until the next reboot. */
+static void cpu1_quiesce_for_update(void)
+{
+    uint32_t f = irq_save();
+    fm1_cpu1_stop();
+    fm1_cpu1_on = 0;
+    dr_ghost_cpu1_unbind();
+    irq_restore(f);
+}
+#endif
+
 static void enter_uboot(const char *why)
 {
     fm1_audio_stop();
+#if OM_GHOST_CPU1
+    cpu1_quiesce_for_update();
+#endif
     lcd_fill(0, 0, 240, 240, C_BLACK);
     draw_text_box(0, 110, 240, &FONT_S, why, C_WHITE, 1);
     fm1_delay_ms(20);
@@ -232,6 +251,9 @@ static void safe_main(void)
         ota_service();
         if (usb.ota_req) {
             usb.ota_req = 0;
+#if OM_GHOST_CPU1
+            cpu1_quiesce_for_update();
+#endif
             ota_session();                          /* an install commits and resets; else back here (whatever
                                                      * the flash: ota.c checks every write, commits only on success) */
         }
@@ -554,6 +576,9 @@ static void fm1_main(void)
             usb.ota_req = 0;
             dr_play(0);
             dr_panic();
+#if OM_GHOST_CPU1
+            cpu1_quiesce_for_update();
+#endif
             ota_session();                          /* returns only if nothing was committed; an unknown flash
                                                      * too, so an FM-1 can always leave (ota.c checks every write) */
             ui_init();

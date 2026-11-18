@@ -59,6 +59,28 @@ and a device-specific review. **Do not flash the unvalidated dual-core
 package merely because it compiles.** Preserve a known-good main firmware
 package and a recovery method.
 
+## OTA and USB update safety (CPU1 builds)
+
+On 18 November 2026 the dual-core firmware ran audio successfully, but an OTA
+installation of a known-good headroom package stopped after four package reads.
+A separate attempt to return to stock V15 using Slipway also failed. Turning
+GHOST MIX to zero stopped CPU1 jobs and allowed the firmware change; playback
+STOP alone is not a sufficient substitute.
+
+The code now quiesces CPU1 **before** entering either the M-UPGRADE OTA session
+or the USB UBOOT transition. With CPU0 interrupts masked, the platform holds
+CPU1, marks the worker offline for flash access, and unbinds the DSP job
+callbacks. This covers a pending job as well as future jobs, regardless of
+GHOST MIX. If an update fails and returns to the running application, GHOST
+remains disabled until the FM-1 reboots. Both parent drones remain available.
+
+**Required device regression test after building this fix:** while both drones
+are playing and GHOST MIX is nonzero, initiate installation of a known-good
+Felucca-format firmware package. Confirm that the package check progresses
+through loader staging and the write completes, without first setting GHOST
+MIX to zero. The new code is not hardware-validated until this succeeds.
+Keep a known-good package and recovery method available before testing.
+
 ## On-device measurements (after hardware validation)
 
 ```sh

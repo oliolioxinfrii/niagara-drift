@@ -84,6 +84,33 @@ static void old_project(uint32_t format)       /* 16 scenes of 78 values, as 0.1
 int main(void)
 {
     const int16_t *a1, *a12, *b1, *b4;
+    {   /* The audition recipe must be valid, four-position, original data.
+         * Invoking its pure builder must never mutate the player's project
+         * or occupy one of the fixed sixteen factory Presets. */
+        int16_t data[DR_NPARAMS];
+        seq_scene_t score;
+        int k, in_range_all = 1;
+        memset(&proj, 0, sizeof proj);
+        project_fumarole_build(data, &score);
+        for (k = 0; k < DR_NPARAMS; ++k) {
+            const dr_param_t *p = dr_param_info(k);
+            if (data[k] < p->lo || data[k] > p->hi)
+                in_range_all = 0;
+        }
+        check("FUMAROLE builder has valid firmware parameter ranges",
+              in_range_all && data[DR_GP(0, GP_PITCH)] == 4300 &&
+              data[DR_GP(1, GP_PITCH)] == 5000 && data[P_GHOST] == 62);
+        check("FUMAROLE score is a valid sixty-second progression",
+              seq_valid(&score) && score.count == 4 &&
+              score.gap_s[0] + score.gap_s[1] +
+              score.gap_s[2] + score.gap_s[3] == 60u &&
+              score.note[0][0] == data[DR_GP(0, GP_PITCH)] &&
+              score.note[1][0] == data[DR_GP(1, GP_PITCH)]);
+        check("FUMAROLE does not alter stored scenes or factory presets",
+              proj.scene_used == 0 &&
+              scene_has(BANK_PRESETS2, PRESET_LOCKED - NPLAY) &&
+              !strcmp(preset_name(15), "BARE"));
+    }
     old_project(19u);
     check("a 0.1 project loads", project_load() == 0);
     check("now format 46, on bank A", proj.format == 46u && PROJ_FORMAT == 46u && proj.bank == 0 && proj.mtime == MTIME_DEF);

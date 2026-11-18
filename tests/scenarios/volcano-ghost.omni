@@ -32,7 +32,7 @@ spin PRESET 8
 expect ghostmode 6
 release SEL
 
-# ALGORITHM controls MOVEMENT (75); SEL+ALGORITHM controls GHOST (112).
+# ALGORITHM controls MOVEMENT (75); SEL+ALGORITHM controls GHOST MIX (112).
 spin ALGO 25
 expect par75 75
 expect par112 0
@@ -50,9 +50,15 @@ press SEL
 spin ALGO 30
 expect par112 70
 expect par75 50
+# The entire dry-to-GHOST crossfade remains reachable, with unchanged
+# scene storage and no separate saved mute parameter.
+spin ALGO 30
+expect par112 100
+spin ALGO -30
+expect par112 70
 release SEL
 
-# Both monitoring shortcuts must preserve the saved GHOST level.
+# Both monitoring shortcuts must preserve the saved GHOST MIX.
 press SEL
 tapkey w0
 expect ghostmonitor 1

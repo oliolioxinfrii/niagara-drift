@@ -3,9 +3,8 @@
 """Compare Volcano drone kernel variants against the reference path.
 
 Builds host/drone_render.c twice with the same compiler/options, then compares
-the raw WAV bytes from every listening scene. The default optimizations are
-intended to keep the sound sample-identical. OM_BLEP_RECIP=1 is experimental
-and is not included in the default comparison.
+the raw WAV bytes from every listening scene. The noise and filter
+optimizations are intended to keep the sound sample-identical.
 """
 import argparse
 import hashlib
@@ -24,11 +23,9 @@ BASE_FLAGS = [
 ]
 REFERENCE = [
     "-DOM_NOISE_CHUNK=0", "-DOM_FILTER_SPECIALIZE=0",
-    "-DOM_OSC_RUNS=0", "-DOM_BLEP_RECIP=0",
 ]
 DEFAULT = [
     "-DOM_NOISE_CHUNK=1", "-DOM_FILTER_SPECIALIZE=1",
-    "-DOM_OSC_RUNS=0", "-DOM_BLEP_RECIP=0",
 ]
 
 
@@ -51,17 +48,8 @@ def digest(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--osc-runs", action="store_true",
-                    help="test conservative BLEP-free oscillator runs")
-    ap.add_argument("--reciprocal", action="store_true",
-                    help="compare the experimental BLEP reciprocal path (not bit-identical by design)")
-    args = ap.parse_args()
-    candidate = [*DEFAULT]
-    if args.osc_runs or args.reciprocal:
-        candidate[-2] = "-DOM_OSC_RUNS=1"
-    if args.reciprocal:
-        candidate[-1] = "-DOM_BLEP_RECIP=1"
+    argparse.ArgumentParser(description=__doc__).parse_args()
+    candidate = DEFAULT
     with tempfile.TemporaryDirectory(prefix="volcano-dsp-") as tmp:
         root = Path(tmp)
         a = root / "reference"
@@ -80,9 +68,6 @@ def main():
         print(f"Compared {len(ref)} listening scenes.")
         if different:
             print("Different samples:", ", ".join(different))
-            if args.reciprocal:
-                print("This variation is expected to change float rounding; review the audio differences.")
-                return 0
             return 1
         print("All WAV files byte-identical to the reference DSP.")
         return 0

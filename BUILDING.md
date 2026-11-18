@@ -107,26 +107,29 @@ verify DSP headroom on physical hardware after a successful firmware build.
 The headroom development branch has independent DSP alternatives informed by Frasil
 (Styves Goupil). The original Volcano equations and an unoptimized fallback remain
 available; Frasil source code has **not** been copied. The default host/firmware
-source enables staged colour-noise rendering, stable-mode filter output paths,
-and optional BLEP-free runs between oscillator edges. Recursive sine generators and
-dynamic voice shedding have **not** been transplanted.
+source enables staged colour-noise rendering and stable-mode filter output
+paths. The optional stage profiler is retained; recursive sine generators
+and dynamic voice shedding have **not** been transplanted.
+
+Two additional oscillator techniques were evaluated and subsequently removed:
+discontinuity-free oscillator run-ahead (which increased Linux host
+instructions in two of three tested scenarios) and reciprocal-based polyBLEP
+evaluation (which increased them in all three). Run-ahead produced
+byte-identical WAV files across 19 scenes, but neither experiment established
+a general CPU advantage. The history remains available in earlier commits.
 
 | Switch | Default | Effect |
 | --- | --- | --- |
 | `OM_NOISE_CHUNK` | 1 | Generate the coloured noise in 16-sample chunks before the main oscillator/filter loop, reducing register pressure |
 | `OM_FILTER_SPECIALIZE` | 1 | Output only the active LP/BP/HP filter response once a mode morph is complete |
-| `OM_OSC_RUNS` | 0 | Experimental edge-free 16-sample oscillator runs: opt in with `OM_OSC_RUNS=1` after audio and RAM-code validation |
-| `OM_BLEP_RECIP` | 0 | Experimental reuse of `1/dt` at stable edge-bearing ticks, after changing division to multiplication; may differ by float ULPs |
 
-Use `OM_NOISE_CHUNK=0 OM_FILTER_SPECIALIZE=0 OM_OSC_RUNS=0 ./build.sh` to
-restore the reference audio path for FM-1 timing comparisons, or disable one
+Use `OM_NOISE_CHUNK=0 OM_FILTER_SPECIALIZE=0 ./build.sh` to restore
+the reference noise/filter paths for FM-1 timing comparisons, or disable one
 switch at a time to isolate its contribution. The compiler and linker still
 enforce the 32 KiB RAM-code budget. To compare host-generated WAV outputs,
 run `python3 tools/dsp_compare.py`. It checks the byte-for-byte output of
-every listening scene against the reference path. Use
-`python3 tools/dsp_compare.py --osc-runs` to test the optional oscillator
-path independently. Any differences should be investigated before
-deploying a new firmware build.
+every listening scene against the reference path. Any differences should be
+investigated before deploying a new firmware build.
 
 To measure which DSP changes actually reduce host instructions on Ubuntu/WSL,
 first install Valgrind (`sudo apt install valgrind`). After confirming audio
@@ -134,8 +137,6 @@ equivalence with `python3 tools/dsp_compare.py`, run:
 
 ```sh
 python3 tools/dsp_cost_variants.py --cases 3,4,5
-# Optionally include the unverified oscillator and reciprocal paths:
-python3 tools/dsp_cost_variants.py --cases 4,5 --experimental
 ```
 
 This recompiles reference, noise-only, filter-only and combined kernels and

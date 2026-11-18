@@ -207,8 +207,7 @@ def build_loader():
 def build_app():
     flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
     for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_RAM_CODE", "OM_RAM_FX_CODE",
-                 "OM_NOISE_CHUNK", "OM_FILTER_SPECIALIZE", "OM_OSC_RUNS", "OM_BLEP_RECIP",
-                 "OM_DSP_PROFILE"):
+                 "OM_NOISE_CHUNK", "OM_FILTER_SPECIALIZE", "OM_DSP_PROFILE"):
         v = os.environ.get(flag)
         if flag == "OM_RAM_CODE" and v is None:
             v = "1"      # drone loop in RAM; OM_RAM_CODE=0 for flash-versus-RAM comparison

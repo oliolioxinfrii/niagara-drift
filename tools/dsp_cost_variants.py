@@ -8,7 +8,6 @@ cycle estimate; use hardware timing to select winners for the Jieli CPU.
 
     python3 tools/dsp_cost_variants.py --cases 4
     python3 tools/dsp_cost_variants.py --cases 3,4,5
-    python3 tools/dsp_cost_variants.py --cases 4,5 --experimental
 """
 import argparse
 import os
@@ -31,12 +30,10 @@ FLAGS = [
 # All variations use the same compiler, application, settings, and test cases.
 # Off is the exact non-specialized code path, including original noise state.
 VARIANTS = {
-    "reference": (0, 0, 0, 0),
-    "noise": (1, 0, 0, 0),
-    "filter": (0, 1, 0, 0),
-    "default": (1, 1, 0, 0),
-    "osc-runs": (1, 1, 1, 0),
-    "reciprocal": (1, 1, 1, 1),
+    "reference": (0, 0),
+    "noise": (1, 0),
+    "filter": (0, 1),
+    "default": (1, 1),
 }
 
 
@@ -62,8 +59,7 @@ def compile_variant(name, flags, output):
         raise RuntimeError("CC was empty")
     defs = [
         f"-D{key}={int(value)}"
-        for key, value in zip(("OM_NOISE_CHUNK", "OM_FILTER_SPECIALIZE",
-                               "OM_OSC_RUNS", "OM_BLEP_RECIP"), flags)
+        for key, value in zip(("OM_NOISE_CHUNK", "OM_FILTER_SPECIALIZE"), flags)
     ]
     run([*cc, *FLAGS, *defs, "-o", str(output),
          "tests/host/drone_cost.c", "firmware/src/dsp/drone.c", "-lm"])
@@ -84,8 +80,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", default="3,4,5",
                         help="comma-separated drone_cost case indices (default: 3,4,5)")
-    parser.add_argument("--experimental", action="store_true",
-                        help="also benchmark the opt-in oscillator and reciprocal variants")
     args = parser.parse_args()
     if not shutil.which("valgrind"):
         parser.error("Valgrind is needed. On Ubuntu: sudo apt install valgrind")
@@ -98,8 +92,6 @@ def main():
         parser.error(f"case indices must be between 0 and {len(names) - 1}")
     choices = list(dict.fromkeys(choices))
     variants = ["reference", "noise", "filter", "default"]
-    if args.experimental:
-        variants.extend(("osc-runs", "reciprocal"))
     result = {}
     with tempfile.TemporaryDirectory(prefix="volcano-dsp-cost-") as temp:
         tempdir = Path(temp)
@@ -123,9 +115,6 @@ def main():
         print(f"| {variant} | " + " | ".join(cells) + " |")
     print("\nNegative percentages indicate fewer Linux host instructions, "
           "not verified FM-1 CPU savings.")
-    if args.experimental:
-        print("The reciprocal path can alter float rounding. Run "
-              "python3 tools/dsp_compare.py --reciprocal before audio use.")
 
 
 if __name__ == "__main__":

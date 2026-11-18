@@ -117,15 +117,19 @@ examined in the *DSP headroom* experiments. Its
 demonstrates short-buffer processing to reduce floating-point register
 pressure, specialized filter processing, oscillator rendering between
 waveform discontinuities, reciprocal-based polyBLEP evaluation, and
-stage-level CPU profiling. Volcano independently adapted these **methods**
-to its own existing oscillator, coloured-noise, filter, and audio-rendering
-equations. **No Frasil source code was copied into Volcano**; these
-independent adaptations remain GPL-3.0-only. Frasil's different synthesis
-layers and dynamic voice shedding were not adopted.
+stage-level CPU profiling. Volcano independently adapted **noise staging,
+filter specialization, and stage-level profiling** to its existing DSP.
+Experimental implementations of discontinuity-aware oscillator run-ahead
+and cached polyBLEP reciprocals were evaluated and then removed because
+their benchmark results did not justify retaining them. Frasil's different
+synthesis layers and dynamic voice shedding were not adopted.
+
+**No Frasil source code was copied into Volcano**; the retained adaptations
+are GPL-3.0-only.
 
 See [DSP headroom build switches and tests](BUILDING.md#frasil-inspired-kernel-experiments)
-for the implementations, experimental options, bit-identical WAV comparison,
-and performance-measurement procedure.
+for the retained implementations, rejected experiments, bit-identical WAV
+comparison, and performance-measurement procedure.
 
 **Development note.** The Volcano-specific code changes and most of this
 fork's documentation were written by ChatGPT under my direction. My work is

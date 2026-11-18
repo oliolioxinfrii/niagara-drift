@@ -12,9 +12,16 @@ schema, common FX, and other panel assignments are unchanged.
 - **ALGORITHM** now controls **MOVEMENT** (0–100, existing overall LFO
   movement-depth scaling). This is a *control swap*, not a change to the
   meaning or time constants of MOVEMENT.
-- **SEL + ALGORITHM** now controls saved **GHOST level** (0–100).
-  A level of zero mutes new GHOST excitation and output; scene persistence
-  and old projects retain their parameter values.
+- **SEL + ALGORITHM** now controls the saved **GHOST MIX** (0–100),
+  instead of an additive GHOST level. At **0** the output is the unchanged
+  Drone I + Drone II pair; at **50** the dry and GHOST paths use equal-power
+  crossfade coefficients (each approximately 0.707 before wet makeup); at
+  **100** the direct parents vanish and only GHOST enters the shared FX.
+  **The source drones ALWAYS continue generating GHOST.**
+  Parameter values still persist in scenes and old projects, but their
+  meaning changes on this experimental branch. In particular a saved
+  GHOST value of 100 now selects GHOST-only rather than full parents
+  plus maximum GHOST. Newly migrated projects still start at 0.
 - **PRESETS** remains MORPH TIME.
 - **SEL + PRESETS** cycles seven temporary comparison types:
   `ORIGINAL`, `RESONANT BODY`, `WAVE TERRAIN`, `HETERODYNE`,
@@ -33,6 +40,40 @@ schema, common FX, and other panel assignments are unchanged.
 delay and reverb tails continue temporarily and global FEEDBACK can
 receive the changed monitored mix. Disable FEEDBACK and allow FX tails
 to decay for reliable A/B tests.
+
+### Experimental dry/wet mixing and makeup gain
+
+GHOST MIX uses a **20 ms ramped equal-power crossfade**. With
+`t = GHOST_MIX / 100`, the direct parent-pair multiplier is
+`sqrt(1-t)`, and the relational output's multiplier is `sqrt(t)`.
+For a more usable GHOST level, **every algorithm receives 1.70×
+(+4.61 dB) makeup gain after the existing compressor**, but before
+the shared mix and master output effects. The equal-power rule refers
+to coefficients, not equal perceived loudness; the seven algorithms
+have markedly different spectra and envelope behaviors.
+
+| GHOST MIX | Parent direct level | GHOST coefficient including makeup |
+| --- | ---: | ---: |
+| 0 | 1.000 | 0.000 |
+| 25 | 0.866 | 0.850 |
+| 50 | 0.707 | 1.202 |
+| 75 | 0.500 | 1.472 |
+| 100 | 0.000 | 1.700 |
+
+These are linear audio multipliers, *not* percentage shares of the
+resulting perceived loudness. The downstream master clipping/limiting
+can further modify the actual peak and loudness balance.
+
+SEL+F3 still removes just the direct parents, independently of the
+crossfade setting; SEL+G3 still gates GHOST audio without modifying
+the saved position. With GHOST MIX at 100 and GHOST muted, the output
+becomes silent after shared effects tails have cleared. GHOST MIX at
+0 is dry-only; toggling SEL+G3 then has no audible consequence.
+
+**This is a mixing experiment, not a redesign of Live Convolution.**
+The seven algorithms are unchanged. The aim is to separate the issue
+of timbral quality from the strong spectral masking that can occur
+when GHOST is merely added beneath two full-volume drones.
 
 ## Comparison algorithms
 
@@ -92,7 +133,7 @@ FFT experiment.
 
 Both new modes have independent RMS detectors and bounded
 source-relative gain calibration (nominal 56% and 48% of the parents'
-combined RMS at full GHOST level) before the shared GHOST compressor.
+combined RMS) before the shared GHOST compressor.
 The two drones and the sequencer are untouched.
 
 ### Batch 3: Live Convolution
@@ -134,15 +175,16 @@ it cannot sustain a self-running oscillator after the sources stop.
 A low-pass and DC remover condition the resulting cross-dependent signal.
 
 The Batch 3 modes have separate source-relative gain calibration
-(nominal targets 58% for Live Convolution and 52% for Coupled Feedback
-at GHOST 100) and feed the same shared GHOST compressor. These are
+(nominal targets 58% for Live Convolution and 52% for Coupled Feedback)
+and feed the same shared GHOST compressor. These are
 relative electrical targets, not validated loudness equivalence.
 
 ## Validation and status
 
-`tests/host/drone_test.c` now checks all seven modes for an output
-difference relative to a GHOST-off reference, distinct results, and
-a requirement for two active parents. It also checks Resonant Body
+`tests/host/drone_test.c` now checks all seven modes as isolated
+GHOST outputs against a dry reference, distinct results, and the
+requirement for two active parents. Fixed-mix GHOST-mute A/B tests
+separate real GHOST energy from the change in parent volume. It also checks Resonant Body
 levels 0, 50 and 100, and both isolated output-monitor shortcuts.
 A separate `tests/host/ghost_batch3_test.c` verifies the convolution FFT's
 roundtrip accuracy, measurable output from two different pitched inputs,
@@ -158,7 +200,7 @@ immediately and every mode's calibrator has a stable history.
 The earlier `ghost_fft.c` remains an unreferenced experiment and is
 not compiled.
 
-The source, test assertions and docs are committed. Full C host
+The source, revised mix tests and docs are committed. Full C host
 tests, scenarios, and the Emscripten web build must still be run on
 the user's Ubuntu machine; there is no verified full CI or rendered
 audio result for this revision. The full test suite contains a separate

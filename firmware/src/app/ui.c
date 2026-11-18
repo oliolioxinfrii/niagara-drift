@@ -1671,21 +1671,18 @@ static void press_end(void)                            /* the key let go */
     }
 }
 
-/* Original 'FUMAROLE' listening sketch: the Acid Lake INTRO is an
- * atmospheric reference, not note data. Explicit SEL+REC loads a scratch
- * sound plus its four-node pitch sequence. Nothing is saved or overwritten;
- * the player may store it in an ordinary A-F scene afterward.
- * Ordinary REC without SEL remains the motion-loop recorder. */
-static void fumarole_load(void)
+/* SEL+REC loads the deterministic STRESS patch without overwriting
+ * existing A-F scenes or factory presets. REC alone remains Motion Loop. */
+static void stress_load(void)
 {
     int16_t values[DR_NPARAMS];
     seq_scene_t pattern;
     int k;
     if (ui.loop != L_IDLE) {
-        say("STOP MOTION LOOP", "BEFORE FUMAROLE");
+        say("STOP MOTION LOOP", "BEFORE STRESS");
         return;
     }
-    project_fumarole_build(values, &pattern);
+    project_stress_build(values, &pattern);
     undo_keep();
     ui.morph = -1;
     ui.press = -1;
@@ -1698,12 +1695,12 @@ static void fumarole_load(void)
             param_set(k, values[k]);
     /* Independent pitch cursors must not inherit the room's pitch lock. */
     param_set(P_PLOCK, 0);
-    sd_scene_restore(&pattern);     /* prepared but transport stays stopped */
+    sd_scene_restore(&pattern);     /* one stationary step; transport stopped */
     dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
     dr_ghost_monitor_set(0);        /* predictable full-mix audition */
     dr_ghost_mute_set(0);           /* GHOST should be audible */
     mark_dirty();                   /* the authored sequence changed as well */
-    say_c("FUMAROLE", "SEL+PLAY: SEQ", K_GOLD);
+    say_c("CPU STRESS", "GHOST 50 / FX", K_GOLD);
 }
 
 static void button(int b)                              /* the other buttons, on release */
@@ -1727,7 +1724,7 @@ static void button(int b)                              /* the other buttons, on 
     case B_REC:
         if (ui.btn >> B_SEL & 1u) {
             ui.btn_used |= 1u << B_SEL;
-            fumarole_load();
+            stress_load();
         } else {
             loop_button();
         }

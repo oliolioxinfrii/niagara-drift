@@ -252,6 +252,7 @@ int dr_grid_at(int t, int k, int root);        /* ... the note k, cents (0 the r
 extern const char *const DR_ROUTE_NAME[DR_NROUTE];      /* "Both", "Echoes", "Drones" */
 #define DR_NDLY 6
 #define DR_DLY_TAPE 3                                     /* the starting type */
+#define DR_DLY_GRAIN 4                                    /* the grain-modulated stereo delay */
 extern const char *const DR_DLY_NAME[DR_NDLY];          /* "Clean", "Wide", "Ping-pong", "Tape", "Grain", "Self" */
 #define DR_NINTERVALS 17
 extern const float DR_IV_SEMI[DR_NINTERVALS];           /* semitones: -Oct, -5th, -5th just .. +Oct+5 just */

@@ -2105,7 +2105,10 @@ int main(void)
             dr_set(P_GHOST, 60);
             dr_ghost_mute_set(pass == 0 || pass == 3);
             dr_play(1);
-            run(secs(2.0f));
+            /* With one parent absent, allow its initial level ramp
+             * and the mode-14 resonator tail to settle before testing
+             * silence. Preserve the strict 1e-6 RMS threshold. */
+            run(secs(pass >= 2 ? 6.0f : 2.0f));
             capture(target, 16384, 0);
         }
         for (k = 0; k < 16384; ++k) {

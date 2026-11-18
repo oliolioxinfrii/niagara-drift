@@ -1671,6 +1671,39 @@ static void press_end(void)                            /* the key let go */
     }
 }
 
+/* Original 'FUMAROLE' listening sketch: the Acid Lake INTRO is an
+ * atmospheric reference, not note data. Explicit SEL+REC loads a scratch
+ * sound plus its four-node pitch sequence. Nothing is saved or overwritten;
+ * the player may store it in an ordinary A-F scene afterward.
+ * Ordinary REC without SEL remains the motion-loop recorder. */
+static void fumarole_load(void)
+{
+    int16_t values[DR_NPARAMS];
+    seq_scene_t pattern;
+    int k;
+    if (ui.loop != L_IDLE) {
+        say("STOP MOTION LOOP", "BEFORE FUMAROLE");
+        return;
+    }
+    project_fumarole_build(values, &pattern);
+    undo_keep();
+    ui.morph = -1;
+    ui.press = -1;
+    ui.visit = -1;
+    ui.transition_seq_pending = 0;
+    ui.scene_at = -1;
+    hands_clear();
+    for (k = 0; k < DR_NPARAMS; ++k)
+        if (!scene_room(k))
+            param_set(k, values[k]);
+    /* Independent pitch cursors must not inherit the room's pitch lock. */
+    param_set(P_PLOCK, 0);
+    sd_scene_restore(&pattern);     /* prepared but transport stays stopped */
+    dr_ghost_mode_set(DR_GHOST_CROSS_BODY_FEEDBACK);
+    mark_dirty();                   /* the authored sequence changed as well */
+    say_c("FUMAROLE", "SEL+PLAY: SEQ", K_GOLD);
+}
+
 static void button(int b)                              /* the other buttons, on release */
 {
     switch (b) {
@@ -1690,7 +1723,12 @@ static void button(int b)                              /* the other buttons, on 
         }
         break;
     case B_REC:
-        loop_button();
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            fumarole_load();
+        } else {
+            loop_button();
+        }
         break;
     default: break;                                    /* SEL: a modifier (fine pitch) */
     }

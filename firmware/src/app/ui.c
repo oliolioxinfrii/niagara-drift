@@ -2579,8 +2579,8 @@ static void input(void)
                 "CROSS-SYNTH", "COUPLED FB",
                 "CROSS + BODY", "CROSS + TERRAIN", "CROSS + FB",
                 "TERRAIN + BODY", "BODY + FB", "CROSS + HETERO",
-                "CROSS/BODY/FB", "CROSS/TERRAIN/BODY",
-                "LOW BODY/HIGH TERR", "TERRAIN -> BODY"
+                "CROSS/BODY/FB", "CROSS/TERR/BODY",
+                "BODY LO/TERR HI", "TERRAIN -> BODY"
             };
             /* A web drag may deliver 4, 8, etc. detents in one event.
              * Using e % DR_NGHOSTMODES can map those gestures to *no change*.

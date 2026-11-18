@@ -2255,6 +2255,43 @@ int main(void)
               levels[2] > 1.25f * levels[1]);
     }
 
+    {   /* The two GHOST timbres and their midpoint must remain audible,
+         * finite, and independent of the parent-vs-GHOST MIX control. */
+        float level[3];
+        int m;
+        for (m = 0; m < 3; ++m) {
+            dry_init();
+            dr_set(P_FADE, 0);
+            dr_set(P_DRIFT, 0);
+            dr_set(P_PULSE, 0);
+            dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_MIX, 0);
+            dr_set(P_REV_MIX, 0);
+            dr_set(P_GHOST, 100);
+            dr_ghost_monitor_set(1);
+            dr_ghost_blend_set(m * 50);
+            check("GHOST MORPH getter preserves requested position",
+                  dr_ghost_blend_get() == m * 50);
+            dr_play(1);
+            run(secs(2.0f));
+            level[m] = rms();
+        }
+        printf("    GHOST morph 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
+               (double)level[0], (double)level[1], (double)level[2]);
+        check("GHOST morph endpoints and midpoint all produce audio",
+              level[0] > 0.000001f && level[1] > 0.000001f &&
+              level[2] > 0.000001f);
+        dr_ghost_mode_set(DR_GHOST_CROSS_BODY);
+        check("legacy mode 5 selects morph 0", dr_ghost_blend_get() == 0 &&
+              dr_ghost_mode_get() == DR_GHOST_CROSS_BODY);
+        dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
+        check("legacy mode 14 selects morph 100", dr_ghost_blend_get() == 100 &&
+              dr_ghost_mode_get() == DR_GHOST_TERRAIN_EXCITES_BODY);
+        dr_init();
+        check("session-only morph resets to mode 14 on boot",
+              dr_ghost_blend_get() == 100);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

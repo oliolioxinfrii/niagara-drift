@@ -1,7 +1,7 @@
 # Architecture C: continuous GHOST timbral morph (development)
 
-Branch: \`dev/dualcore-integration\`. The validated experimental baseline
-\`experiment/ghost14-ghost-fx-cpu1-headroom\` and \`main\` are unchanged.
+Branch: `dev/dualcore-integration`. The validated experimental baseline
+`experiment/ghost14-ghost-fx-cpu1-headroom` and `main` are unchanged.
 
 **SEL+PRESETS** now controls a 0–100 session-only **GHOST MORPH**:
 0 = original **mode 5** (70% Cross-Synth + 30% Body);
@@ -31,7 +31,7 @@ finite difference removes both one-parent terms, into the existing
 eight damped resonators. Its terrain math, modal tuning, gain and
 post-GHOST compression are unchanged at morph 100.
 
-Default **hybrid** (\`OM_GHOST_BLEND_REFERENCE=0\`): interpolate the body
+Default **hybrid** (`OM_GHOST_BLEND_REFERENCE=0`): interpolate the body
 *excitation* with equal-power coefficients, feed one shared eight-mode
 resonator state, then progressively remove the 12-band Cross-Synth from
 the mode-5 output as the terrain-driven output appears. Its final
@@ -40,7 +40,7 @@ to be perceptually constant-loudness at intermediate positions. The
 middle is a single evolving resonant body plus the fading spectral
 Cross-Synth, not two independent modal bodies.
 
-A/B **reference** (\`OM_GHOST_BLEND_REFERENCE=1\`): preserve separate
+A/B **reference** (`OM_GHOST_BLEND_REFERENCE=1`): preserve separate
 mode-5 and mode-14 resonator banks and equal-power crossfade their
 completed outputs. This retains mode 5 more literally for experiments
 but uses more CPU1 and resonator state during intermediate morphs.
@@ -54,7 +54,7 @@ as the validated baseline.
 
 ## Build and validate
 
-\`\`\`sh
+```sh
 git fetch origin
 git switch dev/dualcore-integration
 git pull --ff-only
@@ -67,11 +67,11 @@ cp build/omni.fwsc build/niagara-c-ghost-morph-hybrid.fwsc
 # A separate A/B firmware after recording the validated hybrid result:
 OM_FX_CPU1=1 OM_GHOST_BLEND_REFERENCE=1 ./build.sh
 cp build/omni.fwsc build/niagara-c-ghost-morph-crossfade.fwsc
-\`\`\`
+```
 
-\`tests/scenarios/ghost-morph.omni\` checks the knob's range, endpoints,
+`tests/scenarios/ghost-morph.omni` checks the knob's range, endpoints,
 session semantics, unchanged GHOST MIX, and STRESS reset. The isolated
-\`ghost_mode5_test\` checks Cross-Synth/Body excitation and state reset.
+`ghost_mode5_test` checks Cross-Synth/Body excitation and state reset.
 
 **Hardware caution:** Mode 5's additional 24 spectral-band filter
 updates are expensive on CPU1. The previous mode-14+FX peak left

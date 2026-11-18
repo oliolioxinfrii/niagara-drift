@@ -22,7 +22,7 @@ run() {
 }
 run fastmath sh -c "$CC -O2 -ffp-contract=off -Wall -Wextra -Werror -o $OUT/fastmath_test tests/host/fastmath_test.c -lm && $OUT/fastmath_test"
 # Isolated GHOST modal and restored Cross-Synth engine tests.
-run ghost-mode5 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror     -o $OUT/ghost_mode5_test tests/host/ghost_mode5_test.c -lm && $OUT/ghost_mode5_test"
+run ghost-mode5 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror -o $OUT/ghost_mode5_test tests/host/ghost_mode5_test.c -lm && $OUT/ghost_mode5_test"
 run ghost-mode14 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror \
     -o $OUT/ghost_mode14_test tests/host/ghost_mode14_test.c -lm && $OUT/ghost_mode14_test"
 run flash-id sh -c "$CC -O2 -Wall -Wextra -Werror -Ifirmware/hal -o $OUT/flash_id_test tests/host/flash_id_test.c && $OUT/flash_id_test"

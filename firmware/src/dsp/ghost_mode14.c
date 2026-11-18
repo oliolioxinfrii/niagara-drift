@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* GHOST mode 14 only: Wave Terrain -> independent eight-resonator body.
- * Copied verbatim in mathematical order from the listening experiment's
- * ghost_batch1.c (terrain + tuning) and ghost_blends.c (serial excitation).
- * Other GHOST synthesis engines are intentionally not compiled.
+/* GHOST mode 14: Wave Terrain -> tuned eight-resonator body.
+ * Its equations retain the listening experiment's ghost_batch1.c and
+ * ghost_blends.c. In the hybrid morph, mode 5 can excite this same bank;
+ * the A/B reference instead maintains an independent mode-5 body.
  * The parent drones, their post-filter inputs and shared FX are unchanged.
  */
 #define GH14_N 8u

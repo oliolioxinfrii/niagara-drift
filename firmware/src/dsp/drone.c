@@ -1020,6 +1020,7 @@ static void fx_c1_init_snapshot(void);
 static uint8_t fx_c1_clear_req, fx_c1_silence;
 #endif
 static void ghost_clear(void);                   /* relational GHOST state, below */
+static void gh5_prepare(void);                   /* spectral coefficients, below */
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
 static float ghost_parent_mix = 1.0f;

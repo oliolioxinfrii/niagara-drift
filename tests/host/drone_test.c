@@ -2223,12 +2223,12 @@ int main(void)
                 dependent &= absent < 1e-7f;
             }
         }
-        check("GHOST all seven modes measurably present at 100", audible);
-        check("GHOST seven algorithms independently affect sound", independent);
-        check("GHOST all seven modes require BOTH drones", dependent);
+        check("GHOST all fifteen modes measurably present at 100", audible);
+        check("GHOST fifteen algorithms independently affect sound", independent);
+        check("GHOST all fifteen modes require BOTH drones", dependent);
         dr_init();
-        check("GHOST mode resets to Original on startup",
-              dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
+        check("GHOST mode resets to Resonant Body on startup",
+              dr_ghost_mode_get() == DR_GHOST_BODY);
     }
 
     {   /* Complementary monitors with the GHOST knob acting as a mix.

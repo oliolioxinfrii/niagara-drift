@@ -3013,9 +3013,10 @@ static void clean_hold(float *l, float *r, uint32_t k)
 }
 
 /* ---------------------------------------------------------- GHOST ---
- * Five web-emulator comparative modes: original intermodulation;
- * resonant body and wave terrain (Batch 1); selective complex heterodyning
- * and reciprocal spectral-envelope cross synthesis (Batch 2).
+ * Seven web-emulator comparative modes: original intermodulation;
+ * resonant body and wave terrain (Batch 1); heterodyning and
+ * reciprocal spectral-envelope synthesis (Batch 2); true live
+ * convolution and cross-dependent coupled feedback (Batch 3).
  * The alternatives operate on the original pair of audible drones, never
  * by further shaping Original's already-intermodulated signal.
  * SEL+PRESETS chooses a RAM-only mode. Parent voices and scenes unchanged.
@@ -3036,6 +3037,8 @@ static float ghost_mode_fade = 1.0f;
 /* Two new independent voices and their gain calibration; this uses the
  * same single-TU include as Batch 1 so the browser build needs only drone.c. */
 #include "ghost_batch2.c"
+/* Batch 3: independently processed convolution and coupled feedback. */
+#include "ghost_batch3.c"
 /* One envelope follows the selected GHOST output across mode switches.
  * Attack ~16ms, release ~375ms at 44.1kHz. */
 static float ghost_comp_power;
@@ -3057,6 +3060,7 @@ static void ghost_clear(void)
     ghost.gain = 1.0f;
     ghost_batch1_reset();
     ghost_batch2_reset();
+    ghost_batch3_reset();
     ghost_xs_prepare();
     ghost_comp_power = 0.0f;
     ghost_mode_now = ghost_mode_prev = ghost_mode_req;
@@ -3165,20 +3169,25 @@ static void ghost_run(uint32_t n)
         const float terrain = ghost_terrain_sample(uu, vv);
         const float hetero = ghost_heterodyne_sample(uu, vv);
         const float cross = ghost_cross_synthesis_sample(uu, vv);
+        const float convolution = ghost_convolution_sample(uu, vv);
+        const float feedback = ghost_feedback_sample(uu, vv);
         float modes[DR_NGHOSTMODES], out;
         ghost_batch1_levels(body, terrain);
         ghost_batch2_levels(hetero, cross);
+        ghost_batch3_levels(convolution, feedback);
         modes[DR_GHOST_ORIGINAL] = original;
         modes[DR_GHOST_BODY] = ghost_batch1_level(body, 0u);
         modes[DR_GHOST_TERRAIN] = ghost_batch1_level(terrain, 1u);
         modes[DR_GHOST_HETERODYNE] = ghost_batch2_level(hetero, 0u);
         modes[DR_GHOST_CROSS_SYNTH] = ghost_batch2_level(cross, 1u);
+        modes[DR_GHOST_CONVOLUTION] = ghost_batch3_level(convolution, 0u);
+        modes[DR_GHOST_FEEDBACK] = ghost_batch3_level(feedback, 1u);
         out = modes[ghost_mode_now];
         if (ghost_mode_fade < 1.0f) {
             ghost_mode_fade = fm_minf(ghost_mode_fade + 1.0f / (0.08f * DR_SR), 1.0f);
             out = modes[ghost_mode_prev] + (out - modes[ghost_mode_prev]) * ghost_mode_fade;
         }
-        /* The SEL+Key2 diagnostic is an OUTPUT bypass only: all five
+        /* The SEL+Key2 diagnostic is an OUTPUT bypass only: all seven
          * synthesis modes, their state and the saved GHOST amount continue
          * unchanged. Crossfade 12 ms to make direct A/B listening click-free. */
         {
@@ -3195,6 +3204,7 @@ static void ghost_run(uint32_t n)
     ghost_gain(n);
     ghost_batch1_gain_update(n);
     ghost_batch2_gain_update(n);
+    ghost_batch3_gain_update(n);
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 

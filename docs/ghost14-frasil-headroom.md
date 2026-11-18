@@ -55,8 +55,19 @@ OM_FX_CPU1=1 OM_NOISE_CHUNK=1 OM_FILTER_SPECIALIZE=1 ./build.sh
 cp build/omni.fwsc build/architecture-c-kernels-optimized.fwsc
 ```
 
-Record commit hash, STRESS V2 version, master, patch/transport state and
-both CPU monitors (mean and maximum, late blocks, misses, faults).
+STRESS V2 deliberately sets both GP_NOISE controls to 0. It exercises
+the filter specialization, but **does not exercise the noise-chunk inner
+loop**. For noise-specific hardware A/B testing, also load factory P14
+TAPE (its two voices use nonzero noise). Use the same patch and control
+states for both builds; the exact knob positions and firmware commits
+matter. The WAV comparison tool includes `17-noise-colours`,
+`18-noise-level`, and `19-noise-resonance` scenes for noise parity.
+
+Record commit hash, patch, master, and sequence/transport state, and
+both CPU monitors (mean/maximum, late blocks, misses, faults). Compare
+the original architecture C reference from `f751a38` as well as
+the two flags set to 0 on the integration branch to detect code size
+or compiler side effects independent of the kernels.
 Results must not be represented as faster until measured on hardware.
 `main` remains unchanged pending cross-build, listening, long-run stress,
 scene-transition, and OTA tests.

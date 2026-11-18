@@ -388,6 +388,16 @@ static void dbg_service(void)
         for (i = 0; i < 32u; i++)
             b[i] = (uint8_t)(w[i / 4u] >> (8u * (i % 4u)));
         ota_send_msg(0x7C, b, sizeof b);
+#if OM_GHOST_CPU1
+    } else if (d == 7u && ota_dec[2] == 0x7D) {
+        uint32_t w[8];
+        uint8_t b[32];
+        uint32_t i;
+        dr_ghost_cpu1_stats(w);
+        for (i = 0; i < 32u; i++)
+            b[i] = (uint8_t)(w[i / 4u] >> (8u * (i % 4u)));
+        ota_send_msg(0x7D, b, sizeof b);
+#endif
     } else if (d == 7u && ota_dec[2] == 0x7E) {
         const uint32_t w[8] = {om_dbg.cpu_q8, om_dbg.max_us, HALF_FRAMES * 1000000u / FS, om_dbg.late,
                                om_dbg.halves, om_dbg.nested, om_dbg.boots, om_dbg.last_us};
@@ -405,6 +415,13 @@ static void splash(void)
     lcd_fill(0, 0, 240, 240, C_BLACK);
     lcd_sync();
 }
+
+#if OM_GHOST_CPU1
+/* The platform owns CPU1; DSP only sees the worker's mailbox API. */
+static int ghost_c1_submit(void (*fn)(uint32_t), uint32_t n) { return fm1_cpu1_run(fn, n); }
+static int ghost_c1_is_busy(void) { return fm1_cpu1_busy(); }
+static int ghost_c1_await(void) { return fm1_cpu1_wait(); }
+#endif
 
 static void fm1_main(void)
 {
@@ -453,6 +470,19 @@ static void fm1_main(void)
     dr_init();
     project_load();                                 /* defaults when nothing (or another format) is saved */
     project_apply();
+#if OM_GHOST_CPU1
+    /* Start before DMA and timer interrupts (same sequence as Arctic Scream).
+     * The mailbox has an integrity check. Some FM-1 units cannot safely use
+     * CPU1: failure retires it, leaving the two parent drones available. */
+    {
+        const char *s = FELUCCA_ID __DATE__ __TIME__;
+        uint32_t hash = 2166136261u;
+        while (*s) hash = (hash ^ (uint8_t)*s++) * 16777619u;
+        fm1_cpu1_bar_build(hash);
+        if (fm1_cpu1_start() == 0)
+            dr_ghost_cpu1_bind(ghost_c1_submit, ghost_c1_is_busy, ghost_c1_await);
+    }
+#endif
     audio_init();
     usb_start();
 #if OM_TRS

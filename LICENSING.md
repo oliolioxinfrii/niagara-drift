@@ -39,3 +39,13 @@ not affiliated with, endorsed by or supported by any of them.
 ## Radio
 
 Niagara Drift never enables the Bluetooth / Wi-Fi radio of the hardware.
+
+## Experimental CPU1 worker (GHOST mode 14)
+
+The isolated dual-core feasibility branch adapts the CPU1 mailbox/boot and fault
+handling in Arctic Scream's `firmware/hal/fm1_cpu1.h`, `.S`, and
+`fm1_cpu1_stop.h`, and the CPU1 exception resume in `fm1_vec.S`.
+Those changes originate in [felucca-bsp](https://github.com/hugelton/felucca-bsp)
+and Melodee; the CPU1 support is distributed under MPL-2.0 per the upstream
+source notices. The original notices remain in the imported files.
+

@@ -1700,6 +1700,8 @@ static void fumarole_load(void)
     param_set(P_PLOCK, 0);
     sd_scene_restore(&pattern);     /* prepared but transport stays stopped */
     dr_ghost_mode_set(DR_GHOST_CROSS_BODY_FEEDBACK);
+    dr_ghost_monitor_set(0);        /* predictable full-mix audition */
+    dr_ghost_mute_set(0);           /* GHOST should be audible */
     mark_dirty();                   /* the authored sequence changed as well */
     say_c("FUMAROLE", "SEL+PLAY: SEQ", K_GOLD);
 }

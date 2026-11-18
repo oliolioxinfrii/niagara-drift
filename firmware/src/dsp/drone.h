@@ -154,6 +154,7 @@ enum {
                                      * 2026-10-30; a sound's since 2026-11-08, ledger 3): 0 12-tone .. the 22 shrutis */
     P_CLK_SYNC,                     /* follow a MIDI clock (1, as since v0.3's step 3) or not (0: the clock ignored, its
                                      * tempo forgotten); a room setting (v0.3, Evan 2026-11-01, ledger item 5) */
+    P_GHOST,                        /* GHOST MIX: 0 dry parents, 50 equal-power blend, 100 GHOST only; FX shared */
     DR_NPARAMS
 };
 /* Reuse the eight retired gesture-depth/time slots in format 45: no parameter
@@ -264,6 +265,39 @@ const dr_param_t *dr_param_info(int i);
 void dr_param_text(int i, int v, char *buf);   /* the value as the screen shows it (12 bytes) */
 
 /* commands (main loop -> render) */
+/* Experimental GHOST selector, RAM-only (never stored in scenes).
+ * The five engines are relational to both parent drones. Modes 5-12
+ * combine their normal outputs; 13 frequency-splits the body/terrain;
+ * 14 drives a separate bank of body resonators with terrain excitation.
+ * Original intermodulation and Live Convolution have been retired. */
+enum {
+    DR_GHOST_BODY,                  /* 0: Resonant Body */
+    DR_GHOST_TERRAIN,               /* 1: Wave Terrain */
+    DR_GHOST_HETERODYNE,            /* 2: Heterodyne */
+    DR_GHOST_CROSS_SYNTH,           /* 3: Cross-Synth */
+    DR_GHOST_FEEDBACK,              /* 4: Coupled Feedback */
+    DR_GHOST_CROSS_BODY,            /* 5: 70% Cross-Synth + 30% Body */
+    DR_GHOST_CROSS_TERRAIN,         /* 6: 70% Cross-Synth + 30% Terrain */
+    DR_GHOST_CROSS_FEEDBACK,        /* 7: 70% Cross-Synth + 30% Feedback */
+    DR_GHOST_TERRAIN_BODY,          /* 8: 60% Terrain + 40% Body */
+    DR_GHOST_BODY_FEEDBACK,         /* 9: 65% Body + 35% Feedback */
+    DR_GHOST_CROSS_HETERODYNE,      /* 10: 70% Cross-Synth + 30% Heterodyne */
+    DR_GHOST_CROSS_BODY_FEEDBACK,   /* 11: 55% Cross + 30% Body + 15% Feedback */
+    DR_GHOST_CROSS_TERRAIN_BODY,    /* 12: 50% Cross + 30% Terrain + 20% Body */
+    DR_GHOST_SPLIT_BODY_TERRAIN,    /* 13: Body lows + Terrain highs */
+    DR_GHOST_TERRAIN_EXCITES_BODY,  /* 14: Terrain driven separate modal body */
+    DR_NGHOSTMODES
+};
+void dr_ghost_mode_set(int mode);
+int dr_ghost_mode_get(void);
+/* Browser-only listening diagnostic: suppress direct parent audio *after*
+ * it is generated but before GHOST and the shared FX mix. Not saved. */
+void dr_ghost_monitor_set(int ghost_only);
+int dr_ghost_monitor_get(void);
+/* Temporary complementary diagnostic: remove only GHOST from the output,
+ * retaining its level and DSP state so A/B toggles are immediate. */
+void dr_ghost_mute_set(int muted);
+int dr_ghost_mute_get(void);
 void dr_init(void);
 void dr_set(int param, int value);
 void dr_play(int on);                          /* fade the whole drone in (1) / out (0) over P_FADE */

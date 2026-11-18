@@ -7,8 +7,8 @@
  *   KNOB 1-2       drone I's two values on the page shown, KNOB 3-4 drone II's; the Drones page (HOME):
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
- *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
- *   PRESETS        MORPH TIME: gesture depth and clock return timing
+ *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT (SEL+ALGORITHM: GHOST MIX)
+ *   PRESETS        MORPH TIME: gesture depth and clock return timing; SEL+PRESETS cycles GHOST tests
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
  *   MASTER         volume      SAVE   saves
@@ -238,6 +238,7 @@ static struct {
     float sub_amt[8];                  /* keys 1-8: four operations per drone */
     int16_t sub_sent[8];
     uint16_t key_held;                 /* all sixteen white keys, physical positions */
+    uint8_t ghost_key_consumed;       /* bits 0/1: SEL+F3/G3 captured; suppress both normal gestures */
     uint16_t key_was_returning;        /* state when the current press began */
     uint16_t key_initial_zero;         /* short touch from zero retains the small value */
     uint8_t key_mode[16];             /* 0: stationary, 1: returning, 2: paused return */
@@ -1670,6 +1671,41 @@ static void press_end(void)                            /* the key let go */
     }
 }
 
+/* Original 'FUMAROLE' listening sketch: the Acid Lake INTRO is an
+ * atmospheric reference, not note data. Explicit SEL+REC loads a scratch
+ * sound plus its four-node pitch sequence. Nothing is saved or overwritten;
+ * the player may store it in an ordinary A-F scene afterward.
+ * Ordinary REC without SEL remains the motion-loop recorder. */
+static void fumarole_load(void)
+{
+    int16_t values[DR_NPARAMS];
+    seq_scene_t pattern;
+    int k;
+    if (ui.loop != L_IDLE) {
+        say("STOP MOTION LOOP", "BEFORE FUMAROLE");
+        return;
+    }
+    project_fumarole_build(values, &pattern);
+    undo_keep();
+    ui.morph = -1;
+    ui.press = -1;
+    ui.visit = -1;
+    ui.transition_seq_pending = 0;
+    ui.scene_at = -1;
+    hands_clear();
+    for (k = 0; k < DR_NPARAMS; ++k)
+        if (!scene_room(k))
+            param_set(k, values[k]);
+    /* Independent pitch cursors must not inherit the room's pitch lock. */
+    param_set(P_PLOCK, 0);
+    sd_scene_restore(&pattern);     /* prepared but transport stays stopped */
+    dr_ghost_mode_set(DR_GHOST_CROSS_BODY_FEEDBACK);
+    dr_ghost_monitor_set(0);        /* predictable full-mix audition */
+    dr_ghost_mute_set(0);           /* GHOST should be audible */
+    mark_dirty();                   /* the authored sequence changed as well */
+    say_c("FUMAROLE", "SEL+PLAY: SEQ", K_GOLD);
+}
+
 static void button(int b)                              /* the other buttons, on release */
 {
     switch (b) {
@@ -1689,7 +1725,12 @@ static void button(int b)                              /* the other buttons, on 
         }
         break;
     case B_REC:
-        loop_button();
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            fumarole_load();
+        } else {
+            loop_button();
+        }
         break;
     default: break;                                    /* SEL: a modifier (fine pitch) */
     }
@@ -2406,11 +2447,42 @@ static void input(void)
     }
     ch = keys ^ ui.keys;                               /* the black keys: switches, on the press */
     ui.keys = keys;
+    /* Browser listening diagnostics: SEL+F3 (Key1) suppresses only parent
+     * output; SEL+G3 (Key2) suppresses only GHOST output. Both inputs
+     * continue running. Consume the whole gesture (including key release)
+     * so neither ordinary STRIP nor DARK gesture is affected. The legacy
+     * scene-key test has priority. Both work during sequencer note entry. */
+    if (!ui.scene_keys_enabled && (btn & (1u << B_SEL))) {
+        for (i = 0; i < 2u; ++i) {
+            if (!(ch & keys & (1u << WHITE_K[i]))) continue;
+            ui.ghost_key_consumed |= (uint8_t)(1u << i);
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            if (i == 0u) {
+                dr_ghost_monitor_set(!dr_ghost_monitor_get());
+                scopy(ui.glab[0], "GHOST MONITOR");
+                scopy(ui.glab[1], dr_ghost_monitor_get() ? "GHOST ONLY" : "FULL MIX");
+            } else {
+                dr_ghost_mute_set(!dr_ghost_mute_get());
+                scopy(ui.glab[0], "GHOST OUTPUT");
+                scopy(ui.glab[1], dr_ghost_mute_get() ? "GHOST MUTED" : "GHOST ON");
+            }
+            ui.glab_until = plat_ms() + 1800u;
+            ui.act_t = plat_ms();
+        }
+    }
     if (ui.view == V_SEQ_NOTES) {
         /* All 27 physical keys belong to pitch entry on the sequence page.
          * SEL+K1 remains a knob-only modifier; holding SEL here must not
          * recall scenes, banks, or the black-key settings. */
-        sd_keys(keys, ch & keys);
+        /* The consumed F3/G3 diagnostic keys must not insert sequencer notes. */
+        {
+            uint32_t consumed = 0u;
+            for (i = 0; i < 2u; ++i)
+                if (ui.ghost_key_consumed & (1u << i))
+                    consumed |= 1u << WHITE_K[i];
+            sd_keys(keys & ~consumed, (ch & keys) & ~consumed);
+        }
         if (btn >> B_SEL & 1u && keys)
             ui.btn_used |= 1u << B_SEL;
     } else {
@@ -2492,12 +2564,16 @@ static void input(void)
     }
     for (i = 0; i < NWHITE; i++) {
         if (i < NPLAY && ui.scene_keys_enabled) continue; /* legacy scenario only */
+        if (i < 2u && (ui.ghost_key_consumed & (1u << i))) continue; /* diagnostics, not STRIP/DARK */
         if ((ch & keys) >> WHITE_K[i] & 1u)
             gesture_down((int)i);
         if ((ch & ~keys) >> WHITE_K[i] & 1u)
             gesture_up((int)i);
     }
     } /* end normal keyboard dispatch; sequencer's keyboard is handled separately */
+    for (i = 0; i < 2u; ++i)
+        if (ch & ~keys & (1u << WHITE_K[i]))
+            ui.ghost_key_consumed &= (uint8_t)~(1u << i); /* consume release even if SEL went first */
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();
@@ -2527,10 +2603,40 @@ static void input(void)
                 }
         }
     }
-    if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */
-        global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
-    if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */
-        global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
+    if ((e = plat_enc(EN_ALGO)) != 0) {              /* ALGORITHM: MOVEMENT; SEL: GHOST */
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            global_turn(EN_ALGO, P_GHOST, "GHOST MIX", e);
+        } else {
+            global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
+        }
+    }
+    if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: experimental GHOST type */
+        if (ui.btn >> B_SEL & 1u) {
+            static const char *const GMODE[DR_NGHOSTMODES] = {
+                "RESONANT BODY", "WAVE TERRAIN", "HETERODYNE",
+                "CROSS-SYNTH", "COUPLED FB",
+                "CROSS + BODY", "CROSS + TERRAIN", "CROSS + FB",
+                "TERRAIN + BODY", "BODY + FB", "CROSS + HETERO",
+                "CROSS/BODY/FB", "CROSS/TERR/BODY",
+                "BODY LO/TERR HI", "TERRAIN -> BODY"
+            };
+            /* A web drag may deliver 4, 8, etc. detents in one event.
+             * Using e % DR_NGHOSTMODES can map those gestures to *no change*.
+             * Treat each encoder event as a single step for type selection. */
+            int m = (dr_ghost_mode_get() + (e > 0 ? 1 : DR_NGHOSTMODES - 1)) % DR_NGHOSTMODES;
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            dr_ghost_mode_set(m);
+            scopy(ui.glab[0], "GHOST TYPE");
+            scopy(ui.glab[1], GMODE[m]);
+            ui.glab_until = plat_ms() + 1500u;
+            ui.act_t = plat_ms();
+        } else {
+            global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
+        }
+    }
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
             const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;

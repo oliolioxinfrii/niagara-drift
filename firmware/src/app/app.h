@@ -11,7 +11,8 @@
 #define OM_VERSION "1.1 DEV"
 #endif
 #define PROJ_MAGIC 0x314E5244u           /* "DRN1" */
-#define PROJ_FORMAT 45u                  /* 45: reuse retired gesture slots for per-drone mute, Swell design and per-LFO levels.
+#define PROJ_FORMAT 46u                  /* 46: adds GHOST level at the end of every sound (older 45 banks migrated).
+                                           * 45: reuse retired gesture slots for per-drone mute, Swell design and per-LFO levels.
                                           * Previous project and bank formats migrate these slots to new defaults.
                                           * 44: the LFO's depth on X-Wave and the resonance, 100 their whole range
                                           * (43's read, converted to the same range);
@@ -123,6 +124,9 @@ const int16_t *scene_get(int bank, int n);   /* scene n of a bank, or 0 if empty
 const char *project_slot_name(int bank, int slot); /* 0 for an unnamed user scene; Presets use preset_name */
 int project_slot_rename(int bank, int slot, const char *name); /* never edits factory Presets */
 const char *preset_name(int n);          /* the Preset's name (P1 "NIAGARA" ..) */
+/* Standalone Acid Lake-inspired audition sound and authored pitch sequence.
+ * Pure data builder; no saved project or factory preset modified. */
+void project_fumarole_build(int16_t out[DR_NPARAMS], seq_scene_t *seq);
 int scene_put(int bank, int n);         /* the sound now into scene n of a bank of yours (marks it to save); 0 ok */
 int project_seq_put(int bank, int n, const seq_scene_t *s); /* save edited sequence with a user scene */
 const seq_scene_t *project_seq_get(int bank, int n);     /* null: no authored sequence (legacy slot) */

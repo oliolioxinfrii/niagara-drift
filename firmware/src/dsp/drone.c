@@ -86,6 +86,7 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     {"Sub wave", 0, DR_NSUBW - 1, DR_SUBW_SQUARE}, {"Sub wave", 0, DR_NSUBW - 1, DR_SUBW_SQUARE},
     {"Tuning", 0, DR_NTUNING - 1, DR_TUN_12},
     {"Sync", 0, 1, 1},
+    {"Ghost", 0, 100, 0},       /* off by default: older sounds keep their exact audio */
 };
 const char *const DR_REV_NAME[DR_NREV] = {"Room", "Hall", "Cathedral", "Chorus hall", "Shimmer"};
 const char *const DR_DIV_NAME[DR_NDIV] = {"32 bars", "16 bars", "8 bars", "4 bars", "2 bars", "1 bar", "1/2", "1/4"};
@@ -655,7 +656,7 @@ void dr_param_text(int i, int v, char *b)
 enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
-#define QN 128u
+#define QN 256u
 typedef char qn_holds_a_load[DR_NPARAMS + 16 <= QN ? 1 : -1];
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -1000,6 +1001,19 @@ static float fade_rate(void)                      /* per sample: 0.05 s * 1200^(
 }
 
 static void fx_clear(void);                      /* drone_fx.c, included below */
+static void ghost_clear(void);                   /* relational GHOST state, below */
+/* Browser-only direct-parent output monitor. Source generation remains live. */
+static volatile uint8_t ghost_monitor_req;
+static float ghost_parent_mix = 1.0f;
+/* GHOST is a crossfader between the generated parent pair and the
+ * relational voice. This is downstream of all oscillators and source
+ * filters; source excitation therefore remains independent of mix. */
+static float ghost_dry_mix = 1.0f, ghost_wet_mix = 0.0f;
+static float ghost_wet_block[BLK];
+/* Independent diagnostic: keep GHOST synthesis live but suppress only its
+ * direct contribution to the shared stereo mix (SEL+white Key 2). */
+static volatile uint8_t ghost_mute_req;
+static float ghost_output_mix = 1.0f;
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
 void dr_init(void)
@@ -1064,6 +1078,14 @@ void dr_init(void)
     spk_x = dr_phones ? 0.0f : 1.0f;
     spk_f = SPK_CUT;
     fx_clear();
+    dr_ghost_mode_set(DR_GHOST_BODY);
+    ghost_monitor_req = 0u;
+    ghost_parent_mix = 1.0f;
+    ghost_dry_mix = 1.0f;
+    ghost_wet_mix = 0.0f;
+    ghost_mute_req = 0u;
+    ghost_output_mix = 1.0f;
+    ghost_clear();
     q_r = q_w;
 }
 
@@ -2997,6 +3019,187 @@ static void clean_hold(float *l, float *r, uint32_t k)
         }
 }
 
+/* ---------------------------------------------------------- GHOST ---
+ * Five parent-dependent engines, ten listening blends = fifteen modes.
+ * Original intermodulation and Live Convolution are retired.
+ * Shared post-filter input preprocessing stays; all five engines update
+ * continuously for consistent RMS calibration and mode crossfades.
+ * No changes to either parent drone, their sequencer, or their effects.
+ */
+typedef struct {
+    float in[2][2], power[2];
+} ghost_t;
+static ghost_t ghost;
+static volatile uint8_t ghost_mode_req;         /* main loop -> audio render */
+static uint8_t ghost_mode_now, ghost_mode_prev;
+static float ghost_mode_fade = 1.0f;
+
+/* Batch 1 modes use separate state, tuning and gain calibration.
+ * This browser-only module is included in the DSP's single C compilation
+ * unit, just as the previous FFT experiment was. */
+#include "ghost_batch1.c"
+/* Two new independent voices and their gain calibration; this uses the
+ * same single-TU include as Batch 1 so the browser build needs only drone.c. */
+#include "ghost_batch2.c"
+/* Batch 3: independently processed convolution and coupled feedback. */
+#include "ghost_batch3.c"
+/* Six parallel pairs, two triples, split spectrum and terrain->body. */
+#include "ghost_blends.c"
+/* One envelope follows the selected GHOST output across mode switches.
+ * Attack ~16ms, release ~375ms at 44.1kHz. */
+static float ghost_comp_power;
+
+void dr_ghost_mode_set(int mode)
+{
+    if ((unsigned)mode < DR_NGHOSTMODES)
+        ghost_mode_req = (uint8_t)mode;
+}
+int dr_ghost_mode_get(void) { return (int)ghost_mode_req; }
+void dr_ghost_monitor_set(int ghost_only) { ghost_monitor_req = ghost_only ? 1u : 0u; }
+int dr_ghost_monitor_get(void) { return (int)ghost_monitor_req; }
+void dr_ghost_mute_set(int muted) { ghost_mute_req = muted ? 1u : 0u; }
+int dr_ghost_mute_get(void) { return (int)ghost_mute_req; }
+
+static void ghost_clear(void)
+{
+    dr_memset(&ghost, 0, sizeof ghost);
+    ghost_batch1_reset();
+    ghost_batch2_reset();
+    ghost_batch3_reset();
+    ghost_blends_reset();
+    ghost_xs_prepare();
+    ghost_comp_power = 0.0f;
+    ghost_mode_now = ghost_mode_prev = ghost_mode_req;
+    ghost_mode_fade = 1.0f;
+}
+/* Preserve exactly the original private two-pole input filters and
+ * slow energy tracking. These are shared with every retained engine;
+ * the retired Original's cubic, DC and output-shaper DSP is removed. */
+static void ghost_input_sample(float u, float v)
+{
+    ghost.in[0][0] += 0.348f * (u - ghost.in[0][0]);
+    ghost.in[0][1] += 0.348f * (ghost.in[0][0] - ghost.in[0][1]);
+    ghost.in[1][0] += 0.348f * (v - ghost.in[1][0]);
+    ghost.in[1][1] += 0.348f * (ghost.in[1][0] - ghost.in[1][1]);
+    u = ghost.in[0][1];
+    v = ghost.in[1][1];
+    ghost.power[0] += 0.00022f * (u * u - ghost.power[0]);
+    ghost.power[1] += 0.00022f * (v * v - ghost.power[1]);
+}
+static void ghost_input_flush(void)
+{
+    ghost.in[0][0] = fm_flush(ghost.in[0][0]);
+    ghost.in[0][1] = fm_flush(ghost.in[0][1]);
+    ghost.in[1][0] = fm_flush(ghost.in[1][0]);
+    ghost.in[1][1] = fm_flush(ghost.in[1][1]);
+    ghost.power[0] = fm_flush(ghost.power[0]);
+    ghost.power[1] = fm_flush(ghost.power[1]);
+}
+static float ghost_compress(float x)
+{
+    /* Mild upward levelling below -18.4dBFS and 2:1 downwards above.
+     * +/-3 dB soft knee, ~16ms attack and ~375ms release on RMS power.
+     * Below threshold the maximum lift is 3.5dB: genuinely silent
+     * parents remain silent. Do not normalize to an always-on output. */
+    const float p = x * x;
+    const float coeff = p > ghost_comp_power ? 0.00140f : 0.000060f;
+    float rms, d, level_gain_db;
+    float g, blend;
+    ghost_comp_power += coeff * (p - ghost_comp_power);
+    /* Computed only in GHOST-enabled path; floating-point expense is
+     * intentional during the browser-only listening experiment. */
+    rms = fm_sqrtf(fm_maxf(ghost_comp_power, 1e-10f));
+    d = 6.0205999f * fm_log2f(fm_maxf(rms, 0.00001f) / 0.12f);
+    if (d <= -3.0f) {
+        level_gain_db = fm_minf(-0.25f * d, 3.5f);
+    } else if (d >= 3.0f) {
+        level_gain_db = -0.50f * d;
+    } else {
+        blend = (d + 3.0f) * (1.0f / 6.0f);
+        blend = blend * blend * (3.0f - 2.0f * blend);
+        level_gain_db = (1.0f - blend) * (-0.25f * d) +
+                        blend * (-0.50f * d);
+    }
+    g = fm_exp2f(level_gain_db * (1.0f / 6.0205999f));
+    return x * g;
+}
+static void ghost_run(uint32_t n)
+{
+    const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+    const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
+    uint32_t j;
+    if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
+        /* At the completely dry endpoint, skip and reset only GHOST. */
+        ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;
+        ghost_clear();
+        return;
+    }
+    if (ghost_mode_req != ghost_mode_now) {
+        ghost_mode_prev = ghost_mode_now;
+        ghost_mode_now = ghost_mode_req;
+        ghost_mode_fade = 0.0f;
+    }
+    ghost_body_tune();
+    ghost_batch2_tune();
+    for (j = 0; j < n; ++j) {
+        const float u = xbuf[j] * pgain[0][j] * t0;
+        const float v = ybuf[j] * pgain[1][j] * t1;
+        float modes[DR_NGHOSTMODES], out;
+        float body, terrain, hetero, cross, feedback, excited;
+
+        /* Source generation is unaffected by GHOST MIX or monitoring. */
+        ghost_input_sample(u, v);
+        {
+            const float uu = ghost.in[0][1], vv = ghost.in[1][1];
+            body = ghost_body_sample(uu, vv);
+            terrain = ghost_terrain_sample(uu, vv);
+            hetero = ghost_heterodyne_sample(uu, vv);
+            cross = ghost_cross_synthesis_sample(uu, vv);
+            feedback = ghost_feedback_sample(uu, vv);
+        }
+        /* The special excitation-transfer mode owns independent modal
+         * states and receives the current, raw terrain signal. */
+        excited = ghost_terrain_excites_body_sample(terrain);
+
+        ghost_batch1_levels(body, terrain);
+        ghost_batch2_levels(hetero, cross);
+        ghost_batch3_levels(feedback);
+        ghost_blends_fill(modes,
+                          ghost_batch1_level(body, 0u),
+                          ghost_batch1_level(terrain, 1u),
+                          ghost_batch2_level(hetero, 0u),
+                          ghost_batch2_level(cross, 1u),
+                          ghost_batch3_level(feedback),
+                          excited);
+
+        out = modes[ghost_mode_now];
+        if (ghost_mode_fade < 1.0f) {
+            ghost_mode_fade = fm_minf(ghost_mode_fade +
+                                     1.0f/(0.08f*DR_SR), 1.0f);
+            out = modes[ghost_mode_prev] +
+                  (out - modes[ghost_mode_prev]) * ghost_mode_fade;
+        }
+        /* SEL+G3 is an output mute, not a reset of DSP or saved balance. */
+        {
+            const float target = ghost_mute_req ? 0.0f : 1.0f;
+            const float step = 1.0f / (0.012f * DR_SR);
+            ghost_output_mix = target < ghost_output_mix ?
+                fm_maxf(ghost_output_mix - step, target) :
+                fm_minf(ghost_output_mix + step, target);
+        }
+        out = ghost_compress(out) * 1.70f *
+              ghost_wet_block[j] * ghost_output_mix;
+        mixl[j] += out;
+        mixr[j] += out;
+    }
+    ghost_input_flush();
+    ghost_batch1_gain_update(n);
+    ghost_batch2_gain_update(n);
+    ghost_batch3_gain_update(n);
+    ghost_blends_gain_update(n);
+    ghost_comp_power = fm_flush(ghost_comp_power);
+}
+
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
 {
     /* MASTER: a volume up to 4/5 of its turn (there as loud as the old full turn); past that it drives the
@@ -3045,6 +3248,32 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                 v->slide = v->lslide = 0.0f;
             }
         }
+        /* Equal-power dry/wet crossfade: 0 = unchanged parent pair,
+         * 50 = equal coefficients, 100 = GHOST only. Unlike muting the
+         * parent voices, this operates only on the completed output mix.
+         * Smooth both weights for 20 ms; save wet weights for ghost_run().
+         * SEL+Key1 remains an independent parent-only monitor gate. */
+        {
+            const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+            const float dry_to = fm_sqrtf(1.0f - balance);
+            const float wet_to = fm_sqrtf(balance);
+            const float mix_step = 1.0f / (0.020f * DR_SR);
+            const float monitor_to = ghost_monitor_req ? 0.0f : 1.0f;
+            const float monitor_step = 1.0f / (0.012f * DR_SR);
+            for (j = 0; j < k; ++j) {
+                ghost_dry_mix = fm_clampf(dry_to, ghost_dry_mix - mix_step,
+                                         ghost_dry_mix + mix_step);
+                ghost_wet_mix = fm_clampf(wet_to, ghost_wet_mix - mix_step,
+                                         ghost_wet_mix + mix_step);
+                ghost_parent_mix = fm_clampf(monitor_to,
+                                             ghost_parent_mix - monitor_step,
+                                             ghost_parent_mix + monitor_step);
+                ghost_wet_block[j] = ghost_wet_mix;
+                mixl[j] *= ghost_dry_mix * ghost_parent_mix;
+                mixr[j] *= ghost_dry_mix * ghost_parent_mix;
+            }
+        }
+        ghost_run(k);                             /* into the same stereo space and FX */
         for (j = 0; j < k; j++) {                /* PLAY fade after the individual swells */
             float a;
             fade = fade_target > fade ? fm_minf(fade + frate, fade_target) : fm_maxf(fade - frate, fade_target);

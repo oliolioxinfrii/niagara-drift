@@ -106,11 +106,26 @@ ideas and components from earlier FM-1 projects:
 They are credited here **as part of Niagara Drift's lineage**, not as
 projects from which Volcano independently borrowed.
 
-Other FM-1 firmwares informed my thinking without being directly
-incorporated into Volcano. **Jiant** is another firmware I use frequently;
-**Frasil** and **AMB-1** were points of comparison that helped define what
-Volcano should—and should not—attempt to be. This is a distinction
-between **influence** and **code or design reuse**.
+Other FM-1 firmwares also informed Volcano's development. **Jiant**
+is another firmware I use frequently, while **AMB-1** was a point of
+comparison rather than a source of borrowed code.
+
+**[Frasil](https://github.com/styvesgoupil/frasil)** by **Styves Goupil**
+(MPL-2.0) is credited specifically for the FM-1 DSP engineering ideas
+examined in the *DSP headroom* experiments. Its
+[`engine/dsp/frasil.c`](https://github.com/styvesgoupil/frasil/blob/d213a95d76670669b2c59e8859d301bd4d5791b2/engine/dsp/frasil.c)
+demonstrates short-buffer processing to reduce floating-point register
+pressure, specialized filter processing, oscillator rendering between
+waveform discontinuities, reciprocal-based polyBLEP evaluation, and
+stage-level CPU profiling. Volcano independently adapted these **methods**
+to its own existing oscillator, coloured-noise, filter, and audio-rendering
+equations. **No Frasil source code was copied into Volcano**; these
+independent adaptations remain GPL-3.0-only. Frasil's different synthesis
+layers and dynamic voice shedding were not adopted.
+
+See [DSP headroom build switches and tests](BUILDING.md#frasil-inspired-kernel-experiments)
+for the implementations, experimental options, bit-identical WAV comparison,
+and performance-measurement procedure.
 
 **Development note.** The Volcano-specific code changes and most of this
 fork's documentation were written by ChatGPT under my direction. My work is

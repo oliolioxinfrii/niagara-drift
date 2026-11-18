@@ -2231,13 +2231,13 @@ int main(void)
               dr_ghost_mode_get() == DR_GHOST_ORIGINAL);
     }
 
-    {   /* Complementary GHOST output monitors: both drones must continue
-         * playing. Only their stereo contribution or GHOST's is removed.
-         * GHOST amount is unchanged when its output is muted. */
-        static float rendered[6][8192];
-        float level[6];
+    {   /* Complementary monitors with the GHOST knob acting as a mix.
+         * Verify dry endpoint, wet endpoint, and fixed-balance A/B.
+         * The generated parent signals continue at all mix positions. */
+        static float rendered[8][8192];
+        float level[8];
         int m, k;
-        for (m = 0; m < 6; ++m) {
+        for (m = 0; m < 8; ++m) {
             dry_init();
             dr_set(P_FADE, 0);
             dr_set(P_DRIFT, 0);
@@ -2246,7 +2246,7 @@ int main(void)
             dr_set(P_FEEDBACK, 0);
             dr_set(P_DLY_DRIVE, 0);
             dr_set(P_CHAR, 0);
-            for (k = 0; k < 2; k++) {
+            for (k = 0; k < 2; ++k) {
                 dr_set(DR_GP(k, GP_PARTNER), 0);
                 dr_set(DR_GP(k, GP_MIX), 0);
                 dr_set(DR_GP(k, GP_WAVE), 0);
@@ -2256,49 +2256,51 @@ int main(void)
             }
             dr_set(DR_GP(0, GP_PITCH), 4100);
             dr_set(DR_GP(1, GP_PITCH), 5900);
-            dr_set(P_GHOST, m < 2 ? 0 : 75);
+            /* 0: mix0 dry-only, 1: mix0 diagnostic GHOST ONLY,
+             * 2: mix75 GHOST ONLY, 3: mix75 both outputs cut,
+             * 4: mix75 GHOST muted (attenuated dry),
+             * 5: mix75 normal blend,
+             * 6: mix100 GHOST muted (zero direct parents),
+             * 7: mix50 GHOST muted (equal-power dry coefficient). */
+            dr_set(P_GHOST, m == 0 || m == 1 ? 0 :
+                             m == 6 ? 100 : m == 7 ? 50 : 75);
             dr_ghost_mode_set(DR_GHOST_TERRAIN);
-            check("GHOST monitors reset off on initialization",
+            check("GHOST diagnostic gates reset on startup",
                   !dr_ghost_monitor_get() && !dr_ghost_mute_get());
-            /* 0: dry full, 1: parents removed / GHOST 0,
-             * 2: GHOST alone, 3: both removed,
-             * 4: parents alone with GHOST level still 75,
-             * 5: full sound with GHOST level 75. */
             dr_ghost_monitor_set(m == 1 || m == 2 || m == 3);
-            dr_ghost_mute_set(m == 3 || m == 4);
+            dr_ghost_mute_set(m == 3 || m == 4 || m == 6 || m == 7);
             check("GHOST monitor getters track independent output gates",
                   dr_ghost_monitor_get() == (m == 1 || m == 2 || m == 3) &&
-                  dr_ghost_mute_get() == (m == 3 || m == 4));
+                  dr_ghost_mute_get() == (m == 3 || m == 4 || m == 6 || m == 7));
             dr_play(1);
             run(secs(2.0f));
             capture(rendered[m], 8192, 0);
             level[m] = rms_of(rendered[m], 8192);
         }
         {
-            float difference_dry = 0.0f, difference_ghost = 0.0f;
+            float difference_ghost = 0.0f, ratio50, ratio75;
             for (k = 0; k < 8192; ++k) {
-                const float dry = rendered[4][k] - rendered[0][k];
-                const float ghost = rendered[5][k] - rendered[4][k];
-                difference_dry += dry*dry;
-                difference_ghost += ghost*ghost;
+                const float d = rendered[5][k] - rendered[4][k];
+                difference_ghost += d*d;
             }
-            difference_dry = sqrtf(difference_dry / 8192.0f);
             difference_ghost = sqrtf(difference_ghost / 8192.0f);
-            printf("    GHOST monitor full dry / ghost-only / both-muted / parents-only / full+ghost RMS:"
-                   " %.6f / %.6f / %.6f / %.6f / %.6f\n",
-                   (double)level[0], (double)level[2], (double)level[3],
-                   (double)level[4], (double)level[5]);
-            check("GHOST-only monitor removes direct parents but retains GHOST",
+            ratio50 = level[7] / (level[0] + 1e-9f);
+            ratio75 = level[4] / (level[0] + 1e-9f);
+            printf("    GHOST mix dry/full %.5f, mix50/dry %.3f, mix75/dry %.3f, ghost-only %.5f, full-wet-muted %.7f\n",
+                   (double)level[0], (double)ratio50, (double)ratio75,
+                   (double)level[2], (double)level[6]);
+            check("GHOST-only diagnostic removes direct parents, not excitation",
                   level[0] > 0.01f && level[1] < 0.000001f &&
                   level[2] > 0.002f);
-            check("GHOST mute eliminates only GHOST output, including in solo",
-                  level[3] < 0.000001f && level[4] > 0.01f &&
-                  difference_dry < 1e-6f);
-            check("GHOST-on is audible again at the SAME preset level (75)",
-                  difference_ghost > 0.01f * level[0]);
+            check("GHOST output mute removes GHOST at fixed MIX 75",
+                  level[3] < 0.000001f && level[4] > 0.005f &&
+                  difference_ghost > 0.01f * level[4]);
+            check("GHOST MIX endpoints are dry-only and pure-wet",
+                  level[6] < 0.000001f && ratio75 < 0.80f &&
+                  ratio50 > 0.45f && ratio50 < 0.97f);
         }
         dr_init();
-        check("GHOST output monitoring does not persist after restart",
+        check("GHOST diagnostic output gates are volatile",
               !dr_ghost_monitor_get() && !dr_ghost_mute_get());
     }
 

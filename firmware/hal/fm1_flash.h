@@ -97,6 +97,11 @@ RAMINL void fl_wren(void) { fl_cs(0); fl_tx(0x06); fl_cs(1); }
 RAMINL int fl_enter(fl_saved_t *s)
 {
     uint32_t mode;
+#if defined FM1_CPU1 && FM1_CPU1
+    /* CPU1 jobs run from XIP. Flash must not be disabled during a job. */
+    if (fm1_cpu1_on && !fm1_flash_cpu1_idle)
+        return -6;
+#endif
     fl_cache_idle();
     s->sfc_con = SFC_CON;
     s->spi_con = SPI0_CON;

@@ -206,10 +206,13 @@ def build_loader():
 
 def build_app():
     flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
-    for flag in ("OM_CDC", "OM_CLOCK_TEST"):
+    for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_GHOST_CPU1"):
         v = os.environ.get(flag)    # unset: the default in firmware/src/main.c
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
+    if os.environ.get("OM_GHOST_CPU1", "0") == "1":
+        # Must agree with fm1_cpu1.S and fm1_cpu1.h.
+        flags.append("-DFM1_CPU1_USTACK_BYTES=4096")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
     if VERSION:
         flags.append(f'-DOM_VERSION="{VERSION}"')
@@ -219,6 +222,9 @@ def build_app():
              ("cc", "-c", FW / "hal" / "fm1_isr.S", "-o", OUT / "fm1_isr.o"),
              ("cc", *flags, "-c", FW / "src" / "main.c", "-o", OUT / "main.o")]
     objs = [OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o", OUT / "main.o"]
+    if os.environ.get("OM_GHOST_CPU1", "0") == "1":
+        units.append(("cc", "-DFM1_CPU1_USTACK_BYTES=4096", "-c", FW / "hal" / "fm1_cpu1.S", "-o", OUT / "fm1_cpu1.o"))
+        objs.append(OUT / "fm1_cpu1.o")
     (OUT / "o2").mkdir(parents=True, exist_ok=True)
     for u in O2_UNITS:
         o = OUT / "o2" / (u.replace("/", "_")[:-2] + ".o")
@@ -265,9 +271,20 @@ def check(img, syms, dis, rt):
         errors.append(f"_start is not at {APP_XIP:#x}")
     if img[:4] != bytes.fromhex("04818000"):
         errors.append(f"image starts with {img[:4].hex()}, not the entry stub")
-    rt_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln)]
-    if rt_calls:                    # RAM code runs with the flash off: no calls into XIP
-        errors.append(f".ram_text contains calls: {rt_calls[:3]}")
+    # The CPU1 dispatch loop lives in RAM but deliberately calls its XIP DSP job.
+    # Only the flash-safe portion of .ram_text must contain no calls.
+    def symopt(n):
+        m = re.search(r"^([0-9a-f]+) .*\s" + n + r"$", syms, re.M)
+        return int(m.group(1), 16) if m else 0
+    c1start, c1end = symopt("_c1_start"), symopt("_c1_end")
+    rt_calls = []
+    for ln in rt.splitlines():
+        m = LINE.match(ln)
+        if m and re.search(r"\bcall\b", ln):
+            if not c1start <= int(m.group(1), 16) < c1end:
+                rt_calls.append(ln)
+    if rt_calls:
+        errors.append(f"flash-safe .ram_text contains calls: {rt_calls[:3]}")
     else:
         notes.append(f".ram_text: {len([ln for ln in rt.splitlines() if LINE.match(ln)])} insns, no calls")
     for ln in dis.splitlines():     # nothing may call or load an address in the chip ROM

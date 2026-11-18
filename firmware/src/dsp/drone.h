@@ -289,8 +289,10 @@ enum {
     DR_GHOST_TERRAIN_EXCITES_BODY,  /* 14: Terrain driven separate modal body */
     DR_NGHOSTMODES
 };
-void dr_ghost_mode_set(int mode);
-int dr_ghost_mode_get(void);
+void dr_ghost_mode_set(int mode); /* legacy endpoints: 5 or 14 */
+int dr_ghost_mode_get(void);      /* nearest endpoint (not full morph position) */
+void dr_ghost_blend_set(int amount);  /* session-only: 0 mode 5 .. 100 mode 14 */
+int dr_ghost_blend_get(void);
 /* Browser-only listening diagnostic: suppress direct parent audio *after*
  * it is generated but before GHOST and the shared FX mix. Not saved. */
 void dr_ghost_monitor_set(int ghost_only);

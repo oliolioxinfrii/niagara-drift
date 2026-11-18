@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# SEL+PRESETS is a session-only GHOST timbre morph, not a scene parameter.
+notips
+expect ghostblend 100
+expect ghostmode 14
+press SEL
+spin PRESET -100
+wait 60
+expect ghostblend 0
+expect ghostmode 5
+spin PRESET 1
+wait 60
+expect ghostblend >0
+expect ghostblend <100
+spin PRESET 100
+wait 60
+expect ghostblend 100
+expect ghostmode 14
+release SEL
+
+# The existing GHOST MIX is separate; selecting the reference or hybrid
+# renderer at build time does not change this control's range or mapping.
+set 112 50
+expect par112 50
+press SEL
+spin PRESET -100
+wait 60
+expect ghostblend 0
+expect par112 50
+release SEL
+
+# STRESS resets just the timbral morph to terrain-excited body.
+press SEL
+tap REC
+release SEL
+expect ghostblend 100
+expect ghostmode 14
+expect par112 50

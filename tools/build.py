@@ -206,7 +206,8 @@ def build_loader():
 
 def build_app():
     flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
-    for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_FX_CPU1", "OM_NOISE_CHUNK", "OM_FILTER_SPECIALIZE"):
+    for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_FX_CPU1", "OM_NOISE_CHUNK",
+                 "OM_FILTER_SPECIALIZE", "OM_GHOST_BLEND_REFERENCE"):
         v = os.environ.get(flag)    # unset: the default in firmware/src/main.c
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")

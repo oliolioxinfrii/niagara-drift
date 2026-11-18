@@ -494,8 +494,10 @@ static int expect(const char *what, const char *val)
         got = keymap_on();
     else if (!strcmp(what, "mtime"))              /* Gesture time, 0..100 (PRESETS; 50 as set, higher slower) */
         got = proj.mtime;
-    else if (!strcmp(what, "ghostmode"))            /* SEL+PRESETS listening mode */
+    else if (!strcmp(what, "ghostmode"))            /* nearest GHOST morph endpoint */
         got = dr_ghost_mode_get();
+    else if (!strcmp(what, "ghostblend"))           /* SEL+PRESETS internal timbre morph, 0..100 */
+        got = dr_ghost_blend_get();
     else if (!strcmp(what, "ghostmonitor"))         /* SEL+white Key 1: parent output removed */
         got = dr_ghost_monitor_get();
     else if (!strcmp(what, "ghostmute"))            /* SEL+white Key 2: GHOST output removed */

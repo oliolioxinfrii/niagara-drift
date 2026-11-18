@@ -2616,13 +2616,22 @@ static void input(void)
             global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
         }
     }
-    if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: experimental GHOST type */
+    if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: mode-5 -> mode-14 timbre */
         if (ui.btn >> B_SEL & 1u) {
-            /* This feasibility build has one fixed GHOST mode. */
+            int amount = dr_ghost_blend_get() + 2 * accel(EN_PRESET, e, 100);
+            dr_ghost_blend_set(amount);
+            amount = dr_ghost_blend_get();
             ui.btn_used |= 1u << B_SEL;
             ui.sel_turned = 1;
-            scopy(ui.glab[0], "GHOST TYPE");
-            scopy(ui.glab[1], "TERRAIN -> BODY");
+            scopy(ui.glab[0], "GHOST MORPH");
+            if (amount == 0)
+                scopy(ui.glab[1], "CROSS + BODY");
+            else if (amount == 100)
+                scopy(ui.glab[1], "TERRAIN > BODY");
+            else {
+                itoa_u((uint32_t)amount, ui.glab[1]);
+                scopy(ui.glab[1] + strlen(ui.glab[1]), "% TERRAIN");
+            }
             ui.glab_until = plat_ms() + 1500u;
             ui.act_t = plat_ms();
         } else {

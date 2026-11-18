@@ -1031,6 +1031,9 @@ static float ghost_wet_block[BLK];
 /* Independent diagnostic: keep GHOST synthesis live but suppress only its
  * direct contribution to the shared stereo mix (SEL+white Key 2). */
 static volatile uint8_t ghost_mute_req;
+static volatile uint8_t ghost_blend_req = 100u; /* SEL+PRESETS: 0 mode 5, 100 mode 14 */
+static float ghost_blend_now = 1.0f;            /* audio-thread-only slew */
+static uint8_t ghost_mode5_active;
 static float ghost_output_mix = 1.0f;
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
@@ -1107,7 +1110,9 @@ void dr_init(void)
     ghost_wet_mix = 0.0f;
     ghost_mute_req = 0u;
     ghost_output_mix = 1.0f;
+    ghost_blend_now = 1.0f;
     ghost_clear();
+    gh5_prepare(); /* cross-synth filter coefficients, once at initialization */
     q_r = q_w;
 }
 
@@ -2112,7 +2117,7 @@ typedef struct {
     float l[BLK], r[BLK];  /* parent dry stereo, then GHOST and FX in-place */
     float source_a[BLK], source_b[BLK], ghost_wet[BLK];
     float ghost_pitch[2];
-    uint8_t ghost_mute, ghost_active;
+    uint8_t ghost_mute, ghost_active, ghost_blend;
     int16_t par[DR_NPARAMS];
     float pfs[DR_NPARAMS], lfo[2][BLK / CR + 1];
     float fade, fade_target, ext_spb;
@@ -2306,6 +2311,7 @@ static void fx_c1_exchange(float *l, float *r, uint32_t n)
         s->ghost_pitch[0] = dr_pitch[0];
         s->ghost_pitch[1] = dr_pitch[1];
         s->ghost_mute = ghost_mute_req;
+        s->ghost_blend = ghost_blend_req;
         s->ghost_active = (pfs[P_GHOST] > 0.0f || ghost_wet_mix > 0.0f ||
                            ghost_wet_block[0] > 0.0f);
         fx_c1_snapshot(s);
@@ -3330,17 +3336,35 @@ static void clean_hold(float *l, float *r, uint32_t k)
 }
 
 /* ---------------------------------------------------------- GHOST ---
- * Single relational mode for dual-core feasibility measurements.
- * Mode 14 = Wave Terrain excites its own tuned eight-resonator body.
- * The other 14 selectable modes and engines are absent from this build.
+ * SEL+PRESETS continuously morphs original mode 5 (70% Cross-Synth,
+ * 30% Body) into mode 14 (Wave Terrain -> the same tuned modal body).
+ * The default hybrid shares one eight-resonator state; the compile-time
+ * reference uses independent banks and an ordinary output crossfade.
  */
 typedef struct { float in[2][2], power[2]; } ghost_t;
 static ghost_t ghost;
 #include "ghost_mode14.c"
+#ifndef OM_GHOST_BLEND_REFERENCE
+#define OM_GHOST_BLEND_REFERENCE 0
+#endif
+#include "ghost_mode5.c"
 static float ghost_comp_power;
-/* Preserve the numeric mode ID and API for UI, projects, and diagnostics. */
-void dr_ghost_mode_set(int mode) { (void)mode; }
-int dr_ghost_mode_get(void) { return DR_GHOST_TERRAIN_EXCITES_BODY; }
+/* This is a session control, not a saved scene/project parameter. The
+ * old mode API selects endpoints for test and diagnostic compatibility. */
+void dr_ghost_blend_set(int amount)
+{
+    ghost_blend_req = (uint8_t)(amount < 0 ? 0 : amount > 100 ? 100 : amount);
+}
+int dr_ghost_blend_get(void) { return ghost_blend_req; }
+void dr_ghost_mode_set(int mode)
+{
+    if (mode == DR_GHOST_CROSS_BODY) dr_ghost_blend_set(0);
+    if (mode == DR_GHOST_TERRAIN_EXCITES_BODY) dr_ghost_blend_set(100);
+}
+int dr_ghost_mode_get(void)
+{
+    return ghost_blend_req < 50u ? DR_GHOST_CROSS_BODY : DR_GHOST_TERRAIN_EXCITES_BODY;
+}
 void dr_ghost_monitor_set(int ghost_only) { ghost_monitor_req = ghost_only ? 1u : 0u; }
 int dr_ghost_monitor_get(void) { return ghost_monitor_req; }
 void dr_ghost_mute_set(int muted) { ghost_mute_req = muted ? 1u : 0u; }
@@ -3350,6 +3374,8 @@ static void ghost_clear(void)
 {
     dr_memset(&ghost, 0, sizeof ghost);
     gh14_reset();
+    gh5_reset();
+    ghost_mode5_active = 0u;
     ghost_comp_power = 0.0f;
 }
 static void ghost_input_sample(float u, float v)
@@ -3371,6 +3397,56 @@ static void ghost_input_flush(void)
     ghost.in[1][1] = fm_flush(ghost.in[1][1]);
     ghost.power[0] = fm_flush(ghost.power[0]);
     ghost.power[1] = fm_flush(ghost.power[1]);
+}
+/* Source-dependent timbral morph. At either endpoint the original
+ * endpoint signal equations are preserved. The hybrid uses ONE modal
+ * resonator bank; the reference variant computes two independent banks.
+ * Equal-power weights are a starting point, not loudness guarantees for
+ * correlated source-derived signals. The 75 ms slew avoids knob zippering.
+ * Only this function advances the synthesizer states, on the audio core. */
+static float ghost_morph_sample(float u, float v, float target)
+{
+    const float step = 1.0f / (0.075f * DR_SR);
+    float t, w5, w14, body_exc, cross, body, mode5, mode14;
+    ghost_blend_now = fm_clampf(target, ghost_blend_now - step, ghost_blend_now + step);
+    t = ghost_blend_now;
+    ghost_input_sample(u, v);
+    u = ghost.in[0][1];
+    v = ghost.in[1][1];
+    /* Keep mode-14's existing DSP cost and samples at the default 100%
+     * endpoint. No cross-synth work is performed there. */
+    if (t >= 1.0f) {
+        if (ghost_mode5_active) {
+            gh5_reset();
+            ghost_mode5_active = 0u;
+        }
+        return gh14_output(gh14_excited(gh14_terrain(u, v)));
+    }
+    ghost_mode5_active = 1u;
+    w5 = fm_sqrtf(1.0f - t);
+    w14 = fm_sqrtf(t);
+    body_exc = gh5_body_excitation(u, v);
+    cross = gh5_cross_synthesis(u, v);
+#if OM_GHOST_BLEND_REFERENCE
+    /* Mode-5 exact reference: independent body state and normalization.
+     * This is a post-synthesis equal-power crossfade, not a coupled voice. */
+    body = gh5_body_resonate(body_exc);
+    mode5 = gh5_mode5_output(body, cross);
+    mode14 = t > 0.0f ?
+             gh14_output(gh14_excited(gh14_terrain(u, v))) : 0.0f;
+#else
+    /* Hybrid: the same eight resonators evolve continuously as the
+     * excitation shifts from quadratic/cubic parent cross-products to
+     * the 2-D Wave Terrain. Cross-Synth fades out as terrain emerges. */
+    {
+        const float terrain_exc = t > 0.0f ?
+            0.82f * fm_tanhf(14.0f * gh14_terrain(u, v)) : 0.0f;
+        body = gh14_resonate(w5 * body_exc + w14 * terrain_exc);
+    }
+    mode5 = gh5_mode5_output(body, cross);
+    mode14 = gh14_output(body);
+#endif
+    return w5 * mode5 + w14 * mode14;
 }
 static float ghost_compress(float x)
 {
@@ -3418,8 +3494,7 @@ static void ghost_run_single(uint32_t n)
         const float u = xbuf[j] * pgain[0][j] * t0;
         const float v = ybuf[j] * pgain[1][j] * t1;
         float out;
-        ghost_input_sample(u, v);
-        out = gh14_output(gh14_excited(gh14_terrain(ghost.in[0][1], ghost.in[1][1])));
+        out = ghost_morph_sample(u, v, (float)ghost_blend_req * 0.01f);
         {
             const float target = ghost_mute_req ? 0.0f : 1.0f;
             const float step = 1.0f / (0.012f * DR_SR);
@@ -3433,6 +3508,7 @@ static void ghost_run_single(uint32_t n)
     }
     ghost_input_flush();
     gh14_finish(n);
+    if (ghost_mode5_active) gh5_finish(n);
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 
@@ -3457,8 +3533,8 @@ static void ghost_cpu1_mix(fx_c1_slot_t *s)
     gh14_tune(s->ghost_pitch[0], s->ghost_pitch[1]);
     for (j = 0; j < BLK; j++) {
         float out;
-        ghost_input_sample(s->source_a[j], s->source_b[j]);
-        out = gh14_output(gh14_excited(gh14_terrain(ghost.in[0][1], ghost.in[1][1])));
+        out = ghost_morph_sample(s->source_a[j], s->source_b[j],
+                                 (float)s->ghost_blend * 0.01f);
         ghost_output_mix = target < ghost_output_mix ?
             fm_maxf(ghost_output_mix - step, target) :
             fm_minf(ghost_output_mix + step, target);
@@ -3468,6 +3544,7 @@ static void ghost_cpu1_mix(fx_c1_slot_t *s)
     }
     ghost_input_flush();
     gh14_finish(BLK);
+    if (ghost_mode5_active) gh5_finish(BLK);
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 #endif

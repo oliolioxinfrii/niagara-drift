@@ -70,9 +70,10 @@ static float gh14_terrain(float u, float v)
     gh14_terrain_dc += 0.00018f * (gh14_terrain_lp - gh14_terrain_dc);
     return gh14_terrain_lp - gh14_terrain_dc;
 }
-static float gh14_excited(float raw_terrain)
+/* A single tuned resonator bank may receive either body excitation or
+ * terrain excitation; mode 14's original wrapper retains its equations. */
+static float gh14_resonate(float exc)
 {
-    const float exc = 0.82f * fm_tanhf(14.0f * raw_terrain);
     float out = 0.0f;
     uint32_t i;
     for (i = 0u; i < GH14_N; ++i) {
@@ -85,6 +86,10 @@ static float gh14_excited(float raw_terrain)
         out += (i < 4u ? 0.31f : 0.18f) * m[0];
     }
     return out;
+}
+static float gh14_excited(float raw_terrain)
+{
+    return gh14_resonate(0.82f * fm_tanhf(14.0f * raw_terrain));
 }
 static float gh14_output(float excited)
 {

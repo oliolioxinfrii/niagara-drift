@@ -7,7 +7,7 @@ M-VAVE FM-1 before hardware timing, antialiasing, and full system checks.
 The two parent drones, their sequencing and modulation, saved-project
 schema, common FX, and other panel assignments are unchanged.
 
-## Panel controls (Batch 2)
+## Panel controls (Batches 1–3)
 
 - **ALGORITHM** now controls **MOVEMENT** (0–100, existing overall LFO
   movement-depth scaling). This is a *control swap*, not a change to the
@@ -16,9 +16,10 @@ schema, common FX, and other panel assignments are unchanged.
   A level of zero mutes new GHOST excitation and output; scene persistence
   and old projects retain their parameter values.
 - **PRESETS** remains MORPH TIME.
-- **SEL + PRESETS** cycles five temporary comparison types:
+- **SEL + PRESETS** cycles seven temporary comparison types:
   `ORIGINAL`, `RESONANT BODY`, `WAVE TERRAIN`, `HETERODYNE`,
-  `CROSS-SYNTH`. The type is RAM-only, resets to Original on restart,
+  `CROSS-SYNTH`, `LIVE CONV`, `COUPLED FB`.
+  The type is RAM-only, resets to Original on restart,
   and crossfades over approximately 80 ms.
 - **SEL + white Key 1 (F3)** toggles **GHOST ONLY / FULL MIX** by
   removing just the parent drones' contribution to the pre-effects mix.
@@ -40,8 +41,10 @@ to decay for reliable A/B tests.
 | Original | Existing cubic/quadratic intermodulation (unchanged) | Reference: complex warbling and broad nonlinear products |
 | Resonant Body | Eight damped modes driven by quadratic/cubic cross-products, with pitch-related and one inharmonic resonance | Sympathetic vibrations and a coherent sustained presence |
 | Wave Terrain | Non-separable curved 2-D wave surface; mixed finite difference removes either source's isolated contribution | Relational nonlinear colors, restrained harmonic transformation |
-| **Heterodyne** | **NEW:** three pitch-tracked complex partial filters on each parent, then selected products `x_i * conj(y_j)` | A small set of identifiable, often low difference-frequency tones without the equivalent upper sum products |
-| **Cross-Synth** | **NEW:** two twelve-band spectral filterbanks; each parent's band excitation is recolored by the other parent's measured spectral envelopes, then both directions are combined | Spectral transplantation and evolving harmonic structure, not simply polynomial distortion |
+| **Heterodyne** | Three pitch-tracked complex partial filters on each parent, then selected products `x_i * conj(y_j)` | A small set of identifiable, often low difference-frequency tones without the equivalent upper sum products |
+| **Cross-Synth** | Two twelve-band spectral filterbanks; each parent's band excitation is recolored by the other parent's measured spectral envelopes, then both directions are combined | Spectral transplantation and evolving harmonic structure, not simply polynomial distortion |
+| **Live Convolution** | **Batch 3:** Each parent convolves with a short evolving impulse response captured from the other drone; true 512-tap bidirectional FIR convolution implemented using 1024-point FFT overlap-save | A spectral and temporal imprint: moving resonances, texture and a sense of an evolving acoustic medium |
+| **Coupled Feedback** | **Batch 3:** Two parent-excited delay networks cross-modulate their bounded feedback; only the cross-response is heard | Interacting memory, shifting beats, nonlinear and possibly unstable-sounding movement without actual self-oscillation |
 
 The new Batch 2 implementation is `firmware/src/dsp/ghost_batch2.c`,
 included by the existing `drone.c` compilation unit. No extra
@@ -92,17 +95,60 @@ source-relative gain calibration (nominal 56% and 48% of the parents'
 combined RMS at full GHOST level) before the shared GHOST compressor.
 The two drones and the sequencer are untouched.
 
+### Batch 3: Live Convolution
+
+`firmware/src/dsp/ghost_batch3.c` adds an independent moving-IR convolution
+engine. At every 512 input samples (~11.6 ms), the most recent block of
+each performed drone becomes a 512-tap, decaying impulse response for the
+*other* drone. The responses are smoothed between blocks (70% retained,
+30% newly captured). The captured response retains the donor's amplitude;
+it is **not normalized into an always-on filter**.
+
+The two actual, full convolutions are computed by complex spectral
+multiplication and 1024-point radix-2 inverse FFT using overlap-save.
+These are full products of the source and response transforms, not the
+partial/bin-selected intermodulation of the earlier Spectral experiment.
+The two convolution directions are averaged. This introduces approximately
+one 512-sample block of processing latency and finite IR memory.
+
+A signal from only one drone may leave a short residual as an existing
+response decays, but it cannot continually generate new GHOST output
+without the other source. Convolution can emphasize shared spectral
+content: if the drones have very different fundamentals or spectral
+structures, the response may be weak. The moving, shortened IR keeps
+broader contributions than a long, isolated sinusoidal IR.
+
+### Batch 3: Coupled Feedback
+
+Two driven delay loops have principal delays of 1207 and 1889 samples
+(~27.4 ms and ~42.8 ms), plus secondary taps. Their per-sample
+feedback coefficients are modulated by the opposite loop's signal;
+the cross-signal is **not** used as a separate drive. Every audible
+output term contains a factor from *both* loops.
+
+The feedback network is contractive in the absence of sources:
+the maximum feedback coefficient is 0.85, and the secondary tap
+contributes at most 0.08 (sum below 1). Saturation is bounded by
+`tanh`. Thus it can ring and behave irregularly while excited, but
+it cannot sustain a self-running oscillator after the sources stop.
+A low-pass and DC remover condition the resulting cross-dependent signal.
+
+The Batch 3 modes have separate source-relative gain calibration
+(nominal targets 58% for Live Convolution and 52% for Coupled Feedback
+at GHOST 100) and feed the same shared GHOST compressor. These are
+relative electrical targets, not validated loudness equivalence.
+
 ## Validation and status
 
-`tests/host/drone_test.c` now checks all five modes for an output
+`tests/host/drone_test.c` now checks all seven modes for an output
 difference relative to a GHOST-off reference, distinct results, and
 a requirement for two active parents. It also checks Resonant Body
 levels 0, 50 and 100, and both isolated output-monitor shortcuts.
-`tests/scenarios/volcano-ghost.omni` checks five-mode selector
+`tests/scenarios/volcano-ghost.omni` checks seven-mode selector
 wraparound, the swapped ALGORITHM assignments, saved GHOST level, and
 independent monitor toggles.
 
-The algorithms are intentionally **not optimized**: all five DSP paths
+The algorithms are intentionally **not optimized**: all seven DSP paths
 are computed while GHOST is active, so crossfades can transition
 immediately and every mode's calibrator has a stable history.
 The earlier `ghost_fft.c` remains an unreferenced experiment and is

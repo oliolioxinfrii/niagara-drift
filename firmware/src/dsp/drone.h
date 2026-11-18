@@ -265,18 +265,29 @@ const dr_param_t *dr_param_info(int i);
 void dr_param_text(int i, int v, char *buf);   /* the value as the screen shows it (12 bytes) */
 
 /* commands (main loop -> render) */
-/* Simulator comparison: transient GHOST algorithms, not stored in scenes.
- * The voice must derive from both audible drones, never a third oscillator.
- * 0 Original (cubic/quadratic cross-intermodulation)
- * 1 Resonant Body (8 driven, damped, pitch-related modes)
- * 2 Wave Terrain (non-separable 2D cross-dependent surface)
- * 3 Heterodyne (selected complex difference partials)
- * 4 Cross-Synth (reciprocal 12-band spectral-envelope exchange)
- * 5 Live Convolution (time-varying 512-tap bidirectional FIR convolution)
- * 6 Coupled Feedback (two damped mutually modulated delay loops). */
-enum { DR_GHOST_ORIGINAL, DR_GHOST_BODY, DR_GHOST_TERRAIN,
-       DR_GHOST_HETERODYNE, DR_GHOST_CROSS_SYNTH,
-       DR_GHOST_CONVOLUTION, DR_GHOST_FEEDBACK, DR_NGHOSTMODES };
+/* Experimental GHOST selector, RAM-only (never stored in scenes).
+ * The five engines are relational to both parent drones. Modes 5-12
+ * combine their normal outputs; 13 frequency-splits the body/terrain;
+ * 14 drives a separate bank of body resonators with terrain excitation.
+ * Original intermodulation and Live Convolution have been retired. */
+enum {
+    DR_GHOST_BODY,                  /* 0: Resonant Body */
+    DR_GHOST_TERRAIN,               /* 1: Wave Terrain */
+    DR_GHOST_HETERODYNE,            /* 2: Heterodyne */
+    DR_GHOST_CROSS_SYNTH,           /* 3: Cross-Synth */
+    DR_GHOST_FEEDBACK,              /* 4: Coupled Feedback */
+    DR_GHOST_CROSS_BODY,            /* 5: 70% Cross-Synth + 30% Body */
+    DR_GHOST_CROSS_TERRAIN,         /* 6: 70% Cross-Synth + 30% Terrain */
+    DR_GHOST_CROSS_FEEDBACK,        /* 7: 70% Cross-Synth + 30% Feedback */
+    DR_GHOST_TERRAIN_BODY,          /* 8: 60% Terrain + 40% Body */
+    DR_GHOST_BODY_FEEDBACK,         /* 9: 65% Body + 35% Feedback */
+    DR_GHOST_CROSS_HETERODYNE,      /* 10: 70% Cross-Synth + 30% Heterodyne */
+    DR_GHOST_CROSS_BODY_FEEDBACK,   /* 11: 55% Cross + 30% Body + 15% Feedback */
+    DR_GHOST_CROSS_TERRAIN_BODY,    /* 12: 50% Cross + 30% Terrain + 20% Body */
+    DR_GHOST_SPLIT_BODY_TERRAIN,    /* 13: Body lows + Terrain highs */
+    DR_GHOST_TERRAIN_EXCITES_BODY,  /* 14: Terrain driven separate modal body */
+    DR_NGHOSTMODES
+};
 void dr_ghost_mode_set(int mode);
 int dr_ghost_mode_get(void);
 /* Browser-only listening diagnostic: suppress direct parent audio *after*

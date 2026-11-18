@@ -21,11 +21,9 @@ run() {
     fi
 }
 run fastmath sh -c "$CC -O2 -ffp-contract=off -Wall -Wextra -Werror -o $OUT/fastmath_test tests/host/fastmath_test.c -lm && $OUT/fastmath_test"
-# Retained coupled-feedback and fifteen-way experimental GHOST blend tests.
-run ghost-batch3 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror \
-    -o $OUT/ghost_batch3_test tests/host/ghost_batch3_test.c -lm && $OUT/ghost_batch3_test"
-run ghost-blends sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror \
-    -o $OUT/ghost_blends_test tests/host/ghost_blends_test.c -lm && $OUT/ghost_blends_test"
+# Mode-14-only DSP; the 15-way listening experiments remain on their original branch.
+run ghost-mode14 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror \
+    -o $OUT/ghost_mode14_test tests/host/ghost_mode14_test.c -lm && $OUT/ghost_mode14_test"
 run flash-id sh -c "$CC -O2 -Wall -Wextra -Werror -Ifirmware/hal -o $OUT/flash_id_test tests/host/flash_id_test.c && $OUT/flash_id_test"
 run encoder sh -c "$CC -O2 -w -Ifirmware/hal -o $OUT/encoder_test tests/host/encoder_test.c && $OUT/encoder_test"
 run uac sh -c "$CC -O2 -w -Ifirmware/src -Ifirmware/hal -o $OUT/uac_test tests/host/uac_test.c -lm && $OUT/uac_test"

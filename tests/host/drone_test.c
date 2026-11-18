@@ -2129,106 +2129,14 @@ int main(void)
         }
     }
 
-    {   /* Batches 1–3: each mode must yield its own audible relational signal.
-         * Capture a dry reference at mix zero and each algorithm with
-         * the parents' DIRECT OUTPUT monitored out at mix 100.
-         * Do not mistake dry-signal removal for GHOST energy.
-         * Then turn drone II off to verify no spurious GHOST excitation. */
-        static float baseline[8192], modes[DR_NGHOSTMODES][8192];
-        static float one_parent[2][8192];
-        int m, k, j, independent = 1, audible = 1, dependent = 1;
-        for (m = -1; m < DR_NGHOSTMODES; m++) {
-            dry_init();
-            dr_set(P_FADE, 0);
-            dr_set(P_DRIFT, 0);
-            dr_set(P_WIDTH, 0);
-            dr_set(P_PULSE, 0);   /* steady reference, no pulse-gate null */
-            dr_set(P_FEEDBACK, 0);
-            dr_set(P_DLY_DRIVE, 0);
-            dr_set(P_CHAR, 0);
-            for (k = 0; k < 2; k++) {
-                dr_set(DR_GP(k, GP_PARTNER), 0);
-                dr_set(DR_GP(k, GP_MIX), 0);
-                dr_set(DR_GP(k, GP_WAVE), 0);
-                dr_set(DR_GP(k, GP_RESO), 0);
-                dr_set(DR_GP(k, GP_CUTOFF), 1000);
-                dr_set(DR_GP(k, GP_LEVEL), 80);
-            }
-            dr_set(DR_GP(0, GP_PITCH), 4100);
-            dr_set(DR_GP(1, GP_PITCH), 5900);
-            dr_set(P_GHOST, m < 0 ? 0 : 100);
-            if (m >= 0) {
-                dr_ghost_mode_set(m);
-                dr_ghost_monitor_set(1);
-            }
-            dr_play(1);
-            run(secs(3.0f));
-            capture(m < 0 ? baseline : modes[m], 8192, 0);
-            if (m >= 0) independent &= dr_ghost_mode_get() == m;
-        }
-        for (m = 0; m < DR_NGHOSTMODES; m++) {
-            float effect = 0.0f, difference = 0.0f;
-            const float dry_rms = rms_of(baseline, 8192);
-            for (k = 0; k < 8192; k++) {
-                const float v = modes[m][k];
-                effect += v*v;
-                if (m) {
-                    const float d = modes[m][k] - modes[0][k];
-                    difference += d*d;
-                }
-            }
-            const float effect_rms = sqrtf(effect / 8192.0f);
-            printf("    GHOST mode %d effect RMS %.6f (%5.1f %% of dry)\n",
-                   m, (double)effect_rms,
-                   (double)(100.0f * effect_rms/(dry_rms+1e-9f)));
-            /* Real ghost-only output at full wet, with an upper bound
-             * allowing the requested post-compressor makeup gain. */
-            audible &= effect_rms > 0.025f*dry_rms &&
-                       effect_rms < 3.5f*dry_rms;
-            if (m)
-                independent &= difference > 0.0001f;
-            for (j = 0; j < 2; j++) {
-                /* Both runs have drone II muted; their ONLY difference
-                 * is whether the GHOST audio output is muted. */
-                dry_init();
-                dr_set(P_FADE, 0); dr_set(P_DRIFT, 0); dr_set(P_WIDTH, 0);
-                dr_set(P_PULSE, 0); dr_set(P_FEEDBACK, 0);
-                dr_set(P_DLY_DRIVE, 0); dr_set(P_CHAR, 0);
-                for (k = 0; k < 2; k++) {
-                    dr_set(DR_GP(k, GP_PARTNER), 0);
-                    dr_set(DR_GP(k, GP_MIX), 0);
-                    dr_set(DR_GP(k, GP_WAVE), 0);
-                    dr_set(DR_GP(k, GP_RESO), 0);
-                    dr_set(DR_GP(k, GP_CUTOFF), 1000);
-                    dr_set(DR_GP(k, GP_LEVEL), k ? 0 : 80);
-                }
-                dr_set(DR_GP(0, GP_PITCH), 4100);
-                dr_set(DR_GP(1, GP_PITCH), 5900);
-                dr_set(P_GHOST, 100);
-                dr_ghost_monitor_set(1);
-                dr_ghost_mute_set(j == 0);
-                dr_ghost_mode_set(m);
-                dr_play(1);
-                run(secs(2.0f));
-                capture(one_parent[j], 8192, 0);
-            }
-            {
-                float absent = 0.0f;
-                for (k = 0; k < 8192; k++) {
-                    const float d = one_parent[1][k] - one_parent[0][k];
-                    absent += d*d;
-                }
-                printf("    GHOST mode %d one-parent RMS %.8f\n",
-                       m, (double)sqrtf(absent/8192.0f));
-                dependent &= absent < 1e-7f;
-            }
-        }
-        check("GHOST all fifteen modes measurably present at 100", audible);
-        check("GHOST fifteen algorithms independently affect sound", independent);
-        check("GHOST all fifteen modes require BOTH drones", dependent);
+    {   /* The proof-of-concept has exactly one GHOST engine. */
+        int original = dr_ghost_mode_get();
+        dr_ghost_mode_set(DR_GHOST_BODY);
+        check("GHOST fixed to Terrain -> Body", original == DR_GHOST_TERRAIN_EXCITES_BODY &&
+              dr_ghost_mode_get() == DR_GHOST_TERRAIN_EXCITES_BODY);
         dr_init();
-        check("GHOST mode resets to Resonant Body on startup",
-              dr_ghost_mode_get() == DR_GHOST_BODY);
+        check("GHOST mode 14 persists across initialization",
+              dr_ghost_mode_get() == DR_GHOST_TERRAIN_EXCITES_BODY);
     }
 
     {   /* Complementary monitors with the GHOST knob acting as a mix.
@@ -2264,7 +2172,7 @@ int main(void)
              * 7: mix50 GHOST muted (equal-power dry coefficient). */
             dr_set(P_GHOST, m == 0 || m == 1 ? 0 :
                              m == 6 ? 100 : m == 7 ? 50 : 75);
-            dr_ghost_mode_set(DR_GHOST_TERRAIN);
+            dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
             check("GHOST diagnostic gates reset on startup",
                   !dr_ghost_monitor_get() && !dr_ghost_mute_get());
             dr_ghost_monitor_set(m == 1 || m == 2 || m == 3);
@@ -2304,7 +2212,7 @@ int main(void)
               !dr_ghost_monitor_get() && !dr_ghost_mute_get());
     }
 
-    {   /* Resonant Body level still has a true zero, and 100 produces
+    {   /* Terrain-to-Body level still has a true zero, and 100 produces
          * more output than 50 after the gain-boost change. In both cases
          * the drones remain active but are removed from the audible mix. */
         float levels[3];
@@ -2325,15 +2233,15 @@ int main(void)
             dr_set(DR_GP(0, GP_PITCH), 4100);
             dr_set(DR_GP(1, GP_PITCH), 5900);
             dr_set(P_GHOST, m == 0 ? 0 : m == 1 ? 50 : 100);
-            dr_ghost_mode_set(DR_GHOST_BODY);
+            dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
             dr_ghost_monitor_set(1);
             dr_play(1);
             run(secs(3.0f));
             levels[m] = rms();
         }
-        printf("    Resonant Body GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
+        printf("    Terrain->Body GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
                (double)levels[0], (double)levels[1], (double)levels[2]);
-        check("Resonant Body remains silent at zero and grows toward 100",
+        check("Terrain->Body silent at zero and grows toward 100",
               levels[0] < 0.000001f &&
               levels[1] > 0.0005f &&
               levels[2] > 1.25f * levels[1]);

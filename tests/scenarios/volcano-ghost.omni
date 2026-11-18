@@ -3,48 +3,15 @@
 notips
 expect par112 0
 expect par75 50
-expect ghostmode 0
+expect ghostmode 14
 expect ghostmonitor 0
 expect ghostmute 0
 spin PRESET 1
-expect ghostmode 0
-press SEL
-# Multi-detent emulator drag still counts as exactly one selection.
-spin PRESET 4
-expect ghostmode 1
-spin PRESET 1
-expect ghostmode 2
-spin PRESET 1
-expect ghostmode 3
-spin PRESET 1
-expect ghostmode 4
-spin PRESET 1
-expect ghostmode 5
-spin PRESET 1
-expect ghostmode 6
-spin PRESET 1
-expect ghostmode 7
-spin PRESET 1
-expect ghostmode 8
-spin PRESET 1
-expect ghostmode 9
-spin PRESET 1
-expect ghostmode 10
-spin PRESET 1
-expect ghostmode 11
-spin PRESET 1
-expect ghostmode 12
-spin PRESET 1
-expect ghostmode 13
-spin PRESET 1
 expect ghostmode 14
-spin PRESET 1
-expect ghostmode 0
-spin PRESET -1
+press SEL
+spin PRESET 4
 expect ghostmode 14
 spin PRESET -4
-expect ghostmode 13
-spin PRESET 8
 expect ghostmode 14
 release SEL
 
@@ -99,6 +66,6 @@ wait 150
 reboot
 expect par112 70
 expect par75 50
-expect ghostmode 0
+expect ghostmode 14
 expect ghostmonitor 0
 expect ghostmute 0

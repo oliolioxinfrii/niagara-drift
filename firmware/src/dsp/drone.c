@@ -3148,7 +3148,7 @@ static void ghost_run(uint32_t n)
     const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
     uint32_t j;
-    if (balance <= 0.0f && ghost_wet_mix <= 0.0f) {
+    if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
         /* Dry endpoint: preserve exactly the pre-GHOST instrument audio.
          * Once the wet mix ramp reaches zero, free all GHOST state. */
         ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;

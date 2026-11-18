@@ -1005,6 +1005,11 @@ static void ghost_clear(void);                   /* the third-order cross-intera
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
 static float ghost_parent_mix = 1.0f;
+/* GHOST is a crossfader between the generated parent pair and the
+ * relational voice. This is downstream of all oscillators and source
+ * filters; source excitation therefore remains independent of mix. */
+static float ghost_dry_mix = 1.0f, ghost_wet_mix = 0.0f;
+static float ghost_wet_block[BLK];
 /* Independent diagnostic: keep GHOST synthesis live but suppress only its
  * direct contribution to the shared stereo mix (SEL+white Key 2). */
 static volatile uint8_t ghost_mute_req;
@@ -1076,6 +1081,8 @@ void dr_init(void)
     dr_ghost_mode_set(DR_GHOST_ORIGINAL);
     ghost_monitor_req = 0u;
     ghost_parent_mix = 1.0f;
+    ghost_dry_mix = 1.0f;
+    ghost_wet_mix = 0.0f;
     ghost_mute_req = 0u;
     ghost_output_mix = 1.0f;
     ghost_clear();
@@ -3138,12 +3145,12 @@ static float ghost_compress(float x)
 }
 static void ghost_run(uint32_t n)
 {
-    const float amount = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+    const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
     uint32_t j;
-    if (amount <= 0.0f) {
-        /* When the level is zero, settle the diagnostic output gate too.
-         * Turning GHOST up while muted must not leak an initial 12-ms pulse. */
+    if (balance <= 0.0f && ghost_wet_mix <= 0.0f) {
+        /* Dry endpoint: preserve exactly the pre-GHOST instrument audio.
+         * Once the wet mix ramp reaches zero, free all GHOST state. */
         ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;
         ghost_clear();
         return;
@@ -3197,7 +3204,10 @@ static void ghost_run(uint32_t n)
                 fm_maxf(ghost_output_mix - step, target) :
                 fm_minf(ghost_output_mix + step, target);
         }
-        out = ghost_compress(out) * amount * ghost_output_mix;
+        /* Additional +4.6 dB GHOST makeup *after* the compressor.
+         * Equal-power mixing gives the wet signal sufficient presence at
+         * intermediate positions while leaving the dry endpoint bit-exact. */
+        out = ghost_compress(out) * 1.70f * ghost_wet_block[j] * ghost_output_mix;
         mixl[j] += out;
         mixr[j] += out;
     }
@@ -3256,19 +3266,29 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                 v->slide = v->lslide = 0.0f;
             }
         }
-        /* Diagnostic GHOST-only monitor: suppress only the drones' stereo
-         * contribution, NOT their voice generation, xbuf/ybuf, envelopes,
-         * modulation, sequencer, or GHOST excitation. A 12-ms crossfade
-         * prevents a click when SEL+Key1 changes monitor mode. */
+        /* Equal-power dry/wet crossfade: 0 = unchanged parent pair,
+         * 50 = equal coefficients, 100 = GHOST only. Unlike muting the
+         * parent voices, this operates only on the completed output mix.
+         * Smooth both weights for 20 ms; save wet weights for ghost_run().
+         * SEL+Key1 remains an independent parent-only monitor gate. */
         {
-            const float target = ghost_monitor_req ? 0.0f : 1.0f;
-            const float step = 1.0f / (0.012f * DR_SR);
+            const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+            const float dry_to = fm_sqrtf(1.0f - balance);
+            const float wet_to = fm_sqrtf(balance);
+            const float mix_step = 1.0f / (0.020f * DR_SR);
+            const float monitor_to = ghost_monitor_req ? 0.0f : 1.0f;
+            const float monitor_step = 1.0f / (0.012f * DR_SR);
             for (j = 0; j < k; ++j) {
-                ghost_parent_mix = target < ghost_parent_mix ?
-                    fm_maxf(ghost_parent_mix - step, target) :
-                    fm_minf(ghost_parent_mix + step, target);
-                mixl[j] *= ghost_parent_mix;
-                mixr[j] *= ghost_parent_mix;
+                ghost_dry_mix = fm_clampf(dry_to, ghost_dry_mix - mix_step,
+                                         ghost_dry_mix + mix_step);
+                ghost_wet_mix = fm_clampf(wet_to, ghost_wet_mix - mix_step,
+                                         ghost_wet_mix + mix_step);
+                ghost_parent_mix = fm_clampf(monitor_to,
+                                             ghost_parent_mix - monitor_step,
+                                             ghost_parent_mix + monitor_step);
+                ghost_wet_block[j] = ghost_wet_mix;
+                mixl[j] *= ghost_dry_mix * ghost_parent_mix;
+                mixr[j] *= ghost_dry_mix * ghost_parent_mix;
             }
         }
         ghost_run(k);                             /* into the same stereo space and FX */

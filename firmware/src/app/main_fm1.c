@@ -421,6 +421,7 @@ static void splash(void)
 static int ghost_c1_submit(void (*fn)(uint32_t), uint32_t n) { return fm1_cpu1_run(fn, n); }
 static int ghost_c1_is_busy(void) { return fm1_cpu1_busy(); }
 static int ghost_c1_await(void) { return fm1_cpu1_wait(); }
+static void ghost_c1_abort(void) { fm1_cpu1_retire(FM1_CPU1_LATE); }
 #endif
 
 static void fm1_main(void)
@@ -480,7 +481,7 @@ static void fm1_main(void)
         while (*s) hash = (hash ^ (uint8_t)*s++) * 16777619u;
         fm1_cpu1_bar_build(hash);
         if (fm1_cpu1_start() == 0)
-            dr_ghost_cpu1_bind(ghost_c1_submit, ghost_c1_is_busy, ghost_c1_await);
+            dr_ghost_cpu1_bind(ghost_c1_submit, ghost_c1_is_busy, ghost_c1_await, ghost_c1_abort);
     }
 #endif
     audio_init();

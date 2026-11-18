@@ -3148,6 +3148,7 @@ static struct {
 static int (*ghost_c1_run)(void (*fn)(uint32_t), uint32_t);
 static int (*ghost_c1_busy)(void);
 static int (*ghost_c1_wait)(void);
+static void (*ghost_c1_abort)(void);
 static uint8_t ghost_c1_pending, ghost_c1_retired;
 static uint32_t ghost_c1_jobs, ghost_c1_missed, ghost_c1_faults;
 static uint32_t ghost_c1_max_ticks, ghost_c1_avg_ticks;
@@ -3176,11 +3177,12 @@ static void ghost_cpu1_job(uint32_t n)
 }
 
 void dr_ghost_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
-                       int (*busy)(void), int (*wait)(void))
+                       int (*busy)(void), int (*wait)(void), void (*abort)(void))
 {
     ghost_c1_run = run;
     ghost_c1_busy = busy;
     ghost_c1_wait = wait;
+    ghost_c1_abort = abort;
     ghost_c1_pending = 0;
     ghost_c1_retired = 0;
     ghost_c1_jobs = ghost_c1_missed = ghost_c1_faults = 0;
@@ -3207,6 +3209,15 @@ static void ghost_run_cpu1(uint32_t n)
          * Preserve both buffers until the previous job completes. */
         if (ghost_c1_busy()) {
             ghost_c1_missed++;
+            /* CPU1 took longer than the previous block: never block CPU0
+             * to wait for it. A third missed exchange retires this worker
+             * using the platform's nonblocking core-hold path. */
+            if (ghost_c1_missed >= 3u && ghost_c1_abort) {
+                ghost_c1_abort();
+                ghost_c1_pending = 0u;
+                ghost_c1_retired = 1u;
+                ghost_c1_faults++;
+            }
             return;
         }
         if (ghost_c1_wait()) {

@@ -28,6 +28,12 @@ SECTIONS
     .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM
     .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL
     .noinit (NOLOAD) : { *(.noinit*) } > NOINIT
+    /* Dedicated transient shared scratch in high SRAM. It follows NOINIT
+     * without shifting any persistent crash/boot records. Linker enforces
+     * the 0x01C7FD50 boot/mailbox/vector boundary. */
+    .c1_shared (NOLOAD) : { . = ALIGN(32); _c1_shared_start = .;
+                            *(.c1_shared*) . = ALIGN(4);
+                            _c1_shared_end = .; } > NOINIT
     _guard0 = 0x01C74000; _ustack_lo = 0x01C74100; _ustack_top = 0x01C7A000;
     _guard1 = 0x01C7A000; _sstack_lo = 0x01C7A100; _sstack_top = 0x01C7C000;
     /DISCARD/ : { *(.comment) *(.note*) }

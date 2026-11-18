@@ -3144,7 +3144,11 @@ static struct {
     float pitch[2];
     uint32_t mute;
     volatile uint32_t ticks;
-} ghost_c1 __attribute__((section(".pool"), aligned(32)));
+/* The regular pool is almost full from FX delay lines. Use the separately
+ * bounded high-SRAM region, after persistent crash/boot records and below
+ * the reserved mailbox/vector area. fm1_cstart explicitly zeros this area
+ * before starting CPU1; it must not acquire .noinit persistence semantics. */
+} ghost_c1 __attribute__((section(".c1_shared"), aligned(32)));
 static int (*ghost_c1_run)(void (*fn)(uint32_t), uint32_t);
 static int (*ghost_c1_busy)(void);
 static int (*ghost_c1_wait)(void);

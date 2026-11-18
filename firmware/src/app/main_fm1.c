@@ -5,6 +5,9 @@
  * 10 kHz), audio (ALNK0), USB; then the main loop: UI at ~60 frames/s, input polled in between. */
 extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
 extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[];
+#if OM_GHOST_CPU1
+extern uint32_t _c1_shared_start[], _c1_shared_end[];
+#endif
 
 /* --------------------------------------------------------------- audio --- */
 /* Felucca's 256-frame halves (5.8 ms): FoMni's render is light, and a strum wants the short latency */
@@ -598,6 +601,12 @@ void fm1_cstart(void)
         *d = 0;
     for (d = _pool_start; d < _pool_end; d++)
         *d = 0;
+#if OM_GHOST_CPU1
+    /* .c1_shared uses high SRAM (after .noinit) but is transient and must
+     * be cleared at each boot before the CPU1 worker can see any jobs. */
+    for (d = _c1_shared_start; d < _c1_shared_end; d++)
+        *d = 0;
+#endif
     for (s = _data_load, d = _data_start; d < _data_end; s++, d++)
         *d = *s;
     for (s = _rt_load, d = _rt_start; d < _rt_end; s++, d++)

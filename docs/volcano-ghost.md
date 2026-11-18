@@ -18,6 +18,12 @@ are excluded from the compiled engine and removed from this branch.
 
 ## CPU1 proof-of-concept design
 
+The 4,112-byte CPU1 audio mailbox payload is allocated in dedicated
+`.c1_shared` high SRAM, after persistent `.noinit` records and below the
+reserved boot/vector region. Firmware startup clears this transient section.
+This avoids exhausting the ordinary DSP/effects `.pool` headroom while
+preserving its 8-KiB minimum safety margin.
+
 The `OM_GHOST_CPU1=1` build (opt-in) enables the guarded CPU1 worker
 adapted from Arctic Scream / felucca-bsp, with a checksum mailbox,
 dedicated stack, fault retirement, startup guard and flash-XIP safety.

@@ -7,7 +7,7 @@
  *   KNOB 1-2       drone I's two values on the page shown, KNOB 3-4 drone II's; the Drones page (HOME):
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
- *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT (SEL+ALGORITHM: GHOST level)
+ *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT (SEL+ALGORITHM: GHOST MIX)
  *   PRESETS        MORPH TIME: gesture depth and clock return timing; SEL+PRESETS cycles GHOST tests
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
@@ -2567,7 +2567,7 @@ static void input(void)
         if (ui.btn >> B_SEL & 1u) {
             ui.btn_used |= 1u << B_SEL;
             ui.sel_turned = 1;
-            global_turn(EN_ALGO, P_GHOST, "GHOST", e);
+            global_turn(EN_ALGO, P_GHOST, "GHOST MIX", e);
         } else {
             global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
         }

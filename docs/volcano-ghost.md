@@ -77,8 +77,8 @@ Notation: **B** Resonant Body, **T** Wave Terrain, **H** Heterodyne,
 | 9 | BODY + FB | 65% B + 35% F |
 | 10 | CROSS + HETERO | 70% C + 30% H |
 | 11 | CROSS/BODY/FB | 55% C + 30% B + 15% F |
-| 12 | CROSS/TERRAIN/BODY | 50% C + 30% T + 20% B |
-| 13 | LOW BODY/HIGH TERR | Low-pass B + high-pass T, crossover ~350 Hz |
+| 12 | CROSS/TERR/BODY | 50% C + 30% T + 20% B |
+| 13 | BODY LO/TERR HI | Low-pass B + high-pass T, crossover ~350 Hz |
 | 14 | TERRAIN -> BODY | Wave Terrain excites a separate eight-mode resonator bank |
 
 The percentages are **linear mixture coefficients**. They do not

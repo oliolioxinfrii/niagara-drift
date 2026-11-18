@@ -12,6 +12,10 @@
 #define BARRIER() __asm__ volatile("" ::: "memory")
 #define CR 16u                                  /* control rate: one update every 16 samples */
 #define BLK 256u
+#ifndef OM_GHOST_CPU1
+#define OM_GHOST_CPU1 0     /* isolated experiment: opt in with OM_GHOST_CPU1=1 */
+#endif
+
 
 /* Freestanding STILL clock memory operations. The compiler barrier prevents
  * conversion into implicit libc calls in the embedded toolchain. */
@@ -3091,7 +3095,7 @@ static float ghost_compress(float x)
     return x * g;
 }
 
-static void ghost_run(uint32_t n)
+static void ghost_run_single(uint32_t n)
 {
     const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
@@ -3122,6 +3126,140 @@ static void ghost_run(uint32_t n)
     ghost_input_flush();
     gh14_finish(n);
     ghost_comp_power = fm_flush(ghost_comp_power);
+}
+
+#if OM_GHOST_CPU1 && !defined(OM_HOST)
+/* CPU0 publishes one complete GHOST job at a time, CPU1 owns all
+ * GHOST DSP state. This proof-of-concept mixes the previously completed
+ * GHOST block with current parent audio. It therefore introduces 256
+ * samples (~5.8 ms) of relative GHOST delay. Not audio-equivalent to
+ * the single-core reference: validate headroom before redesigning
+ * phase-aligned rendering and feedback timing.
+ *
+ * The audio payload is shared SRAM, NOT serialized over any peripheral.
+ * The mailbox worker supplies csync publish/complete barriers.
+ */
+static struct {
+    float a[BLK], b[BLK], wet[BLK], out[BLK];
+    float pitch[2];
+    uint32_t mute;
+    volatile uint32_t ticks;
+} ghost_c1 __attribute__((section(".pool"), aligned(32)));
+static int (*ghost_c1_run)(void (*fn)(uint32_t), uint32_t);
+static int (*ghost_c1_busy)(void);
+static int (*ghost_c1_wait)(void);
+static uint8_t ghost_c1_pending, ghost_c1_retired;
+static uint32_t ghost_c1_jobs, ghost_c1_missed, ghost_c1_faults;
+static uint32_t ghost_c1_max_ticks, ghost_c1_avg_ticks;
+/* The platform exposes Timer4, shared by both cores. */
+extern uint32_t dr_ghost_cpu1_ticks(void);
+
+static void ghost_cpu1_job(uint32_t n)
+{
+    uint32_t j, t0 = dr_ghost_cpu1_ticks();
+    const float step = 1.0f / (0.012f * DR_SR);
+    const float target = ghost_c1.mute ? 0.0f : 1.0f;
+    gh14_tune(ghost_c1.pitch[0], ghost_c1.pitch[1]);
+    for (j = 0; j < n; j++) {
+        float out;
+        ghost_input_sample(ghost_c1.a[j], ghost_c1.b[j]);
+        out = gh14_output(gh14_excited(gh14_terrain(ghost.in[0][1], ghost.in[1][1])));
+        ghost_output_mix = target < ghost_output_mix ?
+            fm_maxf(ghost_output_mix - step, target) :
+            fm_minf(ghost_output_mix + step, target);
+        ghost_c1.out[j] = ghost_compress(out) * 1.70f * ghost_c1.wet[j] * ghost_output_mix;
+    }
+    ghost_input_flush();
+    gh14_finish(n);
+    ghost_comp_power = fm_flush(ghost_comp_power);
+    ghost_c1.ticks = dr_ghost_cpu1_ticks() - t0;
+}
+
+void dr_ghost_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
+                       int (*busy)(void), int (*wait)(void))
+{
+    ghost_c1_run = run;
+    ghost_c1_busy = busy;
+    ghost_c1_wait = wait;
+    ghost_c1_pending = 0;
+    ghost_c1_retired = 0;
+    ghost_c1_jobs = ghost_c1_missed = ghost_c1_faults = 0;
+    ghost_c1_max_ticks = ghost_c1_avg_ticks = 0;
+}
+void dr_ghost_cpu1_stats(uint32_t stats[8])
+{
+    stats[0] = ghost_c1_run && !ghost_c1_retired;
+    stats[1] = ghost_c1_jobs;
+    stats[2] = ghost_c1_missed;
+    stats[3] = ghost_c1_faults;
+    stats[4] = ghost_c1_avg_ticks / 24u; /* Timer4: 24 MHz => microseconds */
+    stats[5] = ghost_c1_max_ticks / 24u;
+    stats[6] = ghost_c1_pending;
+    stats[7] = 256u * 1000000u / 44100u; /* audio block budget, us */
+}
+static void ghost_run_cpu1(uint32_t n)
+{
+    uint32_t j;
+    const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+    const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
+    if (ghost_c1_pending) {
+        /* Never wait for a busy CPU1 in the real-time audio interrupt.
+         * Preserve both buffers until the previous job completes. */
+        if (ghost_c1_busy()) {
+            ghost_c1_missed++;
+            return;
+        }
+        if (ghost_c1_wait()) {
+            ghost_c1_faults++;
+            ghost_c1_retired = 1u;
+            ghost_c1_pending = 0u;
+            return;
+        }
+        ghost_c1_pending = 0u;
+        if (ghost_c1.ticks > ghost_c1_max_ticks)
+            ghost_c1_max_ticks = ghost_c1.ticks;
+        ghost_c1_avg_ticks = (ghost_c1_avg_ticks * 15u + ghost_c1.ticks) / 16u;
+        if (balance > 0.0f || ghost_wet_mix > 0.0f) {
+            for (j = 0; j < n; j++) {
+                mixl[j] += ghost_c1.out[j];
+                mixr[j] += ghost_c1.out[j];
+            }
+        }
+    }
+    if (ghost_c1_retired || !ghost_c1_run)
+        return; /* protect the original drones if CPU1 retired */
+    if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
+        ghost_clear();
+        return;
+    }
+    for (j = 0; j < n; j++) {
+        ghost_c1.a[j] = xbuf[j] * pgain[0][j] * t0;
+        ghost_c1.b[j] = ybuf[j] * pgain[1][j] * t1;
+        ghost_c1.wet[j] = ghost_wet_block[j];
+    }
+    ghost_c1.pitch[0] = dr_pitch[0];
+    ghost_c1.pitch[1] = dr_pitch[1];
+    ghost_c1.mute = ghost_mute_req;
+    if (ghost_c1_run(ghost_cpu1_job, n)) {
+        ghost_c1_pending = 1u;
+        ghost_c1_jobs++;
+    } else {
+        ghost_c1_retired = 1u;
+        ghost_c1_faults++;
+    }
+}
+#endif
+
+static void ghost_run(uint32_t n)
+{
+#if OM_GHOST_CPU1 && !defined(OM_HOST)
+    if (ghost_c1_run)
+        ghost_run_cpu1(n);
+    else
+        ghost_run_single(n); /* no CPU1 initialized: preserved baseline */
+#else
+    ghost_run_single(n);
+#endif
 }
 
 void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)

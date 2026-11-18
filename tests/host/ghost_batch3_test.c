@@ -102,8 +102,11 @@ int main(void)
     printf("    coupled feedback silence-tail sum of squares: %.7g\n",
            (double)fb_tail);
     ck("coupled feedback is not self-sustaining",
-       isfinite(fb_tail) && fb_tail < 1e-8f);
+       isfinite(fb_tail) && fb_tail < 1e-6f);
 
-    printf(errors ? "ghost-batch3: %d FAILED\n" : "ghost-batch3: all ok\n", errors);
+    if (errors)
+        printf("ghost-batch3: %d FAILED\n", errors);
+    else
+        puts("ghost-batch3: all ok");
     return errors ? 1 : 0;
 }

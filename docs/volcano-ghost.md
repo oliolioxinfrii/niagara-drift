@@ -13,6 +13,8 @@ independent oscillator or a third sequencer track.
 
 ## Controls
 
+**New original style-study preset:** hold **SEL**, tap **REC**, then release SEL to audition **FUMAROLE** (a dark, original 60-second four-position pitch progression inspired by the atmosphere of the *Acid Lake* opening, not its musical content). Press PLAY and then **SEL + PLAY** to start the authored progression. FUMAROLE loads into the current unsaved sound; factory presets and saved A–F scenes are untouched. See [FUMAROLE](presets/fumarole.md) for its sound/score and the host render recipe.
+
 - **ALGORITHM** = MOVEMENT (existing LFO movement-depth scaling).
 - **SEL + ALGORITHM** = saved **GHOST MIX**, 0–100:
   - 0: original direct Drone I + Drone II sound, no audible GHOST

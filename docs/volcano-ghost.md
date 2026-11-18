@@ -95,13 +95,14 @@ generated from the two performed, post-filter parent signals.
 ### Resonant Body loudness change
 
 Resonant Body's bounded adaptive calibration now targets approximately
-**68%** of the parents' combined RMS at GHOST 100, instead of
+**68%** of the parents' combined RMS, instead of
 **40%**. Its maximum gain bound rises from 32× to 48×.
 Wave Terrain remains at 40%; the existing GHOST compressor
 is retained. This is a *nominal electrical level target*,
 not a guaranteed perceived loudness increase: compression and
-soft saturation can reduce the realized difference. All modes still
-multiply by the saved 0–100 GHOST amount, so **GHOST = 0 is mute**.
+soft saturation can reduce the realized difference. The new GHOST MIX
+controls an equal-power wet/dry balance; **at 0 only GHOST is muted**
+and both parent drones remain at their original output level.
 
 ### Batch 2: selective heterodyning
 
@@ -191,7 +192,7 @@ roundtrip accuracy, measurable output from two different pitched inputs,
 two-source dependency, and finite decay after excitation ends for both
 new algorithms. This is invoked by `tests/run_tests.sh` as `ghost-batch3`.
 `tests/scenarios/volcano-ghost.omni` checks seven-mode selector
-wraparound, the swapped ALGORITHM assignments, saved GHOST level, and
+wraparound, the swapped ALGORITHM assignments, saved GHOST MIX, and
 independent monitor toggles.
 
 The algorithms are intentionally **not optimized**: all seven DSP paths

@@ -262,11 +262,14 @@ static void changes_build(int16_t *d, const int16_t *c, int max)   /* the defaul
  * Continuous two-voice excitation, all four primary oscillators (partners
  * enabled), stereo/sub oscillators, cross-FM and hard sync; both LFO taps
  * modulate oscillators and filters. GHOST is fixed to mode 14, MIX 50.
- * CPU1 receives a stereo Grain delay, drive, Shimmer reverb, and a moderate
- * global feedback path. No noise, drift, wander or random LFO shapes.
- * Values are intentionally strenuous, not a guaranteed WCET workload.
- * Avoid maximum positive-feedback settings that could make the result
- * level-dependent or produce damagingly loud uncontrolled resonance.
+ * CPU1 receives a stereo Grain delay, drive, Shimmer reverb, and moderate
+ * global feedback. CPU0 also runs the full Swell envelope: a stepped base
+ * shape, interpolated envelope variants, skew/edge/width and independent
+ * phase for each drone. The four-step pitch sequence cycles every 20 s
+ * (three cycles in each 60-second reading). A latched WASH at 62 enables
+ * continuously recomputed macro envelopes while extending FX processing.
+ * Drift, Wander and random LFO shapes remain off to limit stochastic
+ * variation. This is a demanding repeatable workload, not a proven WCET.
  */
 static const int16_t STRESS_CHANGES[] = {
     I_(GP_PITCH), 5000, I_(GP_WAVE), 73, I_(GP_WIDTH), 50,
@@ -289,22 +292,28 @@ static const int16_t STRESS_CHANGES[] = {
     P_LFO_RATE, 112, P_LFO_W1, 1, P_LFO_W2, 3,
     P_LFO_AMP1, 100, P_LFO_AMP2, 100, P_LFO_RMOD, 0,
     P_GLIDE, 0, P_FADE, 18, P_DRIFT, 0, P_MOVE, 76,
-    P_WIDTH, 80, P_PULSE, 0, P_PULSE_DEPTH, 0,
+    P_WIDTH, 80, P_PULSE, 1, P_PULSE_RATE, 65,
+    P_PULSE_DEPTH, 58, P_PULSE_SHAPE, 102, P_PULSE_SWING, 25,
+    P_SWELL_PHASE, 31, P_SWELL_WAVE, 52, P_SWELL_SKEW, -38,
+    P_SWELL_EDGE, 72, P_SWELL_WIDTH, 65,
     P_DLY_TYPE, DR_DLY_GRAIN, P_DLY_TIME, 92,
     P_DLY_REPEATS, 64, P_DLY_MIX, 55,
     P_DLY_LFO, DR_LFO_BOTH, P_DLY_LFO_DEPTH, 50,
     P_DLY_DRIVE, 56, P_DLY_ROUTE, 0,
     P_REV_TYPE, 4, P_REV_MIX, 65, P_REV_LEN, 86, P_REV_DAMP, 30,
     P_FEEDBACK, 40, P_CHAR, 20, P_AGE, 0, P_WANDER, 0,
+    P_GL_3, 62,  /* WASH: recurring level envelope, FX length/repeats */
     P_I_OUT, 0, P_II_OUT, 0, P_SUBW_0, 2, P_SUBW_1, 3,
     P_GHOST, 50, -1
 };
-/* One stationary step: unlike a pitch progression, the workload stays
- * comparable throughout the 60-second monitoring interval. */
+/* Four continuously interpolated steps with a 20-second period and a
+ * 17% phase offset between drones. Each 60-second probe contains three
+ * complete cycles regardless of measurement start offset. */
 static const seq_scene_t STRESS_SEQ = {
-    .count = 1, .drone = 1, .phase = 0,
-    .gap_s = {60, 60, 60, 60},
-    .note = {{5000, 5000, 5000, 5000}, {5700, 5700, 5700, 5700}}
+    .count = 4, .drone = 1, .phase = 17,
+    .gap_s = {5, 5, 5, 5},
+    .shape = {-55, 35, -25, 45},
+    .note = {{5000, 5400, 4700, 5700}, {5700, 6100, 5300, 6500}}
 };
 void project_stress_build(int16_t out[DR_NPARAMS], seq_scene_t *seq)
 {

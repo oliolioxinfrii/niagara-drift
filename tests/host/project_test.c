@@ -84,8 +84,8 @@ static void old_project(uint32_t format)       /* 16 scenes of 78 values, as 0.1
 int main(void)
 {
     const int16_t *a1, *a12, *b1, *b4;
-    {   /* STRESS is an independent deterministic scratch patch, with one
-         * stationary sequence step, not stored as a factory/user preset. */
+    {   /* STRESS is an independent dynamic scratch patch with a full
+         * 20-second cycle, not stored as a factory/user preset. */
         int16_t data[DR_NPARAMS];
         seq_scene_t score;
         int k, in_range_all = 1;
@@ -100,11 +100,18 @@ int main(void)
               in_range_all && data[DR_GP(0, GP_PITCH)] == 5000 &&
               data[DR_GP(1, GP_PITCH)] == 5700 && data[P_GHOST] == 50 &&
               data[P_XMOD] == 2 && data[P_DLY_TYPE] == DR_DLY_GRAIN &&
-              data[P_REV_TYPE] == 4 && data[P_FEEDBACK] == 40);
-        check("STRESS has one stationary pitch step",
-              seq_valid(&score) && score.count == 1 &&
+              data[P_REV_TYPE] == 4 && data[P_FEEDBACK] == 40 &&
+              data[P_PULSE] == 1 && data[P_PULSE_SHAPE] == 102 &&
+              data[P_SWELL_WAVE] == 52 && data[P_SWELL_PHASE] == 31 &&
+              data[P_GL_3] == 62);
+        check("STRESS sequence exercises both pitches, three cycles per minute",
+              seq_valid(&score) && score.count == 4 && score.phase == 17 &&
+              score.gap_s[0] + score.gap_s[1] +
+              score.gap_s[2] + score.gap_s[3] == 20u &&
               score.note[0][0] == data[DR_GP(0, GP_PITCH)] &&
-              score.note[1][0] == data[DR_GP(1, GP_PITCH)]);
+              score.note[1][0] == data[DR_GP(1, GP_PITCH)] &&
+              score.note[0][2] != score.note[0][0] &&
+              score.note[1][3] != score.note[1][0]);
         check("STRESS does not alter scenes or factory presets",
               proj.scene_used == 0 &&
               scene_has(BANK_PRESETS2, PRESET_LOCKED - NPLAY) &&

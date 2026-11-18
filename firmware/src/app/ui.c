@@ -1695,12 +1695,19 @@ static void stress_load(void)
             param_set(k, values[k]);
     /* Independent pitch cursors must not inherit the room's pitch lock. */
     param_set(P_PLOCK, 0);
-    sd_scene_restore(&pattern);     /* one stationary step; transport stopped */
+    /* Reconcile the saved gesture latches with UI's live gesture amounts.
+     * Otherwise the next UI frame can overwrite the new WASH latch with
+     * the amount inherited from the previously loaded sound. */
+    for (k = 0; k < DR_NGEST; ++k) {
+        ui.g_amt[k] = (float)proj.par[gl_par(k)] * 0.01f;
+        ui.g_sent[k] = -1;  /* publish the latch to the audio command queue */
+    }
+    sd_scene_restore(&pattern);     /* prepare cycling sequence, initially stopped */
     dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
     dr_ghost_monitor_set(0);        /* predictable full-mix audition */
     dr_ghost_mute_set(0);           /* GHOST should be audible */
     mark_dirty();                   /* the authored sequence changed as well */
-    say_c("CPU STRESS", "GHOST 50 / FX", K_GOLD);
+    say_c("CPU STRESS", "PLAY + SEL+PLAY", K_GOLD);
 }
 
 static void button(int b)                              /* the other buttons, on release */

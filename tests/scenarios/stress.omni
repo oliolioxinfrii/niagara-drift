@@ -14,26 +14,39 @@ expect par0 5000
 expect par21 5700
 expect par112 50
 expect par42 2
-expect par94 4
+expect par55 1
+expect par58 102
+expect par64 4
+expect par85 4
+expect par112 50
 expect ghostmode 14
 expect ghostmonitor 0
 expect ghostmute 0
-expect seqcount 1
-expect seqtotal 0
+expect seqcount 4
+expect seqtotal 20
+expect seqphase 17
+expect seqnonhome 1
 expect seqstate 0
 expect loop 0
 expect bscenes 0
 
 tap PLAY
 expect playing 1
+press SEL
+tap PLAY
+release SEL
+expect seqstate 1
 wait 1200
+expect seqstate 1
 
 # Recalling a second time restores exact parameters and stopped transport.
 press SEL
 tap REC
 release SEL
 expect par112 50
-expect seqcount 1
+expect par55 1
+expect seqcount 4
+expect seqtotal 20
 expect seqstate 0
 expect bscenes 0
 expect ghostmode 14

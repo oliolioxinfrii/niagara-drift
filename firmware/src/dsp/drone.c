@@ -3346,7 +3346,7 @@ static void ghost_run_single(uint32_t n)
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 
-static void ghost_run(uint32_t n)static void ghost_run(uint32_t n)
+static void ghost_run(uint32_t n)
 {
     ghost_run_single(n);
 }

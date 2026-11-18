@@ -2575,8 +2575,12 @@ static void input(void)
     if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: experimental GHOST type */
         if (ui.btn >> B_SEL & 1u) {
             static const char *const GMODE[DR_NGHOSTMODES] = {
-                "ORIGINAL", "RESONANT BODY", "WAVE TERRAIN",
-                "HETERODYNE", "CROSS-SYNTH", "LIVE CONV", "COUPLED FB"
+                "RESONANT BODY", "WAVE TERRAIN", "HETERODYNE",
+                "CROSS-SYNTH", "COUPLED FB",
+                "CROSS + BODY", "CROSS + TERRAIN", "CROSS + FB",
+                "TERRAIN + BODY", "BODY + FB", "CROSS + HETERO",
+                "CROSS/BODY/FB", "CROSS/TERRAIN/BODY",
+                "LOW BODY/HIGH TERR", "TERRAIN -> BODY"
             };
             /* A web drag may deliver 4, 8, etc. detents in one event.
              * Using e % DR_NGHOSTMODES can map those gestures to *no change*.

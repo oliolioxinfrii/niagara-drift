@@ -2576,7 +2576,7 @@ static void input(void)
         if (ui.btn >> B_SEL & 1u) {
             static const char *const GMODE[DR_NGHOSTMODES] = {
                 "ORIGINAL", "RESONANT BODY", "WAVE TERRAIN",
-                "HETERODYNE", "CROSS-SYNTH"
+                "HETERODYNE", "CROSS-SYNTH", "LIVE CONV", "COUPLED FB"
             };
             /* A web drag may deliver 4, 8, etc. detents in one event.
              * Using e % DR_NGHOSTMODES can map those gestures to *no change*.

@@ -2107,6 +2107,7 @@ typedef struct {
     uint32_t ticks;
 } fx_c1_slot_t;
 static fx_c1_slot_t fx_c1[2] __attribute__((section(".c1_shared"), aligned(32)));
+_Static_assert(sizeof fx_c1 <= 8192u, "FX CPU1 shared slots exceed the reserved scratch budget");
 static fx_c1_slot_t *fx_c1_ctx = &fx_c1[0];
 static int (*fx_c1_run)(void (*fn)(uint32_t), uint32_t);
 static int (*fx_c1_busy)(void);
@@ -2192,6 +2193,7 @@ void dr_fx_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
     fx_c1_wait = wait;
     fx_c1_abort = abort;
     fx_c1_pending = fx_c1_prepared = fx_c1_retired = fx_c1_frame_ready = 0;
+    fx_c1_pending_slot = fx_c1_prepared_slot = 0;
     fx_c1_jobs = fx_c1_misses = fx_c1_faults = fx_c1_avg_ticks = fx_c1_max_ticks = 0;
 }
 void dr_fx_cpu1_unbind(void)
@@ -2273,6 +2275,9 @@ static void fx_c1_exchange(float *l, float *r, uint32_t n)
     uint32_t j;
     if (!fx_c1_run || fx_c1_retired || n != BLK) return;
     {
+        /* The first interval has no queued job: prepare slot 0 explicitly.
+         * The first two output intervals are silent while the pipeline fills.
+         * Subsequent writes always target the slot opposite the active job. */
         uint32_t slot = fx_c1_pending ? (fx_c1_pending_slot ^ 1u) : 0u;
         fx_c1_slot_t *s = &fx_c1[slot];
         for (j = 0; j < n; j++) { s->l[j] = l[j]; s->r[j] = r[j]; }

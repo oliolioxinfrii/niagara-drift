@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Self-contained mathematical checks for the two browser-only GHOST
- * Batch 3 algorithms. No complete synthesizer required. */
+/* Dedicated checks for the retained GHOST coupled-feedback DSP.
+ * The live-convolution FFT and test were intentionally retired. */
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -11,102 +11,65 @@
 static struct { float power[2]; } ghost;
 #include "../../firmware/src/dsp/ghost_batch3.c"
 
-static int errors;
-static void ck(const char *name, int good)
+static int failed;
+static void check(const char *name, int passed)
 {
-    printf("    %-42s %s\n", name, good ? "ok" : "FAIL");
-    if (!good) ++errors;
+    printf("    %-48s %s\n", name, passed ? "ok" : "FAIL");
+    if (!passed) ++failed;
 }
-static float test_wave(float hz, int i)
+static float wave(float hz, int n)
 {
-    return 0.18f * sinf(FM_TWO_PI * hz * (float)i / DR_SR);
+    return 0.18f * sinf(FM_TWO_PI * hz * (float)n / DR_SR);
 }
 int main(void)
 {
     int i;
-    float maxerr = 0.0f, conv_rms = 0.0f, feedback_rms = 0.0f;
-    float conv_one = 0.0f, fb_one = 0.0f, conv_tail = 0.0f, fb_tail = 0.0f;
-    static gh_cv_complex_t roundtrip[GH_CV_N];
-
-    /* An impulse displaced within the transform tests both bit reversal
-     * and the forward/inverse phase sign, not merely the DC coefficient. */
-    roundtrip[37].re = 1.0f;
-    ghost_cv_fft(roundtrip, 0);
-    ghost_cv_fft(roundtrip, 1);
-    for (i = 0; i < (int)GH_CV_N; ++i) {
-        const float correct = i == 37 ? 1.0f : 0.0f;
-        const float e = fabsf(roundtrip[i].re - correct) +
-                        fabsf(roundtrip[i].im);
-        if (e > maxerr) maxerr = e;
-    }
-    printf("    convolution FFT roundtrip max error: %.7g\n", (double)maxerr);
-    ck("FFT roundtrip of displaced impulse", maxerr < 0.002f);
-
-    ghost_batch3_reset();
-    /* Two distinct, non-coincident pitches should give a measurable
-     * output from the LIVE convolution, not only under exact unison. */
-    for (i = 0; i < 44100; ++i) {
-        const float u = test_wave(110.0f, i), v = test_wave(176.0f, i);
-        const float out = ghost_convolution_sample(u, v);
-        if (i >= 22050) conv_rms += out * out;
-    }
-    conv_rms = sqrtf(conv_rms / 22050.0f);
-    printf("    live convolution non-unison RMS: %.7g\n", (double)conv_rms);
-    ck("moving convolution is non-silent and bounded",
-       isfinite(conv_rms) && conv_rms > 0.000005f && conv_rms < 1.0f);
+    double active = 0.0, lone = 0.0, tail = 0.0;
+    float maxabs = 0.0f;
 
     ghost_batch3_reset();
     for (i = 0; i < 44100; ++i) {
-        const float out = ghost_convolution_sample(test_wave(110.0f, i), 0.0f);
-        conv_one += out * out;
+        const float y = ghost_feedback_sample(wave(110.0f, i),
+                                              wave(176.0f, i));
+        if (i >= 22050) active += (double)y * y;
+        if (fm_fabsf(y) > maxabs) maxabs = fm_fabsf(y);
+        if (!isfinite(y)) { ++failed; break; }
     }
-    ck("convolution requires two initial source signals", conv_one == 0.0f);
+    active = sqrt(active / 22050.0);
+    printf("    feedback steady RMS %.7g, max %.7g\n", active, (double)maxabs);
+    check("two-source feedback is audible and finite",
+          active > 0.000005 && active < 1.0 && maxabs < 2.0f);
+
+    ghost_batch3_reset();
+    for (i = 0; i < 44100; ++i) {
+        const float y = ghost_feedback_sample(wave(110.0f, i), 0.0f);
+        lone += (double)y * y;
+    }
+    check("feedback needs both sources from reset", lone == 0.0);
 
     ghost_batch3_reset();
     for (i = 0; i < 44100; ++i)
-        (void)ghost_convolution_sample(test_wave(110.0f, i),
-                                       test_wave(176.0f, i));
+        (void)ghost_feedback_sample(wave(110.0f, i), wave(176.0f, i));
     for (i = 0; i < 88200; ++i) {
-        const float out = ghost_convolution_sample(0.0f, 0.0f);
-        if (i >= 44100) conv_tail += out * out;
+        const float y = ghost_feedback_sample(0.0f, 0.0f);
+        if (i >= 44100) tail += (double)y * y;
     }
-    ck("convolution's captured IR decays after silence",
-       isfinite(conv_tail) && conv_tail < 1e-8f);
+    printf("    feedback silence-tail power %.7g\n", tail);
+    check("feedback decays after all excitation ceases",
+          isfinite(tail) && tail < 1e-6);
 
     ghost_batch3_reset();
-    for (i = 0; i < 44100; ++i) {
-        const float out = ghost_feedback_sample(test_wave(110.0f, i),
-                                                test_wave(176.0f, i));
-        if (i >= 22050) feedback_rms += out * out;
+    ghost.power[0] = 0.1f;
+    ghost.power[1] = 0.1f;
+    for (i = 0; i < 100; ++i) {
+        ghost_batch3_levels(0.02f);
+        ghost_batch3_gain_update(256u);
     }
-    feedback_rms = sqrtf(feedback_rms / 22050.0f);
-    printf("    coupled feedback non-unison RMS: %.7g\n", (double)feedback_rms);
-    ck("coupled feedback is non-silent and bounded",
-       isfinite(feedback_rms) && feedback_rms > 0.000005f && feedback_rms < 1.0f);
+    check("independent feedback calibration stays finite",
+          isfinite(gh_fb_gain) && gh_fb_gain > 0.14f &&
+          gh_fb_gain <= 48.0f);
 
-    ghost_batch3_reset();
-    for (i = 0; i < 44100; ++i) {
-        const float out = ghost_feedback_sample(test_wave(110.0f, i), 0.0f);
-        fb_one += out * out;
-    }
-    ck("coupled feedback needs both source excitations", fb_one == 0.0f);
-
-    ghost_batch3_reset();
-    for (i = 0; i < 44100; ++i)
-        (void)ghost_feedback_sample(test_wave(110.0f, i),
-                                    test_wave(176.0f, i));
-    for (i = 0; i < 88200; ++i) {
-        const float out = ghost_feedback_sample(0.0f, 0.0f);
-        if (i >= 44100) fb_tail += out * out;
-    }
-    printf("    coupled feedback silence-tail sum of squares: %.7g\n",
-           (double)fb_tail);
-    ck("coupled feedback is not self-sustaining",
-       isfinite(fb_tail) && fb_tail < 1e-6f);
-
-    if (errors)
-        printf("ghost-batch3: %d FAILED\n", errors);
-    else
-        puts("ghost-batch3: all ok");
-    return errors ? 1 : 0;
+    if (failed) printf("ghost-feedback: %d FAILED\n", failed);
+    else puts("ghost-feedback: all ok");
+    return failed != 0;
 }

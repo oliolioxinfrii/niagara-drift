@@ -255,6 +255,61 @@ static void changes_build(int16_t *d, const int16_t *c, int max)   /* the defaul
         d[c[k]] = c[k + 1];
 }
 
+/* FUMAROLE -- original, Acid Lake-inspired introduction exercise.
+ * The reference recording motivated the form (stable subbass, gradually
+ * accumulating dissonance), NOT a transcription of its notes or rhythm.
+ * G2 (with a quiet G1 sine sub) under a restrained, four-position upper
+ * drone, with deliberately unequal, slow intervals and a small phase
+ * offset between the two pitch cursors. No user scene is overwritten:
+ * SEL+REC explicitly recalls this scratch sound and pattern, which can
+ * then be saved into any A-F slot using the normal SAVE workflow.
+ *
+ * This is deliberately outside the fixed P1-P16 factory preset array.
+ */
+static const int16_t FUMAROLE_CHANGES[] = {
+    I_(GP_PITCH), 4300, I_(GP_WAVE), 20, I_(GP_MIX), 27,
+    I_(GP_SUBOCT), 1, I_(GP_CUTOFF), 490, I_(GP_RESO), 210,
+    I_(GP_DRIVE), 8, I_(GP_LEVEL), 88, I_(GP_PARTNER), 0,
+    I_(GP_OLFO), 1, I_(GP_OLFO_DEPTH), 3, I_(GP_OLFO_DEST), 0,
+    I_(GP_FLFO), 1, I_(GP_FLFO_DEPTH), 15, I_(GP_FLFO_DEST), 0,
+    I_(GP_NOISE), 4, I_(GP_NCOLOR), 100,
+    II_(GP_PITCH), 5000, II_(GP_WAVE), 38, II_(GP_MIX), 0,
+    II_(GP_CUTOFF), 575, II_(GP_RESO), 330,
+    II_(GP_DRIVE), 12, II_(GP_LEVEL), 70, II_(GP_PARTNER), 0,
+    II_(GP_OLFO), 2, II_(GP_OLFO_DEPTH), -3, II_(GP_OLFO_DEST), 0,
+    II_(GP_FLFO), 2, II_(GP_FLFO_DEPTH), -24, II_(GP_FLFO_DEST), 0,
+    II_(GP_NOISE), 3, II_(GP_NCOLOR), 100,
+    P_PLINK, 0, P_XMOD, 0, P_SYNC, 0,
+    P_LFO_RATE, 68, P_LFO_W1, 1, P_LFO_W2, 2,
+    P_LFO_AMP1, 55, P_LFO_AMP2, 50,
+    P_GLIDE, 22, P_DRIFT, 13, P_MOVE, 50,
+    P_PULSE, 1, P_PULSE_RATE, 12, P_PULSE_DEPTH, 18,
+    P_PULSE_SHAPE, -5, P_PULSE_SWING, 0,
+    P_DLY_TYPE, 0, P_DLY_TIME, 80, P_DLY_REPEATS, 29,
+    P_DLY_MIX, 13, P_DLY_LFO_DEPTH, 6,
+    P_REV_TYPE, 1, P_REV_MIX, 52, P_REV_LEN, 87,
+    P_REV_DAMP, 68, P_FEEDBACK, 0,
+    P_CHAR, 11, P_AGE, 4, P_WANDER, 0,
+    P_II_OUT, 0, P_TUNING, 0, P_SUBW_0, 1,
+    P_GHOST, 62, -1
+};
+static const seq_scene_t FUMAROLE_SEQ = {
+    .count = 4, .drone = 1, .phase = 4,
+    .gap_s = {14, 17, 13, 16},
+    .shape = {-70, -60, -30, -75},
+    .note = {
+        {4300, 4300, 4300, 4200}, /* G2 foundation, small final tension */
+        {5000, 5100, 4700, 4900}  /* D3, Eb3, B2, Db3: original progression */
+    }
+};
+void project_fumarole_build(int16_t out[DR_NPARAMS], seq_scene_t *seq)
+{
+    changes_build(out, FUMAROLE_CHANGES,
+                  (int)(sizeof FUMAROLE_CHANGES / sizeof FUMAROLE_CHANGES[0]));
+    if (seq)
+        *seq = FUMAROLE_SEQ;
+}
+
 static const int16_t *preset_get(int n)
 {
     if (n != preset_n) {

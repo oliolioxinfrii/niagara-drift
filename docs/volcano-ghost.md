@@ -2,7 +2,7 @@
 # Volcano GHOST — fifteen-mode relational synthesis experiment
 
 **Status: browser-only listening experiment; draft PR #8.** Branch:
-\`feature/volcano-ghost-intermodulation\`. Do not merge into production
+`feature/volcano-ghost-intermodulation`. Do not merge into production
 or flash an M-VAVE FM-1 until the host tests, device CPU/RAM budget,
 and actual hardware build have been verified.
 
@@ -34,10 +34,10 @@ interpretation, not the earlier additive-level interpretation.
 
 ### Dry/wet law and common output gain
 
-Let \`t = P_GHOST/100\`. The direct parent contribution has multiplier
-\`sqrt(1-t)\`; the selected GHOST voice has coefficient \`sqrt(t)\`
+Let `t = P_GHOST/100`. The direct parent contribution has multiplier
+`sqrt(1-t)`; the selected GHOST voice has coefficient `sqrt(t)`
 **before** a common post-compressor GHOST makeup multiplier of
-\`1.70×\` (+4.61 dB). Both crossfade coefficients have ~20 ms slew.
+`1.70×` (+4.61 dB). Both crossfade coefficients have ~20 ms slew.
 
 | MIX | Parents (linear multiplier) | GHOST (incl. 1.70× makeup) |
 | ---: | ---: | ---: |
@@ -101,7 +101,7 @@ retains the boosted ~68% parent-RMS calibration target.
 
 **Wave Terrain:** A two-dimensional non-separable nonlinear surface.
 Only the mixed finite difference of the surface is output:
-\`F(x,y)-F(x,0)-F(0,y)+F(0,0)\`. Consequently either source
+`F(x,y)-F(x,0)-F(0,y)+F(0,0)`. Consequently either source
 alone generates no sustained Terrain output.
 
 **Heterodyne:** Three complex, pitch-tracked partial filters per drone.
@@ -122,7 +122,7 @@ The feedback design remains contractive in the absence of input.
 **13 — LOW BODY/HIGH TERR:** Each calibrated engine passes through
 an independent two-stage one-pole low-pass, at approximately 350 Hz.
 BODY contributes its two-pole low-pass result; TERRAIN contributes
-the complementary two-pole high-pass \`x-2Lx+L²x\`.
+the complementary two-pole high-pass `x-2Lx+L²x`.
 This deliberately assigns the slower resonant sound and nonlinear
 terrain texture to different frequency regions. The crossover is
 fixed in this prototype.
@@ -144,33 +144,33 @@ of two completed GHOST outputs.
   rely on those source samples or energy estimates.
 - **Live Convolution:** the 1,024-point FFT, 512-tap moving-IR engine,
   all convolution buffers and per-mode gain tracking are **no longer
-  compiled**. \`firmware/src/dsp/ghost_batch3.c\` now contains only
-  Coupled Feedback. The historical \`ghost_fft.c\` experiment also
+  compiled**. `firmware/src/dsp/ghost_batch3.c` now contains only
+  Coupled Feedback. The historical `ghost_fft.c` experiment also
   remains unreferenced and is not compiled.
 
-The new mix/blend logic is in \`firmware/src/dsp/ghost_blends.c\`,
-included by \`drone.c\` to work with the existing single-translation-unit
+The new mix/blend logic is in `firmware/src/dsp/ghost_blends.c`,
+included by `drone.c` to work with the existing single-translation-unit
 Emscripten build. Parent voices and sequencer are not modified.
 
 ## Testing and experimental limitations
 
-- \`tests/scenarios/volcano-ghost.omni\` now cycles all **15** mode
+- `tests/scenarios/volcano-ghost.omni` now cycles all **15** mode
   positions and verifies forward/reverse wraparound. It also checks
   the ALGORITHM/MOVEMENT swap, saved GHOST MIX and both monitor toggles.
-- \`tests/host/drone_test.c\` checks the standalone and blended
+- `tests/host/drone_test.c` checks the standalone and blended
   GHOST signals, parent dependency, output-mute diagnostics, and
   pure-dry / pure-wet endpoints at fixed GHOST MIX settings.
-- \`tests/host/ghost_blends_test.c\` checks the exact mixture weights,
+- `tests/host/ghost_blends_test.c` checks the exact mixture weights,
   spectral-split difference, excitation-transfer resonance and decay,
   and independent blend gain bounds.
-- \`tests/host/ghost_batch3_test.c\` now exercises only retained
+- `tests/host/ghost_batch3_test.c` now exercises only retained
   Coupled Feedback, since the convolution FFT has been removed.
-- \`tests/run_tests.sh\` includes both dedicated checks.
+- `tests/run_tests.sh` includes both dedicated checks.
 
 The source was updated through GitHub. **Full host regression,
 Emcc WebAssembly compilation, performance budgets and listening have
 not yet been verified for this new revision.** The host
-\`drone-cost\` test may fail because five engines and additional
+`drone-cost` test may fail because five engines and additional
 modal/spectral blend operations run continuously in the browser
 prototype; do not waive that test for eventual physical-device use.
 
@@ -180,7 +180,7 @@ contributions before the shared effects, not old tails.
 
 ## Home Ubuntu / WSL runbook
 
-\`\`\`bash
+```bash
 cd ~/niagara-drift
 source .venv/bin/activate
 source ~/emsdk/emsdk_env.sh
@@ -196,8 +196,8 @@ sh tests/run_tests.sh
 rm -f build/emu/omni.wasm
 sh web/emu/build.sh
 python3 -m http.server 8766 --directory build/emu
-\`\`\`
+```
 
-Open \`http://localhost:8766/\` and hard-refresh. The test suite
+Open `http://localhost:8766/` and hard-refresh. The test suite
 is optional for subsequent listening sessions if no code has changed.
 The firmware should remain on the experimental branch; do not flash.

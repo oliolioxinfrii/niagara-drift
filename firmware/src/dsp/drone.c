@@ -1001,7 +1001,7 @@ static float fade_rate(void)                      /* per sample: 0.05 s * 1200^(
 }
 
 static void fx_clear(void);                      /* drone_fx.c, included below */
-static void ghost_clear(void);                   /* the third-order cross-interaction, below */
+static void ghost_clear(void);                   /* relational GHOST state, below */
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
 static float ghost_parent_mix = 1.0f;
@@ -1078,7 +1078,7 @@ void dr_init(void)
     spk_x = dr_phones ? 0.0f : 1.0f;
     spk_f = SPK_CUT;
     fx_clear();
-    dr_ghost_mode_set(DR_GHOST_ORIGINAL);
+    dr_ghost_mode_set(DR_GHOST_BODY);
     ghost_monitor_req = 0u;
     ghost_parent_mix = 1.0f;
     ghost_dry_mix = 1.0f;
@@ -3020,17 +3020,14 @@ static void clean_hold(float *l, float *r, uint32_t k)
 }
 
 /* ---------------------------------------------------------- GHOST ---
- * Seven web-emulator comparative modes: original intermodulation;
- * resonant body and wave terrain (Batch 1); heterodyning and
- * reciprocal spectral-envelope synthesis (Batch 2); true live
- * convolution and cross-dependent coupled feedback (Batch 3).
- * The alternatives operate on the original pair of audible drones, never
- * by further shaping Original's already-intermodulated signal.
- * SEL+PRESETS chooses a RAM-only mode. Parent voices and scenes unchanged.
+ * Five parent-dependent engines, ten listening blends = fifteen modes.
+ * Original intermodulation and Live Convolution are retired.
+ * Shared post-filter input preprocessing stays; all five engines update
+ * continuously for consistent RMS calibration and mode crossfades.
+ * No changes to either parent drone, their sequencer, or their effects.
  */
 typedef struct {
-    float in[2][2], power[2], pair_dc, low_dc, out_lp;
-    float out_power, gain;
+    float in[2][2], power[2];
 } ghost_t;
 static ghost_t ghost;
 static volatile uint8_t ghost_mode_req;         /* main loop -> audio render */
@@ -3046,6 +3043,8 @@ static float ghost_mode_fade = 1.0f;
 #include "ghost_batch2.c"
 /* Batch 3: independently processed convolution and coupled feedback. */
 #include "ghost_batch3.c"
+/* Six parallel pairs, two triples, split spectrum and terrain->body. */
+#include "ghost_blends.c"
 /* One envelope follows the selected GHOST output across mode switches.
  * Attack ~16ms, release ~375ms at 44.1kHz. */
 static float ghost_comp_power;
@@ -3064,19 +3063,20 @@ int dr_ghost_mute_get(void) { return (int)ghost_mute_req; }
 static void ghost_clear(void)
 {
     dr_memset(&ghost, 0, sizeof ghost);
-    ghost.gain = 1.0f;
     ghost_batch1_reset();
     ghost_batch2_reset();
     ghost_batch3_reset();
+    ghost_blends_reset();
     ghost_xs_prepare();
     ghost_comp_power = 0.0f;
     ghost_mode_now = ghost_mode_prev = ghost_mode_req;
     ghost_mode_fade = 1.0f;
 }
-static float ghost_signal(float u, float v)
+/* Preserve exactly the original private two-pole input filters and
+ * slow energy tracking. These are shared with every retained engine;
+ * the retired Original's cubic, DC and output-shaper DSP is removed. */
+static void ghost_input_sample(float u, float v)
 {
-    float xy, cubic, exc, shaped;
-    /* Private two-pole pre-lows (~3 kHz), without modifying parent audio. */
     ghost.in[0][0] += 0.348f * (u - ghost.in[0][0]);
     ghost.in[0][1] += 0.348f * (ghost.in[0][0] - ghost.in[0][1]);
     ghost.in[1][0] += 0.348f * (v - ghost.in[1][0]);
@@ -3085,35 +3085,15 @@ static float ghost_signal(float u, float v)
     v = ghost.in[1][1];
     ghost.power[0] += 0.00022f * (u * u - ghost.power[0]);
     ghost.power[1] += 0.00022f * (v * v - ghost.power[1]);
-    xy = u * v;
-    ghost.pair_dc += 0.00022f * (xy - ghost.pair_dc);
-    cubic = (u * u - ghost.power[0]) * v + (v * v - ghost.power[1]) * u;
-    exc = 9.0f * cubic + 0.50f * (xy - ghost.pair_dc);
-    shaped = fm_clampf(exc, -1.0f, 1.0f);
-    shaped *= 1.0f - (1.0f / 3.0f) * shaped * shaped;
-    ghost.low_dc += 0.005f * (shaped - ghost.low_dc); /* ~35 Hz */
-    shaped -= ghost.low_dc;
-    ghost.out_lp += 0.52f * (shaped - ghost.out_lp); /* ~5 kHz */
-    ghost.out_power += 0.000005f * (ghost.out_lp * ghost.out_lp - ghost.out_power);
-    shaped = fm_clampf(ghost.out_lp * ghost.gain, -1.0f, 1.0f);
-    return shaped * (1.0f - (1.0f / 3.0f) * shaped * shaped);
 }
-static void ghost_gain(uint32_t n)
+static void ghost_input_flush(void)
 {
-    const float parent = ghost.power[0] + ghost.power[1];
-    const float target = fm_clampf(0.45f * fm_sqrtf(parent / (ghost.out_power + 1e-8f)), 1.0f, 32.0f);
-    ghost.gain += (target - ghost.gain) * fm_minf((float)n * (1.0f / (2.0f * DR_SR)), 1.0f);
-    ghost.gain = fm_clampf(ghost.gain, 1.0f, 32.0f);
     ghost.in[0][0] = fm_flush(ghost.in[0][0]);
     ghost.in[0][1] = fm_flush(ghost.in[0][1]);
     ghost.in[1][0] = fm_flush(ghost.in[1][0]);
     ghost.in[1][1] = fm_flush(ghost.in[1][1]);
-    ghost.out_lp = fm_flush(ghost.out_lp);
-    ghost.low_dc = fm_flush(ghost.low_dc);
-    ghost.pair_dc = fm_flush(ghost.pair_dc);
     ghost.power[0] = fm_flush(ghost.power[0]);
     ghost.power[1] = fm_flush(ghost.power[1]);
-    ghost.out_power = fm_flush(ghost.out_power);
 }
 static float ghost_compress(float x)
 {
@@ -3149,8 +3129,7 @@ static void ghost_run(uint32_t n)
     const float t0 = 1.0f - sub_depth[0][3], t1 = 1.0f - sub_depth[1][3];
     uint32_t j;
     if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
-        /* Dry endpoint: preserve exactly the pre-GHOST instrument audio.
-         * Once the wet mix ramp reaches zero, free all GHOST state. */
+        /* At the completely dry endpoint, skip and reset only GHOST. */
         ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;
         ghost_clear();
         return;
@@ -3160,43 +3139,47 @@ static void ghost_run(uint32_t n)
         ghost_mode_now = ghost_mode_req;
         ghost_mode_fade = 0.0f;
     }
-    /* Retune modal resonances to the two performed drone pitches once
-     * per audio block. The low-rate change is intentional: this is an
-     * acoustically resonant object, not a separate sequenced oscillator. */
     ghost_body_tune();
     ghost_batch2_tune();
-    for (j = 0; j < n; j++) {
+    for (j = 0; j < n; ++j) {
         const float u = xbuf[j] * pgain[0][j] * t0;
         const float v = ybuf[j] * pgain[1][j] * t1;
-        const float original = ghost_signal(u, v);
-        /* Both experiments use only the filtered copies of the original
-         * audible drones, never Original's already intermodulated output. */
-        const float uu = ghost.in[0][1], vv = ghost.in[1][1];
-        const float body = ghost_body_sample(uu, vv);
-        const float terrain = ghost_terrain_sample(uu, vv);
-        const float hetero = ghost_heterodyne_sample(uu, vv);
-        const float cross = ghost_cross_synthesis_sample(uu, vv);
-        const float convolution = ghost_convolution_sample(uu, vv);
-        const float feedback = ghost_feedback_sample(uu, vv);
         float modes[DR_NGHOSTMODES], out;
+        float body, terrain, hetero, cross, feedback, excited;
+
+        /* Source generation is unaffected by GHOST MIX or monitoring. */
+        ghost_input_sample(u, v);
+        {
+            const float uu = ghost.in[0][1], vv = ghost.in[1][1];
+            body = ghost_body_sample(uu, vv);
+            terrain = ghost_terrain_sample(uu, vv);
+            hetero = ghost_heterodyne_sample(uu, vv);
+            cross = ghost_cross_synthesis_sample(uu, vv);
+            feedback = ghost_feedback_sample(uu, vv);
+        }
+        /* The special excitation-transfer mode owns independent modal
+         * states and receives the current, raw terrain signal. */
+        excited = ghost_terrain_excites_body_sample(terrain);
+
         ghost_batch1_levels(body, terrain);
         ghost_batch2_levels(hetero, cross);
-        ghost_batch3_levels(convolution, feedback);
-        modes[DR_GHOST_ORIGINAL] = original;
-        modes[DR_GHOST_BODY] = ghost_batch1_level(body, 0u);
-        modes[DR_GHOST_TERRAIN] = ghost_batch1_level(terrain, 1u);
-        modes[DR_GHOST_HETERODYNE] = ghost_batch2_level(hetero, 0u);
-        modes[DR_GHOST_CROSS_SYNTH] = ghost_batch2_level(cross, 1u);
-        modes[DR_GHOST_CONVOLUTION] = ghost_batch3_level(convolution, 0u);
-        modes[DR_GHOST_FEEDBACK] = ghost_batch3_level(feedback, 1u);
+        ghost_batch3_levels(feedback);
+        ghost_blends_fill(modes,
+                          ghost_batch1_level(body, 0u),
+                          ghost_batch1_level(terrain, 1u),
+                          ghost_batch2_level(hetero, 0u),
+                          ghost_batch2_level(cross, 1u),
+                          ghost_batch3_level(feedback),
+                          excited);
+
         out = modes[ghost_mode_now];
         if (ghost_mode_fade < 1.0f) {
-            ghost_mode_fade = fm_minf(ghost_mode_fade + 1.0f / (0.08f * DR_SR), 1.0f);
-            out = modes[ghost_mode_prev] + (out - modes[ghost_mode_prev]) * ghost_mode_fade;
+            ghost_mode_fade = fm_minf(ghost_mode_fade +
+                                     1.0f/(0.08f*DR_SR), 1.0f);
+            out = modes[ghost_mode_prev] +
+                  (out - modes[ghost_mode_prev]) * ghost_mode_fade;
         }
-        /* The SEL+Key2 diagnostic is an OUTPUT bypass only: all seven
-         * synthesis modes, their state and the saved GHOST amount continue
-         * unchanged. Crossfade 12 ms to make direct A/B listening click-free. */
+        /* SEL+G3 is an output mute, not a reset of DSP or saved balance. */
         {
             const float target = ghost_mute_req ? 0.0f : 1.0f;
             const float step = 1.0f / (0.012f * DR_SR);
@@ -3204,17 +3187,16 @@ static void ghost_run(uint32_t n)
                 fm_maxf(ghost_output_mix - step, target) :
                 fm_minf(ghost_output_mix + step, target);
         }
-        /* Additional +4.6 dB GHOST makeup *after* the compressor.
-         * Equal-power mixing gives the wet signal sufficient presence at
-         * intermediate positions while leaving the dry endpoint bit-exact. */
-        out = ghost_compress(out) * 1.70f * ghost_wet_block[j] * ghost_output_mix;
+        out = ghost_compress(out) * 1.70f *
+              ghost_wet_block[j] * ghost_output_mix;
         mixl[j] += out;
         mixr[j] += out;
     }
-    ghost_gain(n);
+    ghost_input_flush();
     ghost_batch1_gain_update(n);
     ghost_batch2_gain_update(n);
     ghost_batch3_gain_update(n);
+    ghost_blends_gain_update(n);
     ghost_comp_power = fm_flush(ghost_comp_power);
 }
 

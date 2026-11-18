@@ -14,7 +14,9 @@ movement and an uncertain boundary between texture and pulse.
 
 1. Press and hold **SEL**.
 2. Tap **REC**, then release SEL. The display announces **FUMAROLE**.
-   This loads a scratch sound and a four-position authored sequence.
+   This loads a scratch sound and a four-position authored sequence,
+   selects GHOST mode 11, and clears the two transient output-monitor
+   cuts so the complete patch is audible.
    **It does not overwrite any factory preset or stored A–F scene.**
    Ordinary REC without SEL still records Motion Loops.
 3. Press **PLAY** for the sound. Allow approximately eight seconds

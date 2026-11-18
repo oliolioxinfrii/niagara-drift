@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# Browser experiment: five retained engines and fifteen GHOST comparison modes.
+# CPU1 experiment: only Terrain -> Body (mode 14) remains selectable.
 notips
 expect par112 0
 expect par75 50

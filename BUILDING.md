@@ -128,6 +128,22 @@ every listening scene against the reference path. Use
 path independently. Any differences should be investigated before
 deploying a new firmware build.
 
+To measure which DSP changes actually reduce host instructions on Ubuntu/WSL,
+first install Valgrind (`sudo apt install valgrind`). After confirming audio
+equivalence with `python3 tools/dsp_compare.py`, run:
+
+```sh
+python3 tools/dsp_cost_variants.py --cases 3,4,5
+# Optionally include the unverified oscillator and reciprocal paths:
+python3 tools/dsp_cost_variants.py --cases 4,5 --experimental
+```
+
+This recompiles reference, noise-only, filter-only and combined kernels and
+counts the same `drone_cost` cases using Callgrind. Lower instruction counts
+are encouraging, but **Linux host instruction counts are not FM-1 DSP cycle
+measurements**. A change should only become a firmware default after checking
+the sample comparison and actual FM-1 timing.
+
 For on-device stage timings, `OM_DSP_PROFILE=1 ./build.sh` instruments the
 control setup, each drone, fade/mix, effects and remaining postprocessing.
 `dr_profile_read(average_ticks, peak_ticks)` returns a 1/16-smoothed average

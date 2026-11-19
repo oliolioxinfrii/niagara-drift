@@ -33,6 +33,9 @@ def main():
     out = pair_output(ins[0], [n for n in be.output_names() if PORT_RE.search(n)])
     link = be.open(ins[0], out)
     first, last = None, None
+    retirement = None
+    online_before = None
+    began = time.monotonic()
     try:
         end = time.monotonic() + secs
         while time.monotonic() < end:
@@ -43,7 +46,11 @@ def main():
                 pkt = link.read(left)
                 result = pkt and parse(pkt)
                 if result:
-                    first = first or result
+                    if first is None:
+                        first = result
+                    if online_before and not result["active"] and retirement is None:
+                        retirement = (time.monotonic() - began, result.copy())
+                    online_before = bool(result["active"])
                     last = result
                     break
             time.sleep(0.25)
@@ -51,15 +58,25 @@ def main():
         link.close()
     if not last:
         sys.exit("fm1_fx_cpu: no CPU1 response (is OM_FX_CPU1=1?)")
-    print(f"CPU1 online       {bool(last['active'])}")
-    print(f"CPU1 jobs         {last['jobs'] - first['jobs']} submitted")
+    print(f"CPU1 online       {bool(last['active'])} (at first poll: {bool(first['active'])})")
+    print(f"CPU1 jobs         {last['jobs'] - first['jobs']} submitted ({last['jobs']} since bind)")
     print(f"CPU1 processing   mean {last['mean_us']} us; peak {last['max_us']} us")
     print(f"Audio deadline    {last['budget_us']} us per 256-frame block")
-    print(f"Missed handoffs   {last['missed'] - first['missed']}")
-    print(f"CPU1 faults       {last['faults'] - first['faults']}")
+    print(f"Missed handoffs   {last['missed'] - first['missed']} during probe ({last['missed']} since bind)")
+    print(f"CPU1 faults       {last['faults'] - first['faults']} during probe ({last['faults']} since bind)")
     print(f"Outstanding job   {bool(last['pending'])}")
-    if last["max_us"] >= last["budget_us"] or last["missed"] > first["missed"] or last["faults"] > first["faults"]:
-        print("WARNING: the two-core FX-pipeline probe missed a realtime criterion")
+    if retirement is not None:
+        t, r = retirement
+        print(f"CPU1 retirement   observed at ~{t:.1f} s "
+              f"(cumulative misses={r['missed']}, faults={r['faults']})")
+    elif not first["active"]:
+        print("CPU1 retirement   already offline at first poll (event may predate probe)")
+    if not last["active"] or last["max_us"] >= last["budget_us"] or last["missed"] or last["faults"]:
+        print("WARNING: CPU1 offline, retired, or previously missed a realtime criterion")
+        if last["missed"]:
+            print("Hint: missed handoff; CPU1 was still busy at the next audio block")
+        elif last["faults"]:
+            print("Hint: worker submission/wait failure; cause needs firmware diagnostics")
 
 
 if __name__ == "__main__":

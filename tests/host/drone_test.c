@@ -2132,14 +2132,15 @@ int main(void)
         }
     }
 
-    {   /* The proof-of-concept has exactly one GHOST engine. */
-        int original = dr_ghost_mode_get();
+    {   /* The hybrid is fixed internally; old endpoint controls do not override it. */
+        check("GHOST final-voice midpoint on initialization", dr_ghost_blend_get() == 50);
         dr_ghost_mode_set(DR_GHOST_BODY);
-        check("GHOST fixed to Terrain -> Body", original == DR_GHOST_TERRAIN_EXCITES_BODY &&
-              dr_ghost_mode_get() == DR_GHOST_TERRAIN_EXCITES_BODY);
+        dr_ghost_blend_set(0);
+        check("GHOST legacy endpoint setters cannot change midpoint",
+              dr_ghost_blend_get() == 50);
         dr_init();
-        check("GHOST mode 14 persists across initialization",
-              dr_ghost_mode_get() == DR_GHOST_TERRAIN_EXCITES_BODY);
+        check("GHOST midpoint persists across reinitialization",
+              dr_ghost_blend_get() == 50);
     }
 
     {   /* Complementary monitors with the GHOST knob acting as a mix.
@@ -2215,7 +2216,7 @@ int main(void)
               !dr_ghost_monitor_get() && !dr_ghost_mute_get());
     }
 
-    {   /* Terrain-to-Body level still has a true zero, and 100 produces
+    {   /* Fixed hybrid GHOST level still has a true zero, and 100 produces
          * more output than 50 after the gain-boost change. In both cases
          * the drones remain active but are removed from the audible mix. */
         float levels[3];
@@ -2247,49 +2248,58 @@ int main(void)
             run(secs(2.5f));
             levels[m] = rms();
         }
-        printf("    Terrain->Body GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
+        printf("    Fixed hybrid GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
                (double)levels[0], (double)levels[1], (double)levels[2]);
-        check("Terrain->Body silent at zero and grows toward 100",
+        check("Fixed hybrid silent at zero and grows toward 100",
               levels[0] < 0.000001f &&
               levels[1] > 0.0005f &&
               levels[2] > 1.25f * levels[1]);
     }
 
-    {   /* The two GHOST timbres and their midpoint must remain audible,
-         * finite, and independent of the parent-vs-GHOST MIX control. */
-        float level[3];
-        int m;
-        for (m = 0; m < 3; ++m) {
-            dry_init();
-            dr_set(P_FADE, 0);
-            dr_set(P_DRIFT, 0);
-            dr_set(P_PULSE, 0);
-            dr_set(P_FEEDBACK, 0);
-            dr_set(P_DLY_MIX, 0);
-            dr_set(P_REV_MIX, 0);
-            dr_set(P_GHOST, 100);
-            dr_ghost_monitor_set(1);
-            dr_ghost_blend_set(m * 50);
-            check("GHOST MORPH getter preserves requested position",
-                  dr_ghost_blend_get() == m * 50);
-            dr_play(1);
-            run(secs(2.0f));
-            level[m] = rms();
-        }
-        printf("    GHOST morph 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
-               (double)level[0], (double)level[1], (double)level[2]);
-        check("GHOST morph endpoints and midpoint all produce audio",
-              level[0] > 0.000001f && level[1] > 0.000001f &&
-              level[2] > 0.000001f);
+    {   /* The shipped hybrid midpoint must produce audio and cannot be
+         * changed by the legacy diagnostic interface. */
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_DRIFT, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_FEEDBACK, 0);
+        dr_set(P_DLY_MIX, 0);
+        dr_set(P_REV_MIX, 0);
+        dr_set(P_GHOST, 100);
+        dr_ghost_monitor_set(1);
+        dr_play(1);
+        run(secs(2.0f));
+        check("Fixed GHOST half-terrain hybrid remains audible", rms() > 0.000001f);
+        dr_ghost_blend_set(100);
         dr_ghost_mode_set(DR_GHOST_CROSS_BODY);
-        check("legacy mode 5 selects morph 0", dr_ghost_blend_get() == 0 &&
-              dr_ghost_mode_get() == DR_GHOST_CROSS_BODY);
-        dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
-        check("legacy mode 14 selects morph 100", dr_ghost_blend_get() == 100 &&
-              dr_ghost_mode_get() == DR_GHOST_TERRAIN_EXCITES_BODY);
+        check("No runtime change to fixed GHOST excitation blend",
+              dr_ghost_blend_get() == 50);
         dr_init();
-        check("session-only morph resets to mode 14 on boot",
-              dr_ghost_blend_get() == 100);
+        check("Fixed GHOST blend initializes to 50", dr_ghost_blend_get() == 50);
+    }
+
+    {   /* TAIL used to apply one block-wide attenuation value, producing
+         * discontinuities when a latched 100% TAIL was released. The same
+         * audio-rate gate now also scales the inputs to GHOST. */
+        float early[256], settled[2048];
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_GHOST, 0);
+        dr_set(DR_GP(1, GP_LEVEL), 0);
+        dr_play(1);
+        run(secs(0.4f));
+        dr_subtract(3, 1000); /* first drone's TAIL, fully off */
+        run(secs(0.3f));
+        check("TAIL 100 suppresses the direct parent after its short fade",
+              rms() < 1e-5f);
+        dr_subtract(3, 0); /* return from 100% */
+        capture(early, 256, 0);
+        run(secs(0.25f));
+        capture(settled, 2048, 0);
+        check("TAIL release ramps in without a first-block burst",
+              rms_of(settled, 2048) > 0.002f &&
+              rms_of(early, 256) < 0.3f * rms_of(settled, 2048));
     }
 
     check("output finite throughout", finite_ok);

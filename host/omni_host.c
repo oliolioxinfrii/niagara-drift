@@ -496,7 +496,7 @@ static int expect(const char *what, const char *val)
         got = proj.mtime;
     else if (!strcmp(what, "ghostmode"))            /* nearest GHOST morph endpoint */
         got = dr_ghost_mode_get();
-    else if (!strcmp(what, "ghostblend"))           /* SEL+PRESETS internal timbre morph, 0..100 */
+    else if (!strcmp(what, "ghostblend"))           /* fixed hybrid timbre, 50 */
         got = dr_ghost_blend_get();
     else if (!strcmp(what, "ghostmonitor"))         /* SEL+white Key 1: parent output removed */
         got = dr_ghost_monitor_get();

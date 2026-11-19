@@ -8,7 +8,7 @@
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
  *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT (SEL+ALGORITHM: GHOST MIX)
- *   PRESETS        MORPH TIME: gesture depth and clock return timing; SEL+PRESETS cycles GHOST tests
+ *   PRESETS        MORPH TIME: gesture depth and clock return timing; SEL+PRESETS unused
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
  *   MASTER         volume      SAVE   saves
@@ -1703,7 +1703,6 @@ static void stress_load(void)
         ui.g_sent[k] = -1;  /* publish the latch to the audio command queue */
     }
     sd_scene_restore(&pattern);     /* prepare cycling sequence, initially stopped */
-    dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
     dr_ghost_monitor_set(0);        /* predictable full-mix audition */
     dr_ghost_mute_set(0);           /* GHOST should be audible */
     mark_dirty();                   /* the authored sequence changed as well */
@@ -2616,30 +2615,12 @@ static void input(void)
             global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
         }
     }
-    if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: mode-5 -> mode-14 timbre */
+    if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: unused */
         if (ui.btn >> B_SEL & 1u) {
-            int amount = dr_ghost_blend_get() + 2 * accel(EN_PRESET, e, 100);
-            dr_ghost_blend_set(amount);
-            amount = dr_ghost_blend_get();
+            /* Consume the gesture so SEL release does not activate a
+             * separate command. No timbre parameter is exposed. */
             ui.btn_used |= 1u << B_SEL;
             ui.sel_turned = 1;
-            scopy(ui.glab[0], "GHOST MORPH");
-            if (amount == 0)
-                scopy(ui.glab[1], "CROSS + BODY");
-            else if (amount == 100)
-                scopy(ui.glab[1], "TERRAIN > BODY");
-            else {
-                itoa_u((uint32_t)amount, ui.glab[1]);
-                /* Freestanding firmware: avoid libc strlen(). */
-                {
-                    char *end = ui.glab[1];
-                    while (*end)
-                        ++end;
-                    scopy(end, "% TERRAIN");
-                }
-            }
-            ui.glab_until = plat_ms() + 1500u;
-            ui.act_t = plat_ms();
         } else {
             global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
         }

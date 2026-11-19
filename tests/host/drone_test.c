@@ -2290,7 +2290,8 @@ int main(void)
         dr_play(1);
         run(secs(0.4f));
         dr_subtract(3, 1000); /* first drone's TAIL, fully off */
-        run(secs(0.3f));
+        run(secs(0.12f));  /* allow the 50-ms gate to reach zero */
+        run(secs(0.18f));  /* measure only the settled silence */
         check("TAIL 100 suppresses the direct parent after its short fade",
               rms() < 1e-5f);
         dr_subtract(3, 0); /* return from 100% */

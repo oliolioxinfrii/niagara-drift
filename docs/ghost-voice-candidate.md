@@ -101,3 +101,60 @@ This is also a hypothesis to validate on hardware.
 **Neither change solves the CPU1 stress regression.** Reprofile CPU1
 and keep the validated mode-14 build available. No excitation gesture
 work is included.
+
+
+## CPU0 Cross-Synth split and resonator-excitation fade (experimental)
+
+This revision keeps the **fixed 50% hybrid timbre** and relocates the
+24-band Cross-Synth signal calculation to CPU0. The two cores no longer
+share live Cross-Synth filter state:
+
+- CPU0 renders both parent drones as before, and computes the mode-5
+  Cross-Synth output using its own two-pole input smoothing and filter
+  bank. When GHOST is inactive, CPU0 resets only this private state.
+- The existing double-buffered mailbox gains a **256-sample mono
+  Cross-Synth waveform per slot** (1,024 bytes/slot).
+- CPU1 continues independently smoothing the same parent samples,
+  generating the mode-5 body excitation and Wave Terrain, exciting the
+  **single shared eight-mode resonant body**, applying GHOST's adaptive
+  gain/compression, and rendering shared delay and reverb.
+- CPU1 never modifies CPU0's Cross-Synth band or low-pass states.
+  The existing shared-slot compile-time memory limit remains enforced.
+  An identical host renderer is retained as the single-core reference.
+
+The old TAIL recovery envelope hid the onset of GHOST's final output
+but did not limit the new energy injected into the resonator. The new
+envelope continues to hold GHOST output silent for 100 ms after
+releasing a fully engaged TAIL. After that hold, the **actual sum of the
+mode-5 body excitation and terrain excitation** is increased smoothly
+from 0 to full over **350 ms**, before injection into the resonant
+body. The separate 150-ms output fade is retained, and previous reverb
+and delay contents continue ringing.
+
+**Important:** This is a workload *redistribution*, not yet a verified
+performance improvement. The hardware has previously shown a 5.7-ms
+CPU1 completed-job peak (5.804-ms deadline), and CPU0's STRESS peak
+was 4.164 ms. The additional work on CPU0 might produce CPU0 audio
+overruns even if CPU1 now runs comfortably. Both CPU monitors must be
+observed on a fully power-cycled FM-1, especially under STRESS V2.
+A complete host-test pass does not verify two-core scheduling.
+
+The firmware-update quiescence and sticky CPU1 retirement mechanisms
+are **unchanged**. This is not an automatic-restart experiment.
+
+### Rebuild and hardware evaluation
+
+```sh
+git fetch origin
+git switch feature/ghost-voice-candidate
+git pull --ff-only
+sh tests/run_tests.sh &&
+OM_FX_CPU1=1 ./build.sh &&
+sh tests/run_tests.sh &&
+cp build/omni.fwsc build/ghost-voice-cpu0-cross-tail-ramp-TEST.fwsc
+```
+
+Test the regular Niagara GHOST 50% sound, full TAIL release, then STRESS
+V2, recording CPU0 average/peak/late and CPU1 online/mean/peak/misses
+after each scenario. Compare the **sound** to the previous
+`c2304fb` candidate, and the timing to its 5.7-ms CPU1 peak.

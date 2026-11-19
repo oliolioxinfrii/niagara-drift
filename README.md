@@ -106,11 +106,22 @@ ideas and components from earlier FM-1 projects:
 They are credited here **as part of Niagara Drift's lineage**, not as
 projects from which Volcano independently borrowed.
 
-Other FM-1 firmwares informed my thinking without being directly
-incorporated into Volcano. **Jiant** is another firmware I use frequently;
-**Frasil** and **AMB-1** were points of comparison that helped define what
-Volcano should—and should not—attempt to be. This is a distinction
-between **influence** and **code or design reuse**.
+Other FM-1 firmwares informed Volcano's development. **Jiant** is another
+instrument used in practice; **AMB-1** is a comparison for its ambient-drone
+scope. **Frasil** by Styves Goupil also informed the DSP-headroom work:
+this branch independently implements noise staging and filter specialization
+after studying Frasil's performance techniques; no Frasil source was copied.
+The experimental CPU1 worker draws on Arctic Scream and felucca-bsp/Melodee
+under their retained MPL-2.0 notices.
+
+Volcano also builds on established technical work in topology-preserving
+filters, polyBLEP oscillators, antiderivative antialiasing, feedback-delay
+networks and resonant/modal synthesis. The sound and performance design has
+been informed by hardware instruments, contemporary drone music and
+experimental sound art. **Conceptual influence, algorithms from the
+literature, and actual code adaptation are different kinds of credit.**
+See [Attributions and influences](docs/attributions.md) for named works,
+instrument references, and a clear accounting of what was actually reused.
 
 **Development note.** The Volcano-specific code changes and most of this
 fork's documentation were written by ChatGPT under my direction. My work is

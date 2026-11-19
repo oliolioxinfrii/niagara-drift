@@ -79,13 +79,40 @@ The specific reuse and license requirements are documented in
 **Jiant** is another FM-1 firmware I use extensively. **Frasil** and
 **AMB-1** were also at the forefront of my thinking, especially as points
 of comparison for defining the boundaries of Volcano's intended role.
-These three projects informed my perspective on what an FM-1 instrument
-can do, but I **did not directly borrow code or designs from them**.
+Jiant and AMB-1 informed my perspective on what an FM-1 instrument
+can do, but I did not incorporate their code. Frasil's DSP optimization
+strategies were examined more directly: this C-headroom branch includes
+independently implemented short-buffer noise staging and settled-filter-mode
+specialization, not copied Frasil code.
 
 The direct musical catalyst for Volcano was Nicolas Godin's score for
 *Fire of Love* (2022), particularly **"Acid Lake."** The intention was
 to give Niagara Drift's evolving drones a freely spaced pitch
 progression without turning the FM-1 into an all-in-one workstation.
+
+Further influences and DSP precedents—SOMA Lyra-8 and Cosmos, Stylophone
+CPM DS-2, Moog Subharmonicon, Make Noise Strega, Maryanne Amacher,
+topology-preserving filters, antiderivative antialiasing, feedback-delay
+networks and modal synthesis—are described, with distinctions between
+implemented features and future design ideas, in
+[Attributions and influences](../attributions.md).
+
+### GHOST and the CPU1 experiments
+
+The stable C-headroom experiment adds a **mode-14 GHOST** voice: a
+two-parent nonlinear wave terrain excites eight pitch-related damped
+resonators. It is an experimental integration of established nonlinear
+intermodulation and resonant/modal-synthesis ideas, not a reproduction
+of any named commercial instrument. GHOST mode 14, two-core scheduling,
+and CPU1 ownership of the shared delay/reverb are specific to this
+experimental branch; the earlier full multi-mode GHOST research and the
+unfinished Cross-Synth morph should not be described as stable features.
+
+The second-core mailbox, startup/fault safeguards and flash coordination
+adapt Arctic Scream / felucca-bsp and Melodee designs, with the upstream
+MPL-2.0 notices retained. See [the architecture C notes](../ghost14-ghost-fx-cpu1.md),
+[the headroom experiment](../ghost14-frasil-headroom.md) and
+[Attributions and influences](../attributions.md).
 
 ### Development and AI assistance
 

@@ -1040,7 +1040,7 @@ static volatile uint8_t ghost_mute_req;
  * Kept as a read-only diagnostic value; not a scene parameter or knob. */
 #define GHOST_FIXED_BLEND 50u
 #define GHOST_HALF_POWER 0.7071067811865475f
-static const uint8_t ghost_blend_req = GHOST_FIXED_BLEND;
+/* Use the compile-time constant directly; no runtime timbre state. */
 static float ghost_output_mix = 1.0f;
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
@@ -2317,7 +2317,7 @@ static void fx_c1_exchange(float *l, float *r, uint32_t n)
         s->ghost_pitch[0] = dr_pitch[0];
         s->ghost_pitch[1] = dr_pitch[1];
         s->ghost_mute = ghost_mute_req;
-        s->ghost_blend = ghost_blend_req;
+        s->ghost_blend = GHOST_FIXED_BLEND;
         s->ghost_active = (pfs[P_GHOST] > 0.0f || ghost_wet_mix > 0.0f ||
                            ghost_wet_block[0] > 0.0f);
         fx_c1_snapshot(s);

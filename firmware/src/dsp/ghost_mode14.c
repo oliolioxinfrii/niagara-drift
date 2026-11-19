@@ -87,7 +87,9 @@ static float gh14_resonate(float exc)
     }
     return out;
 }
-static float gh14_excited(float raw_terrain)
+/* The endpoint wrapper is used by the reference renderer and standalone
+ * mode-14 tests, but not by the fixed hybrid's production DSP path. */
+static float __attribute__((unused)) gh14_excited(float raw_terrain)
 {
     return gh14_resonate(0.82f * fm_tanhf(14.0f * raw_terrain));
 }

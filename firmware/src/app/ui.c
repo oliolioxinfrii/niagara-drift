@@ -2630,7 +2630,13 @@ static void input(void)
                 scopy(ui.glab[1], "TERRAIN > BODY");
             else {
                 itoa_u((uint32_t)amount, ui.glab[1]);
-                scopy(ui.glab[1] + strlen(ui.glab[1]), "% TERRAIN");
+                /* Freestanding firmware: avoid libc strlen(). */
+                {
+                    char *end = ui.glab[1];
+                    while (*end)
+                        ++end;
+                    scopy(end, "% TERRAIN");
+                }
             }
             ui.glab_until = plat_ms() + 1500u;
             ui.act_t = plat_ms();

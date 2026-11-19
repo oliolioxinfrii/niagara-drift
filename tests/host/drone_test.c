@@ -2327,6 +2327,35 @@ int main(void)
               rms_of(late, 4096) > 0.00001f);
     }
 
+    {   /* A TAIL release must ramp the actual resonator input: the
+         * existing GHOST output gate alone did not prevent the kick. */
+        float at_hold, at_ramp;
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_GHOST, 100);
+        dr_set(P_DLY_MIX, 0);
+        dr_set(P_REV_MIX, 0);
+        dr_play(1);
+        run(secs(0.6f));
+        dr_subtract(3, 1000);
+        run(secs(0.25f));
+        check("TAIL 100 drives GHOST excitation to zero",
+              dr_ghost_excitation_gain_test() < 0.0001f);
+        dr_subtract(3, 0);
+        run(secs(0.05f));
+        at_hold = dr_ghost_excitation_gain_test();
+        run(secs(0.20f));
+        at_ramp = dr_ghost_excitation_gain_test();
+        check("GHOST resonator excitation stays off during recovery hold",
+              at_hold < 0.0001f);
+        check("GHOST resonator excitation rises gradually",
+              at_ramp > 0.03f && at_ramp < 0.70f);
+        run(secs(0.55f));
+        check("GHOST resonator excitation eventually returns to unity",
+              dr_ghost_excitation_gain_test() > 0.999f);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

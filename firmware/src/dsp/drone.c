@@ -3423,6 +3423,9 @@ static float ghost_comp_power;
  * 14 means "at or above midpoint", not the actual hybrid topology. */
 void dr_ghost_blend_set(int amount) { (void)amount; }
 int dr_ghost_blend_get(void) { return GHOST_FIXED_BLEND; }
+#ifdef OM_HOST
+float dr_ghost_excitation_gain_test(void) { return ghost_exc_gain; }
+#endif
 void dr_ghost_mode_set(int mode) { (void)mode; }
 int dr_ghost_mode_get(void) { return DR_GHOST_TERRAIN_EXCITES_BODY; }
 void dr_ghost_monitor_set(int ghost_only) { ghost_monitor_req = ghost_only ? 1u : 0u; }

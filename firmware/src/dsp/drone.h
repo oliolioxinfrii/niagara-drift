@@ -292,6 +292,9 @@ enum {
 void dr_ghost_mode_set(int mode); /* legacy diagnostic setter; inert in fixed-voice candidate */
 int dr_ghost_mode_get(void);      /* nearest endpoint (not full morph position) */
 void dr_ghost_blend_set(int amount);  /* legacy setter; inert, fixed at 50 */
+#ifdef OM_HOST
+float dr_ghost_excitation_gain_test(void); /* host-test diagnostic only */
+#endif
 int dr_ghost_blend_get(void);
 /* Browser-only listening diagnostic: suppress direct parent audio *after*
  * it is generated but before GHOST and the shared FX mix. Not saved. */

@@ -1025,6 +1025,9 @@ static uint8_t fx_c1_clear_req, fx_c1_silence;
 #endif
 static void ghost_clear(void);                   /* relational GHOST state, below */
 static void gh5_prepare(void);                   /* spectral coefficients, below */
+static void gh5_cross_reset(void);
+static void gh5_cross_flush(void);
+static float gh5_cross_synthesis(float u, float v);
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
 static float ghost_parent_mix = 1.0f;
@@ -1047,7 +1050,18 @@ static float ghost_output_mix = 1.0f;
  * then rises over 150ms. Existing shared reverb/delay are untouched.
  * The envelope is owned by the active audio DSP core (CPU1 on hardware). */
 static float ghost_tail_gain = 1.0f;
+static float ghost_exc_gain = 1.0f; /* scales injected resonant energy */
 static uint32_t ghost_tail_wait;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+/* CPU0-only low-pass filter matching CPU1's GHOST input smoother.
+ * This is separate from CPU1's mutable resonator/terrain state. */
+static float ghost_cross_in[2][2];
+static void ghost_cross_input_reset(void)
+{
+    dr_memset(ghost_cross_in, 0, sizeof ghost_cross_in);
+    gh5_cross_reset();
+}
+#endif
 static float master_gain_smooth, master_trim_smooth = 1.0f;
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
@@ -1125,7 +1139,11 @@ void dr_init(void)
     ghost_mute_req = 0u;
     ghost_output_mix = 1.0f;
     ghost_tail_gain = 1.0f;
+    ghost_exc_gain = 1.0f;
     ghost_tail_wait = 0u;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+    ghost_cross_input_reset(); /* before starting the CPU1 worker */
+#endif
     master_gain_smooth = 0.0f; /* fade output in at boot, no gain step */
     master_trim_smooth = 1.0f;
     ghost_clear();
@@ -2133,6 +2151,7 @@ static float depth_amt(int d)
 typedef struct {
     float l[BLK], r[BLK];  /* parent dry stereo, then GHOST and FX in-place */
     float source_a[BLK], source_b[BLK], ghost_wet[BLK];
+    float cross[BLK];          /* one aligned Cross-Synth waveform from CPU0 */
     float ghost_pitch[2];
     uint8_t ghost_mute, ghost_active, ghost_tail_closed;
     int16_t par[DR_NPARAMS];
@@ -2317,21 +2336,46 @@ static void fx_c1_exchange(float *l, float *r, uint32_t n)
          * Subsequent writes always target the slot opposite the active job. */
         uint32_t slot = fx_c1_pending ? (fx_c1_pending_slot ^ 1u) : 0u;
         fx_c1_slot_t *s = &fx_c1[slot];
-        /* pgain already contains the smoothed TAIL attenuation. */
+        /* Cross-Synth runs on CPU0 over the same parent samples CPU1
+         * receives. Independent low-pass states avoid core races while
+         * retaining the old two-pole input response and alignment. */
+        s->ghost_active = (pfs[P_GHOST] > 0.0f || ghost_wet_mix > 0.0f ||
+                           ghost_wet_block[0] > 0.0f);
+        if (!s->ghost_active)
+            ghost_cross_input_reset();
         for (j = 0; j < n; j++) {
+            const float u = xbuf[j] * pgain[0][j];
+            const float v = ybuf[j] * pgain[1][j];
             s->l[j] = l[j];
             s->r[j] = r[j];
-            s->source_a[j] = xbuf[j] * pgain[0][j];
-            s->source_b[j] = ybuf[j] * pgain[1][j];
+            s->source_a[j] = u;
+            s->source_b[j] = v;
             s->ghost_wet[j] = ghost_wet_block[j];
+            if (s->ghost_active) {
+                ghost_cross_in[0][0] += 0.348f * (u - ghost_cross_in[0][0]);
+                ghost_cross_in[0][1] += 0.348f *
+                    (ghost_cross_in[0][0] - ghost_cross_in[0][1]);
+                ghost_cross_in[1][0] += 0.348f * (v - ghost_cross_in[1][0]);
+                ghost_cross_in[1][1] += 0.348f *
+                    (ghost_cross_in[1][0] - ghost_cross_in[1][1]);
+                s->cross[j] = gh5_cross_synthesis(ghost_cross_in[0][1],
+                                                 ghost_cross_in[1][1]);
+            } else {
+                s->cross[j] = 0.0f;
+            }
+        }
+        if (s->ghost_active) {
+            for (j = 0; j < 2u; j++) {
+                ghost_cross_in[j][0] = fm_flush(ghost_cross_in[j][0]);
+                ghost_cross_in[j][1] = fm_flush(ghost_cross_in[j][1]);
+            }
+            gh5_cross_flush();
         }
         s->ghost_pitch[0] = dr_pitch[0];
         s->ghost_pitch[1] = dr_pitch[1];
         s->ghost_mute = ghost_mute_req;
         s->ghost_tail_closed = sub_depth[0][3] >= 0.999f ||
                                sub_depth[1][3] >= 0.999f;
-        s->ghost_active = (pfs[P_GHOST] > 0.0f || ghost_wet_mix > 0.0f ||
-                           ghost_wet_block[0] > 0.0f);
         fx_c1_snapshot(s);
         s->clear = fx_c1_clear_req;
         fx_c1_clear_req = 0;

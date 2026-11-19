@@ -3461,22 +3461,29 @@ static void ghost_input_flush(void)
  * No per-sample timbre knob or 75-ms parameter slew is needed. The
  * mode-5 Cross-Synth and both excitations are deliberately active.
  * The hybrid shares one eight-resonator body; the reference uses two. */
-static float ghost_morph_sample(float u, float v)
+static float ghost_morph_sample(float u, float v, float cross_cpu0, float exc_gain)
 {
     float body_exc, cross, body, mode5, mode14;
     ghost_input_sample(u, v);
     u = ghost.in[0][1];
     v = ghost.in[1][1];
     body_exc = gh5_body_excitation(u, v);
+#if OM_FX_CPU1 && !defined(OM_HOST)
+    cross = cross_cpu0; /* same-sample CPU0 Cross-Synth output */
+#else
+    (void)cross_cpu0;
     cross = gh5_cross_synthesis(u, v);
+#endif
 #if OM_GHOST_BLEND_REFERENCE
-    body = gh5_body_resonate(body_exc);
+    body = gh5_body_resonate(body_exc * exc_gain);
     mode5 = gh5_mode5_output(body, cross);
-    mode14 = gh14_output(gh14_excited(gh14_terrain(u, v)));
+    mode14 = gh14_output(gh14_resonate(exc_gain * 0.82f *
+                                      fm_tanhf(14.0f * gh14_terrain(u, v))));
 #else
     {
         const float terrain_exc = 0.82f * fm_tanhf(14.0f * gh14_terrain(u, v));
-        body = gh14_resonate(GHOST_HALF_POWER * (body_exc + terrain_exc));
+        body = gh14_resonate(GHOST_HALF_POWER *
+                            (body_exc + terrain_exc) * exc_gain);
     }
     mode5 = gh5_mode5_output(body, cross);
     mode14 = gh14_output(body);
@@ -3516,10 +3523,11 @@ static float ghost_compress(float x)
  * the caller linearly advances the output gate sample by sample. Keeping
  * all resonant/AGC state running during silence hides the re-excitation
  * impulse, rather than resetting those states or muting the parents. */
-static float ghost_tail_block(uint32_t n, int closed, float *delta)
+static float ghost_tail_block(uint32_t n, int closed, float *delta,
+                              float *exc_from, float *exc_delta)
 {
-    const float from = ghost_tail_gain;
-    float target, max_step;
+    const float from = ghost_tail_gain, exc_start = ghost_exc_gain;
+    float target, max_step, exc_step;
     if (closed)
         ghost_tail_wait = (uint32_t)(0.100f * DR_SR);
     else if (ghost_tail_wait)
@@ -3527,7 +3535,14 @@ static float ghost_tail_block(uint32_t n, int closed, float *delta)
     target = (closed || ghost_tail_wait) ? 0.0f : 1.0f;
     max_step = (float)n / ((target > 0.0f ? 0.150f : 0.020f) * DR_SR);
     ghost_tail_gain = fm_clampf(target, from - max_step, from + max_step);
+    /* TAIL release: 100-ms silent preconditioning, then a 350-ms
+     * rise in the energy injected into the resonators. This differs
+     * from (and supplements) the existing 150-ms output fade. */
+    exc_step = (float)n / ((target > 0.0f ? 0.350f : 0.020f) * DR_SR);
+    ghost_exc_gain = fm_clampf(target, exc_start - exc_step, exc_start + exc_step);
     *delta = (ghost_tail_gain - from) / (float)n;
+    *exc_from = exc_start;
+    *exc_delta = (ghost_exc_gain - exc_start) / (float)n;
     return from;
 }
 
@@ -3537,6 +3552,7 @@ static void ghost_run_single(uint32_t n)
 {
     const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
     float tail_delta = 0.0f, tail_level;
+    float exc_delta = 0.0f, exc_level = 1.0f;
     uint32_t j;
     if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
         ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;
@@ -3544,14 +3560,16 @@ static void ghost_run_single(uint32_t n)
         return;
     }
     tail_level = ghost_tail_block(n, sub_depth[0][3] >= 0.999f ||
-                                    sub_depth[1][3] >= 0.999f, &tail_delta);
+                                    sub_depth[1][3] >= 0.999f, &tail_delta,
+                                  &exc_level, &exc_delta);
     gh14_tune(dr_pitch[0], dr_pitch[1]);
     for (j = 0; j < n; ++j) {
         tail_level += tail_delta;
+        exc_level += exc_delta;
         const float u = xbuf[j] * pgain[0][j];
         const float v = ybuf[j] * pgain[1][j];
         float out;
-        out = ghost_morph_sample(u, v);
+        out = ghost_morph_sample(u, v, 0.0f, exc_level);
         {
             const float target = ghost_mute_req ? 0.0f : 1.0f;
             const float step = 1.0f / (0.012f * DR_SR);
@@ -3583,18 +3601,22 @@ static void ghost_cpu1_mix(fx_c1_slot_t *s)
     const float step = 1.0f / (0.012f * DR_SR);
     const float target = s->ghost_mute ? 0.0f : 1.0f;
     float tail_delta = 0.0f, tail_level;
+    float exc_delta = 0.0f, exc_level = 1.0f;
     uint32_t j;
     if (!s->ghost_active) {
         ghost_output_mix = target;
         ghost_clear();
         return;
     }
-    tail_level = ghost_tail_block(BLK, s->ghost_tail_closed, &tail_delta);
+    tail_level = ghost_tail_block(BLK, s->ghost_tail_closed, &tail_delta,
+                                  &exc_level, &exc_delta);
     gh14_tune(s->ghost_pitch[0], s->ghost_pitch[1]);
     for (j = 0; j < BLK; j++) {
         float out;
         tail_level += tail_delta;
-        out = ghost_morph_sample(s->source_a[j], s->source_b[j]);
+        exc_level += exc_delta;
+        out = ghost_morph_sample(s->source_a[j], s->source_b[j],
+                                 s->cross[j], exc_level);
         ghost_output_mix = target < ghost_output_mix ?
             fm_maxf(ghost_output_mix - step, target) :
             fm_minf(ghost_output_mix + step, target);

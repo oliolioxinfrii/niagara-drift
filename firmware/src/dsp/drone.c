@@ -1042,6 +1042,13 @@ static volatile uint8_t ghost_mute_req;
 #define GHOST_HALF_POWER 0.7071067811865475f
 /* Use the compile-time constant directly; no runtime timbre state. */
 static float ghost_output_mix = 1.0f;
+/* A fully engaged TAIL on either parent temporarily closes GHOST's
+ * direct output. Reopening waits 100ms for the two-input DSP to settle,
+ * then rises over 150ms. Existing shared reverb/delay are untouched.
+ * The envelope is owned by the active audio DSP core (CPU1 on hardware). */
+static float ghost_tail_gain = 1.0f;
+static uint32_t ghost_tail_wait;
+static float master_gain_smooth, master_trim_smooth = 1.0f;
 static void macro_reset(void);                   /* the macros' moves at rest (below) */
 
 void dr_init(void)
@@ -1117,6 +1124,10 @@ void dr_init(void)
     ghost_wet_mix = 0.0f;
     ghost_mute_req = 0u;
     ghost_output_mix = 1.0f;
+    ghost_tail_gain = 1.0f;
+    ghost_tail_wait = 0u;
+    master_gain_smooth = 0.0f; /* fade output in at boot, no gain step */
+    master_trim_smooth = 1.0f;
     ghost_clear();
     gh5_prepare(); /* cross-synth filter coefficients, once at initialization */
     q_r = q_w;
@@ -2123,7 +2134,7 @@ typedef struct {
     float l[BLK], r[BLK];  /* parent dry stereo, then GHOST and FX in-place */
     float source_a[BLK], source_b[BLK], ghost_wet[BLK];
     float ghost_pitch[2];
-    uint8_t ghost_mute, ghost_active, ghost_blend;
+    uint8_t ghost_mute, ghost_active, ghost_tail_closed;
     int16_t par[DR_NPARAMS];
     float pfs[DR_NPARAMS], lfo[2][BLK / CR + 1];
     float fade, fade_target, ext_spb;
@@ -2317,7 +2328,8 @@ static void fx_c1_exchange(float *l, float *r, uint32_t n)
         s->ghost_pitch[0] = dr_pitch[0];
         s->ghost_pitch[1] = dr_pitch[1];
         s->ghost_mute = ghost_mute_req;
-        s->ghost_blend = GHOST_FIXED_BLEND;
+        s->ghost_tail_closed = sub_depth[0][3] >= 0.999f ||
+                               sub_depth[1][3] >= 0.999f;
         s->ghost_active = (pfs[P_GHOST] > 0.0f || ghost_wet_mix > 0.0f ||
                            ghost_wet_block[0] > 0.0f);
         fx_c1_snapshot(s);
@@ -3456,19 +3468,42 @@ static float ghost_compress(float x)
     return x * g;
 }
 
+/* GHOST-only TAIL recovery. Work is evaluated once per 256-frame block;
+ * the caller linearly advances the output gate sample by sample. Keeping
+ * all resonant/AGC state running during silence hides the re-excitation
+ * impulse, rather than resetting those states or muting the parents. */
+static float ghost_tail_block(uint32_t n, int closed, float *delta)
+{
+    const float from = ghost_tail_gain;
+    float target, max_step;
+    if (closed)
+        ghost_tail_wait = (uint32_t)(0.100f * DR_SR);
+    else if (ghost_tail_wait)
+        ghost_tail_wait = ghost_tail_wait > n ? ghost_tail_wait - n : 0u;
+    target = (closed || ghost_tail_wait) ? 0.0f : 1.0f;
+    max_step = (float)n / ((target > 0.0f ? 0.150f : 0.020f) * DR_SR);
+    ghost_tail_gain = fm_clampf(target, from - max_step, from + max_step);
+    *delta = (ghost_tail_gain - from) / (float)n;
+    return from;
+}
+
 #if !(OM_FX_CPU1 && !defined(OM_HOST))
 /* Host and mono reference: generate GHOST inside CPU0's mix. */
 static void ghost_run_single(uint32_t n)
 {
     const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+    float tail_delta = 0.0f, tail_level;
     uint32_t j;
     if (balance <= 0.0f && ghost_wet_block[0] <= 0.0f && ghost_wet_mix <= 0.0f) {
         ghost_output_mix = ghost_mute_req ? 0.0f : 1.0f;
         ghost_clear();
         return;
     }
+    tail_level = ghost_tail_block(n, sub_depth[0][3] >= 0.999f ||
+                                    sub_depth[1][3] >= 0.999f, &tail_delta);
     gh14_tune(dr_pitch[0], dr_pitch[1]);
     for (j = 0; j < n; ++j) {
+        tail_level += tail_delta;
         const float u = xbuf[j] * pgain[0][j];
         const float v = ybuf[j] * pgain[1][j];
         float out;
@@ -3480,7 +3515,8 @@ static void ghost_run_single(uint32_t n)
                 fm_maxf(ghost_output_mix - step, target) :
                 fm_minf(ghost_output_mix + step, target);
         }
-        out = ghost_compress(out) * 1.70f * ghost_wet_block[j] * ghost_output_mix;
+        out = ghost_compress(out) * 1.70f * ghost_wet_block[j] *
+              ghost_output_mix * tail_level;
         mixl[j] += out;
         mixr[j] += out;
     }
@@ -3502,20 +3538,24 @@ static void ghost_cpu1_mix(fx_c1_slot_t *s)
 {
     const float step = 1.0f / (0.012f * DR_SR);
     const float target = s->ghost_mute ? 0.0f : 1.0f;
+    float tail_delta = 0.0f, tail_level;
     uint32_t j;
     if (!s->ghost_active) {
         ghost_output_mix = target;
         ghost_clear();
         return;
     }
+    tail_level = ghost_tail_block(BLK, s->ghost_tail_closed, &tail_delta);
     gh14_tune(s->ghost_pitch[0], s->ghost_pitch[1]);
     for (j = 0; j < BLK; j++) {
         float out;
+        tail_level += tail_delta;
         out = ghost_morph_sample(s->source_a[j], s->source_b[j]);
         ghost_output_mix = target < ghost_output_mix ?
             fm_maxf(ghost_output_mix - step, target) :
             fm_minf(ghost_output_mix + step, target);
-        out = ghost_compress(out) * 1.70f * s->ghost_wet[j] * ghost_output_mix;
+        out = ghost_compress(out) * 1.70f * s->ghost_wet[j] *
+              ghost_output_mix * tail_level;
         s->l[j] += out;
         s->r[j] += out;
     }
@@ -3534,6 +3574,9 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
      * six presets measured are within +-2.3 dB, 0 on average) */
     const float m = (float)gain_q12 * (1.0f / 4096.0f), over = fm_maxf((m - 0.8f) * 5.0f, 0.0f);
     const float gain = fm_minf(m, 0.8f) * 1.78f * (1.0f + 4.0f * over), mout = fm_exp2f(-0.72f * fm_log2f(1.0f + 4.0f * over));
+    /* Master pot is scanned outside the ISR; ramp the resulting pre-
+     * and post-clip coefficients at audio rate rather than applying
+     * a new gain to every sample of an entire DMA half at once. */
 #if OM_FX_CPU1 && !defined(OM_HOST)
     fx_c1_begin();
 #endif
@@ -3719,14 +3762,29 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             if (spk_x <= 0.0f)                   /* off: its states cleared for the next time it's on */
                 spk[0][0] = spk[0][1] = spk[1][0] = spk[1][1] = 0.0f;
         }
-        for (j = 0; j < k; j++) {                /* the MASTER (its top fifth drives into the clip), the clip; */
-            float o;                             /* the dip after it (a straight line: out 20 ms, back 30 ms) */
-            if (duck != duck_to)
-                duck = duck_to < duck ? fm_maxf(duck - 1.0f / (0.020f * DR_SR), duck_to)
-                                      : fm_minf(duck + 1.0f / (0.030f * DR_SR), duck_to);
-            o = mout * 8300000.0f * duck;
-            out[2 * j] = (int32_t)(outclip(mixl[j] * gain) * o);
-            out[2 * j + 1] = (int32_t)(outclip(mixr[j] * gain) * o);
+        {   /* 25-ms block-target smoothing, with linear per-sample gain
+             * interpolation. Steady-state gain and clip character are
+             * unchanged, and no new expensive math enters this loop. */
+            const float alpha = fm_minf((float)k / (0.025f * DR_SR), 1.0f);
+            const float start_gain = master_gain_smooth, start_trim = master_trim_smooth;
+            const float end_gain = start_gain + alpha * (gain - start_gain);
+            const float end_trim = start_trim + alpha * (mout - start_trim);
+            const float dg = (end_gain - start_gain) / (float)k;
+            const float dt = (end_trim - start_trim) / (float)k;
+            float g = start_gain, trim = start_trim;
+            for (j = 0; j < k; j++) {             /* MASTER and output clip */
+                float o;
+                g += dg;
+                trim += dt;
+                if (duck != duck_to)
+                    duck = duck_to < duck ? fm_maxf(duck - 1.0f / (0.020f * DR_SR), duck_to)
+                                          : fm_minf(duck + 1.0f / (0.030f * DR_SR), duck_to);
+                o = trim * 8300000.0f * duck;
+                out[2 * j] = (int32_t)(outclip(mixl[j] * g) * o);
+                out[2 * j + 1] = (int32_t)(outclip(mixr[j] * g) * o);
+            }
+            master_gain_smooth = end_gain;
+            master_trim_smooth = end_trim;
         }
         out += 2 * k;
         n -= k;

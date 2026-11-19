@@ -2303,6 +2303,30 @@ int main(void)
               rms_of(early, 256) < 0.3f * rms_of(settled, 2048));
     }
 
+    {   /* A fully latched TAIL suppresses GHOST even as its resonators
+         * settle. On release, the internal voice can restart silently,
+         * and only then re-enter the shared mix over 150 ms. */
+        float early[4096], late[4096];
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_GHOST, 100);
+        dr_set(P_DLY_MIX, 0);
+        dr_set(P_REV_MIX, 0);
+        dr_play(1);
+        run(secs(1.0f));
+        dr_subtract(3, 1000);
+        run(secs(0.40f));
+        dr_subtract(3, 0);
+        capture(early, 4096, 0); /* first 93 ms after full TAIL */
+        run(secs(0.40f));        /* allow recovery gate to fully open */
+        capture(late, 4096, 0);
+        check("GHOST return remains gated during first 93 ms",
+              rms_of(early, 4096) < 1e-5f);
+        check("GHOST returns after TAIL recovery window",
+              rms_of(late, 4096) > 0.00001f);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

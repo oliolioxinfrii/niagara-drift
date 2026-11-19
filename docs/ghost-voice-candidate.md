@@ -71,3 +71,33 @@ short trial would not establish long-term stability.
 
 The new four-key excitation effects are **out of scope** pending
 separate discussion and acceptance of this candidate.
+
+## November 19 hardware feedback and recovery experiment
+
+The fixed midpoint plays on the FM-1, but CPU1 processing is close to its
+deadline. Initial Niagara: CPU1 completed-job mean 5184 us, peak 5738 us
+against 5804 us per block, with no missed handoffs during the probe.
+STRESS V2 caused one missed handoff and retired CPU1. After a power
+cycle Niagara ran again: mean 5215 us, peak 5573 us, no misses during
+that probe. These are observed probe values, not real-time guarantees;
+the missed/incomplete job is excluded from completed-job timing.
+
+The 50-ms TAIL source dezipper did not eliminate the reported return
+boom. A new hypothesis is a strong resonator/cross-synthesis response
+when a silent parent is reintroduced. This revision adds a **GHOST-only**
+recovery envelope: when either TAIL reaches approximately 100%, GHOST
+direct output fades out over 20 ms. After both return, its output
+remains silent for 100 ms, then rises over 150 ms. The input and
+resonator DSP continues processing so its transient settles inaudibly;
+the existing parent TAIL fade and the shared delay/reverb contents
+are unaffected. This has not yet been verified by hardware listening.
+
+Occasional crackles while moving MASTER may originate from block-wide
+gain changes. The candidate now low-pass-filters both master coefficients
+at 25 ms per block and linearly interpolates them sample-by-sample
+inside the output loop; the settled mapping and clipping are unchanged.
+This is also a hypothesis to validate on hardware.
+
+**Neither change solves the CPU1 stress regression.** Reprofile CPU1
+and keep the validated mode-14 build available. No excitation gesture
+work is included.

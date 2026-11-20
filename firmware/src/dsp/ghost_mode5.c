@@ -11,6 +11,23 @@
  * No synthesis state is accessed by CPU0 while CPU1 executes its job.
  */
 #define GH5_BANDS 12u
+/* Experimental half-rate Cross-Synth ONLY. The excitation, terrain,
+ * resonators, final GHOST output and compressor remain at 44.1 kHz.
+ * Define OM_GH5_HALF_RATE=0 to compare the original audio-rate path. */
+#ifndef OM_GH5_HALF_RATE
+#define OM_GH5_HALF_RATE 1
+#endif
+#if OM_GH5_HALF_RATE
+#define GH5_FILTER_SR (DR_SR * 0.5f)
+#define GH5_ENV_ALPHA 0.00279804f     /* 1 - (1 - 0.0014)^2 */
+#define GH5_LP_ALPHA 0.6636f          /* 1 - (1 - 0.42)^2 */
+#define GH5_DC_ALPHA 0.0004999375f    /* 1 - (1 - 0.00025)^2 */
+#else
+#define GH5_FILTER_SR DR_SR
+#define GH5_ENV_ALPHA 0.0014f
+#define GH5_LP_ALPHA 0.42f
+#define GH5_DC_ALPHA 0.00025f
+#endif
 typedef struct {
     float ic1, ic2, env, a1, a2, a3;
 } gh5_band_t;
@@ -18,6 +35,13 @@ static gh5_band_t gh5_bands[2][GH5_BANDS];
 static float gh5_xs_lp, gh5_xs_dc, gh5_body_dc;
 static float gh5_b_power, gh5_c_power, gh5_mix_power;
 static float gh5_b_gain = 1.0f, gh5_c_gain = 4.0f, gh5_mix_gain = 1.0f;
+#if OM_GH5_HALF_RATE
+/* Two circular full-rate 15-tap halfband FIR input histories (16 slots to
+ * avoid modulo). The 22.05-kHz filters run on every second sample. */
+static float gh5_decim_hist[2][16];
+static unsigned gh5_decim_pos, gh5_decim_odd;
+static float gh5_cross_hold;
+#endif
 #if OM_GHOST_BLEND_REFERENCE
 static float gh5_r[GH14_N][2];   /* independent bank only for A/B reference */
 #endif
@@ -33,7 +57,7 @@ static void gh5_prepare(void)
     unsigned i, j;
     for (i = 0u; i < 2u; ++i)
         for (j = 0u; j < GH5_BANDS; ++j) {
-            const float g = fm_tanf(FM_PI * hz[j] / DR_SR);
+            const float g = fm_tanf(FM_PI * hz[j] / GH5_FILTER_SR);
             const float k = 0.95f;
             gh5_band_t *s = &gh5_bands[i][j];
             s->a1 = 1.0f / (1.0f + g * (g + k));
@@ -56,6 +80,11 @@ static void gh5_reset(void)
     gh5_b_power = gh5_c_power = gh5_mix_power = 0.0f;
     gh5_b_gain = gh5_mix_gain = 1.0f;
     gh5_c_gain = 4.0f;
+#if OM_GH5_HALF_RATE
+    dr_memset(gh5_decim_hist, 0, sizeof gh5_decim_hist);
+    gh5_decim_pos = gh5_decim_odd = 0u;
+    gh5_cross_hold = 0.0f;
+#endif
 }
 /* Original mode-5 body excitation, separated from its eight resonators.
  * Both parents contribute multiplicatively; no third independent voice. */
@@ -92,12 +121,12 @@ static float gh5_filter(gh5_band_t *s, float x)
     const float v2 = s->ic2 + s->a2 * s->ic1 + s->a3 * v3;
     s->ic1 = 2.0f * v1 - s->ic1;
     s->ic2 = 2.0f * v2 - s->ic2;
-    s->env += 0.0014f * (fm_fabsf(v1) - s->env);
+    s->env += GH5_ENV_ALPHA * (fm_fabsf(v1) - s->env);
     return v1;
 }
 /* Two 12-band SVF banks; each parent is shaped by the OTHER's measured
  * band energy. Unlike an FFT bin intersection, differing pitches survive. */
-static float gh5_cross_synthesis(float u, float v)
+static float gh5_cross_core(float u, float v)
 {
     float bands[2][GH5_BANDS], total[2] = {0.0f, 0.0f};
     float result = 0.0f, gate0, gate1;
@@ -119,9 +148,48 @@ static float gh5_cross_synthesis(float u, float v)
         result += (bands[0][j] * color1 * gate1 +
                    bands[1][j] * color0 * gate0) * 0.14f;
     }
-    gh5_xs_lp += 0.42f * (result - gh5_xs_lp);
-    gh5_xs_dc += 0.00025f * (gh5_xs_lp - gh5_xs_dc);
+    gh5_xs_lp += GH5_LP_ALPHA * (result - gh5_xs_lp);
+    gh5_xs_dc += GH5_DC_ALPHA * (gh5_xs_lp - gh5_xs_dc);
     return gh5_xs_lp - gh5_xs_dc;
+}
+#if OM_GH5_HALF_RATE
+/* 15-tap Hamming-window halfband FIR, 11.025-kHz transition midpoint:
+ * nonzero taps at delays 0,2,4,6,7,8,10,12,14. Unity DC gain.
+ * Designed to reduce aliasing of full-rate parent harmonics before
+ * decimating by 2; the 2.405-kHz highest SVF center is in its passband.
+ * Symmetric input filter group delay: seven 44.1-kHz samples. */
+static inline float gh5_decimate(unsigned ch)
+{
+    const float *h = gh5_decim_hist[ch];
+    const unsigned p = gh5_decim_pos;
+    return 0.501872920f * h[(p - 7u) & 15u]
+         + 0.304947517f * (h[(p - 6u) & 15u] + h[(p - 8u) & 15u])
+         - 0.068411777f * (h[(p - 4u) & 15u] + h[(p - 10u) & 15u])
+         + 0.016179253f * (h[(p - 2u) & 15u] + h[(p - 12u) & 15u])
+         - 0.003651454f * (h[p] + h[(p - 14u) & 15u]);
+}
+#endif
+/* Preserve the 44.1-kHz calling convention for the rest of the hybrid.
+ * Half-rate path updates on odd samples, then interpolates its last two
+ * outputs; reconstruction is causal and adds approximately one further
+ * 44.1-kHz sample of delay. Both input histories advance each sample. */
+static float gh5_cross_synthesis(float u, float v)
+{
+#if OM_GH5_HALF_RATE
+    float out = gh5_cross_hold;
+    gh5_decim_hist[0][gh5_decim_pos] = u;
+    gh5_decim_hist[1][gh5_decim_pos] = v;
+    if (gh5_decim_odd) {
+        const float next = gh5_cross_core(gh5_decimate(0u), gh5_decimate(1u));
+        out = 0.5f * (gh5_cross_hold + next);
+        gh5_cross_hold = next;
+    }
+    gh5_decim_odd ^= 1u;
+    gh5_decim_pos = (gh5_decim_pos + 1u) & 15u;
+    return out;
+#else
+    return gh5_cross_core(u, v);
+#endif
 }
 static float gh5_shape(float x)
 {

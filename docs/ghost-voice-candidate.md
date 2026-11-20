@@ -103,7 +103,7 @@ and keep the validated mode-14 build available. No excitation gesture
 work is included.
 
 
-## CPU0 Cross-Synth split and resonator-excitation fade (experimental)
+## Historical CPU0 Cross-Synth split and resonator-excitation fade (reverted)
 
 This revision keeps the **fixed 50% hybrid timbre** and relocates the
 24-band Cross-Synth signal calculation to CPU0. The two cores no longer
@@ -158,3 +158,46 @@ Test the regular Niagara GHOST 50% sound, full TAIL release, then STRESS
 V2, recording CPU0 average/peak/late and CPU1 online/mean/peak/misses
 after each scenario. Compare the **sound** to the previous
 `c2304fb` candidate, and the timing to its 5.7-ms CPU1 peak.
+
+
+## CPU1 Cross-Synth restored (November 19, 2026)
+
+The CPU0 Cross-Synth split above was **reverted** on this branch after
+FM-1 measurements showed CPU0 at 102.8% under STRESS V2 (5,165 late
+audio blocks), despite reducing CPU1's completed-job time. The
+historical section above documents an abandoned experiment, not the
+current firmware architecture.
+
+The dual-core renderer again computes the complete GHOST fixed 50%
+hybrid, including the 24-band Cross-Synth, Wave Terrain, eight-mode
+resonant body, adaptive output and shared FX, on CPU1. CPU0 renders
+the parent sources and sends aligned source blocks and controls through
+the original mailbox; no Cross-Synth waveform or filter state remains
+on CPU0. The original Cross-Synth reset and denormal flush behavior is
+restored on CPU1.
+
+The later **350-ms resonator-excitation ramp after the 100-ms TAIL hold**
+and the host-only regression test are retained. The 150-ms GHOST output
+fade and the earlier parent-source TAIL dezipper also remain in place.
+
+This is a return to the previous division of labor, **not a stability
+qualification**: CPU1 already exceeded its real-time handoff deadline
+under STRESS V2 before the CPU0 experiment. Ordinary Niagara loads may
+play, but long-run stress stability remains unverified.
+
+Rebuild and remeasure this branch after a clean power cycle:
+
+```sh
+git fetch origin
+git switch feature/ghost-voice-candidate
+git pull --ff-only
+sh tests/run_tests.sh &&
+OM_FX_CPU1=1 ./build.sh &&
+sh tests/run_tests.sh &&
+cp build/omni.fwsc build/ghost-voice-cpu1-cross-tail-ramp-TEST.fwsc
+```
+
+Record CPU0 average/peak/late and CPU1 mean/peak/misses/faults
+separately under Niagara and STRESS V2. Neither a host test pass nor
+the absence of misses in a brief Niagara run establishes stable
+real-time performance.

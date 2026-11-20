@@ -8,9 +8,7 @@
  * filter banks. The hybrid renderer reuses mode 14's eight resonators
  * with a continuously morphed excitation. The reference renderer
  * retains an independent body bank for an ordinary output crossfade.
- * In dual-core builds CPU0 exclusively owns the Cross-Synth filter states.
- * CPU1 owns Wave Terrain, resonators, adaptive gains and shared effects.
- * Each core holds a private input LP fed with the same parent samples.
+ * No synthesis state is accessed by CPU0 while CPU1 executes its job.
  */
 #define GH5_BANDS 12u
 typedef struct {
@@ -43,27 +41,18 @@ static void gh5_prepare(void)
             s->a3 = g * s->a2;
         }
 }
-/* Cross-Synth filter states are CPU0-only on dual-core hardware.
- * This reset preserves filter coefficients from gh5_prepare(). */
-static void gh5_cross_reset(void)
+static void gh5_reset(void)
 {
     unsigned i, j;
     for (i = 0u; i < 2u; ++i)
         for (j = 0u; j < GH5_BANDS; ++j) {
             gh5_band_t *s = &gh5_bands[i][j];
-            s->ic1 = s->ic2 = s->env = 0.0f;
+            s->ic1 = s->ic2 = s->env = 0.0f; /* preserve a1,a2,a3 */
         }
-    gh5_xs_lp = gh5_xs_dc = 0.0f;
-}
-static void gh5_reset(void)
-{
-#if !(OM_FX_CPU1 && !defined(OM_HOST))
-    gh5_cross_reset();
-#endif
 #if OM_GHOST_BLEND_REFERENCE
     dr_memset(gh5_r, 0, sizeof gh5_r);
 #endif
-    gh5_body_dc = 0.0f;
+    gh5_xs_lp = gh5_xs_dc = gh5_body_dc = 0.0f;
     gh5_b_power = gh5_c_power = gh5_mix_power = 0.0f;
     gh5_b_gain = gh5_mix_gain = 1.0f;
     gh5_c_gain = 4.0f;
@@ -134,20 +123,6 @@ static float gh5_cross_synthesis(float u, float v)
     gh5_xs_dc += 0.00025f * (gh5_xs_lp - gh5_xs_dc);
     return gh5_xs_lp - gh5_xs_dc;
 }
-/* Only the core that renders Cross-Synth may flush these filter states. */
-static void gh5_cross_flush(void)
-{
-    unsigned i, j;
-    gh5_xs_lp = fm_flush(gh5_xs_lp);
-    gh5_xs_dc = fm_flush(gh5_xs_dc);
-    for (i = 0u; i < 2u; ++i)
-        for (j = 0u; j < GH5_BANDS; ++j) {
-            gh5_band_t *s = &gh5_bands[i][j];
-            s->ic1 = fm_flush(s->ic1);
-            s->ic2 = fm_flush(s->ic2);
-            s->env = fm_flush(s->env);
-        }
-}
 static float gh5_shape(float x)
 {
     x = fm_clampf(x, -1.0f, 1.0f);
@@ -183,10 +158,16 @@ static void gh5_finish(uint32_t n)
     gh5_b_power = fm_flush(gh5_b_power);
     gh5_c_power = fm_flush(gh5_c_power);
     gh5_mix_power = fm_flush(gh5_mix_power);
+    gh5_xs_lp = fm_flush(gh5_xs_lp);
+    gh5_xs_dc = fm_flush(gh5_xs_dc);
     gh5_body_dc = fm_flush(gh5_body_dc);
-#if !(OM_FX_CPU1 && !defined(OM_HOST))
-    gh5_cross_flush();
-#endif
+    for (unsigned i = 0u; i < 2u; ++i)
+        for (unsigned j = 0u; j < GH5_BANDS; ++j) {
+            gh5_band_t *s = &gh5_bands[i][j];
+            s->ic1 = fm_flush(s->ic1);
+            s->ic2 = fm_flush(s->ic2);
+            s->env = fm_flush(s->env);
+        }
 #if OM_GHOST_BLEND_REFERENCE
     for (unsigned i = 0u; i < GH14_N; ++i) {
         gh5_r[i][0] = fm_flush(gh5_r[i][0]);

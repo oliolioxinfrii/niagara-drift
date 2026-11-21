@@ -14,6 +14,7 @@ key w12 down
 expect ghostheld 1
 wait 350
 expect ghostheld 1
+expect ghosthits0 2
 key w12 up
 expect ghostheld 0
 expect gam0 0
@@ -23,6 +24,7 @@ key w13 down
 expect ghostheld 2
 wait 680
 expect ghostheld 2
+expect ghosthits1 2
 key w13 up
 expect ghostheld 0
 expect gam1 0
@@ -32,6 +34,7 @@ key w14 down
 expect ghostheld 4
 wait 1650
 expect ghostheld 4
+expect ghosthits2 2
 key w14 up
 expect ghostheld 0
 expect gam2 0
@@ -41,6 +44,7 @@ key w15 down
 expect ghostheld 8
 wait 950
 expect ghostheld 8
+expect ghosthits3 2
 key w15 up
 expect ghostheld 0
 expect gam3 0
@@ -53,6 +57,11 @@ key w12 up
 expect ghostheld 4
 key w14 up
 expect ghostheld 0
+wait 2000
+expect ghosthits0 3
+expect ghosthits1 2
+expect ghosthits2 3
+expect ghosthits3 2
 expect par90 0
 expect par91 0
 expect par92 0

@@ -185,6 +185,7 @@ extern const char *const DR_WSCALE_NAME[DR_NWSCALE];
 void dr_subtract(int key, int amt);           /* white keys 1-8: 0..1000, four per drone */
 void dr_still_rejoin(int g, int on);         /* 1 cubic catch-up to master; 0 stop catching up */
 void dr_gesture(int g, int amt);               /* gesture key g's amount now, 0..1000 (the UI swells it) */
+void dr_ghost_excite(int event);              /* keys 13-16: STRIKE / SCRAPE / BOW / TREMOR; 0..3 */
 float dr_wander(void);                         /* Wander's move of drone II now, semitones (the screen) */
 float dr_wander_to(void);                      /* ... and where it's going (the screen) */
 int dr_wander_degs(float *deg);                /* Wander's scale over drone I, on the Tuning, semitones; how many

@@ -3398,6 +3398,95 @@ static ghost_t ghost;
 #endif
 #include "ghost_mode5.c"
 static float ghost_comp_power;
+/* Four percussive gestures share the existing GHOST resonators. Events
+ * are delivered by the CPU0 -> CPU1 block mailbox; only the active DSP
+ * core owns these ages and envelopes. No additional oscillators. */
+static uint32_t ghost_event_age[4];
+static uint8_t ghost_event_active;
+static float ghost_event_noise_lp, ghost_event_tremor_env;
+
+static void ghost_event_reset(void)
+{
+    unsigned i;
+    for (i = 0u; i < 4u; ++i) ghost_event_age[i] = 0u;
+    ghost_event_active = 0u;
+    ghost_event_noise_lp = ghost_event_tremor_env = 0.0f;
+}
+static void ghost_event_fire(uint8_t bits)
+{
+    unsigned i;
+    for (i = 0u; i < 4u; ++i) {
+        if (bits & (1u << i)) {
+            ghost_event_age[i] = 0u;
+            ghost_event_active |= (uint8_t)(1u << i);
+        }
+    }
+}
+static inline float ghost_event_noise(void)
+{
+    ghost_evt_rng = ghost_evt_rng * 1664525u + 1013904223u;
+    return (float)(int32_t)ghost_evt_rng * (1.0f / 2147483648.0f);
+}
+/* A single bounded excitation sample for all active events. The functions
+ * are intentionally arithmetic-only; no trig, logarithms, allocation or
+ * extra resonator bank. Idle GHOST samples never call this function.
+ * STRIKE: 15ms shaped hit; SCRAPE: 250ms irregular noise;
+ * BOW: 1.6s noise-driven rise/hold/release; TREMOR: 5 low-mode pulses.
+ * Retriggers restart the event envelope, but existing resonances persist. */
+static void ghost_event_tick(float *common, float *low)
+{
+    float e = 0.0f, bass = 0.0f, noise = 0.0f;
+    uint32_t n;
+    if (ghost_event_active & 1u) {
+        n = ghost_event_age[0]++;
+        if (n < 662u) {
+            const float a = (float)(662u - n) * (1.0f / 662.0f);
+            e += 0.65f * a * a;
+        } else
+            ghost_event_active &= (uint8_t)~1u;
+    }
+    if (ghost_event_active & 6u) {
+        noise = ghost_event_noise();
+        ghost_event_noise_lp += 0.16f * (noise - ghost_event_noise_lp);
+    }
+    if (ghost_event_active & 2u) {
+        n = ghost_event_age[1]++;
+        if (n < 11025u) {
+            const float a = (float)(11025u - n) * (1.0f / 11025.0f);
+            e += 0.26f * a * a * (0.65f * noise + 0.35f * ghost_event_noise_lp);
+        } else
+            ghost_event_active &= (uint8_t)~2u;
+    }
+    if (ghost_event_active & 4u) {
+        n = ghost_event_age[2]++;
+        if (n < 70560u) {
+            const float attack = fm_minf((float)n * (1.0f / 5292.0f), 1.0f);
+            const float release = fm_minf((float)(70560u - n) * (1.0f / 13230.0f), 1.0f);
+            e += 0.15f * attack * release *
+                 (0.55f * noise + 0.45f * ghost_event_noise_lp);
+        } else
+            ghost_event_active &= (uint8_t)~4u;
+    }
+    if (ghost_event_active & 8u) {
+        n = ghost_event_age[3]++;
+        switch (n) {
+        case 0u:     ghost_event_tremor_env =  0.33f; break;
+        case 2900u:  ghost_event_tremor_env = -0.29f; break;
+        case 6900u:  ghost_event_tremor_env =  0.35f; break;
+        case 12300u: ghost_event_tremor_env = -0.26f; break;
+        case 21900u: ghost_event_tremor_env =  0.40f; break;
+        default: break;
+        }
+        bass += ghost_event_tremor_env;
+        ghost_event_tremor_env *= 0.9985f;
+        if (n >= 30870u) {
+            ghost_event_active &= (uint8_t)~8u;
+            ghost_event_tremor_env = 0.0f;
+        }
+    }
+    *common = fm_clampf(e, -0.70f, 0.70f);
+    *low = fm_clampf(bass, -0.45f, 0.45f);
+}
 /* Legacy diagnostic setters are inert: synthesis is fixed at 50%.
  * The getter retains the older 5/14 classification for host scripts;
  * 14 means "at or above midpoint", not the actual hybrid topology. */
@@ -3418,6 +3507,7 @@ static void ghost_clear(void)
     dr_memset(&ghost, 0, sizeof ghost);
     gh14_reset();
     gh5_reset();
+    ghost_event_reset();
     ghost_comp_power = 0.0f;
 }
 static void ghost_input_sample(float u, float v)
@@ -3447,6 +3537,10 @@ static void ghost_input_flush(void)
 static float ghost_morph_sample(float u, float v, float exc_gain)
 {
     float body_exc, cross, body, mode5, mode14;
+    float event = 0.0f, low_event = 0.0f;
+    const int event_running = ghost_event_active != 0;
+    if (event_running)
+        ghost_event_tick(&event, &low_event);
     ghost_input_sample(u, v);
     u = ghost.in[0][1];
     v = ghost.in[1][1];
@@ -3455,13 +3549,21 @@ static float ghost_morph_sample(float u, float v, float exc_gain)
 #if OM_GHOST_BLEND_REFERENCE
     body = gh5_body_resonate(body_exc * exc_gain);
     mode5 = gh5_mode5_output(body, cross);
-    mode14 = gh14_output(gh14_resonate(exc_gain * 0.82f *
-                                      fm_tanhf(14.0f * gh14_terrain(u, v))));
+    {
+        const float terrain = exc_gain * 0.82f *
+                              fm_tanhf(14.0f * gh14_terrain(u, v));
+        mode14 = gh14_output(event_running ?
+            gh14_resonate_event(terrain, event * exc_gain, low_event * exc_gain) :
+            gh14_resonate(terrain));
+    }
 #else
     {
         const float terrain_exc = 0.82f * fm_tanhf(14.0f * gh14_terrain(u, v));
-        body = gh14_resonate(GHOST_HALF_POWER *
-                            (body_exc + terrain_exc) * exc_gain);
+        const float excitation = GHOST_HALF_POWER *
+                                 (body_exc + terrain_exc) * exc_gain;
+        body = event_running ?
+            gh14_resonate_event(excitation, event * exc_gain, low_event * exc_gain) :
+            gh14_resonate(excitation);
     }
     mode5 = gh5_mode5_output(body, cross);
     mode14 = gh14_output(body);

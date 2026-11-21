@@ -1029,7 +1029,6 @@ static uint8_t fx_c1_clear_req, fx_c1_silence;
 static void ghost_clear(void);                   /* relational GHOST state, below */
 static void ghost_event_fire(uint8_t bits);       /* active DSP-core resonator impulse scheduler */
 static uint8_t ghost_evt_pending;                 /* CPU0: triggers for next immutable CPU1 snapshot */
-static uint32_t ghost_evt_rng;                   /* DSP-core event noise; reset to a deterministic seed */
 static void gh5_prepare(void);                   /* spectral coefficients, below */
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
@@ -1136,7 +1135,6 @@ void dr_init(void)
     ghost_exc_gain = 1.0f;
     ghost_tail_wait = 0u;
     ghost_evt_pending = 0u;
-    ghost_evt_rng = 0xF03A51D7u;
     master_gain_smooth = 0.0f; /* fade output in at boot, no gain step */
     master_trim_smooth = 1.0f;
     ghost_clear();
@@ -3418,14 +3416,22 @@ static uint8_t ghost_event_active;
 #ifdef OM_HOST
 static uint32_t ghost_event_test_hits[4]; /* diagnostics only; no FM-1 overhead */
 #endif
-static float ghost_event_noise_lp, ghost_event_tremor_env;
+/* These few arithmetic-only state variables exist on the active DSP core.
+ * SCRAPE is driven by cross-products and relative motion of the actual
+ * parents; BOW uses their smoothed tonal sum, gated by both source powers.
+ * There is no stand-alone noise generator or additional synthesis voice. */
+static float ghost_event_scrape_lp, ghost_event_bow_lp;
+static float ghost_event_prev_u, ghost_event_prev_v;
+static float ghost_event_tremor_env;
 
 static void ghost_event_reset(void)
 {
     unsigned i;
     for (i = 0u; i < 4u; ++i) ghost_event_age[i] = 0u;
     ghost_event_active = 0u;
-    ghost_event_noise_lp = ghost_event_tremor_env = 0.0f;
+    ghost_event_scrape_lp = ghost_event_bow_lp = 0.0f;
+    ghost_event_prev_u = ghost_event_prev_v = 0.0f;
+    ghost_event_tremor_env = 0.0f;
 }
 static void ghost_event_fire(uint8_t bits)
 {
@@ -3440,32 +3446,34 @@ static void ghost_event_fire(uint8_t bits)
         }
     }
 }
-static inline float ghost_event_noise(void)
+
+/* Event design:
+ *   STRIKE: a stronger 15-ms single impact, preserving its sci-fi beating.
+ *   SCRAPE: 250-ms high-mode roughness from the INTERACTION of both
+ *           parent audio waves (product + differential phase shear).
+ *   BOW: 1.6-s sustained tonal coupling of the parent sum into the body,
+ *        following their changing pitches, mix, and level. Both must exist.
+ *   TREMOR: seven irregular alternating-sign low-mode impacts (~750 ms),
+ *           with a smaller parent-responsive high-partial component.
+ * Each event is bounded and retriggerable. Inactive GHOST renders use
+ * the original gh14_resonate() without running this DSP at all.
+ * No sinusoid, logarithm, noise generator or allocation is added here. */
+#define GHOST_STRIKE_BOOST 13.0f
+#define GHOST_SCRAPE_COUPLING 46.0f
+#define GHOST_BOW_COUPLING 12.0f
+#define GHOST_TREMOR_BOOST 19.0f
+static void ghost_event_tick(float *common, float *low, float *high,
+                             float u, float v)
 {
-    ghost_evt_rng = ghost_evt_rng * 1664525u + 1013904223u;
-    return (float)(int32_t)ghost_evt_rng * (1.0f / 2147483648.0f);
-}
-/* A single bounded excitation sample for all active events. The functions
- * are intentionally arithmetic-only; no trig, logarithms, allocation or
- * extra resonator bank. Idle GHOST samples never call this function.
- * STRIKE: 15ms shaped hit; SCRAPE: 250ms irregular noise;
- * BOW: 1.6s noise-driven rise/hold/release; TREMOR: 5 low-mode pulses.
- * Retriggers restart the event envelope, but existing resonances persist.
- *
- * The modal injection coefficient in gh14_tune() is only about 0.0002-0.0004
- * per sample. Initial envelope amplitudes (0.15-0.65) were effectively
- * inaudible against the running GHOST body. These event-specific gains
- * compensate for that weak coupling without changing the parent/terrain
- * excitation or the idle resonator path. The final combined injection is
- * clamped before entering the eight existing resonators. */
-#define GHOST_STRIKE_BOOST 8.0f
-#define GHOST_SCRAPE_BOOST 48.0f
-#define GHOST_BOW_BOOST 30.0f
-#define GHOST_TREMOR_BOOST 12.0f
-static void ghost_event_tick(float *common, float *low)
-{
-    float e = 0.0f, bass = 0.0f, noise = 0.0f;
+    float e = 0.0f, bass = 0.0f, treble = 0.0f;
     uint32_t n;
+    /* Store previous samples only while an event is active. SCRAPE's
+     * first sample suppresses its derivative impulse on re-trigger. */
+    const float du = u - ghost_event_prev_u;
+    const float dv = v - ghost_event_prev_v;
+    ghost_event_prev_u = u;
+    ghost_event_prev_v = v;
+
     if (ghost_event_active & 1u) {
         n = ghost_event_age[0]++;
         if (n < 662u) {
@@ -3474,50 +3482,66 @@ static void ghost_event_tick(float *common, float *low)
         } else
             ghost_event_active &= (uint8_t)~1u;
     }
-    if (ghost_event_active & 6u) {
-        noise = ghost_event_noise();
-        ghost_event_noise_lp += 0.16f * (noise - ghost_event_noise_lp);
-    }
     if (ghost_event_active & 2u) {
         n = ghost_event_age[1]++;
         if (n < 11025u) {
+            /* Product creates sum/difference sidebands; shear responds to
+             * relative parent phase and spectral edge changes. Both vanish
+             * if either parent vanishes. A one-pole high-pass makes it
+             * scrape the high modes rather than add a generic noise wash. */
+            const float shear = n ? du * v - dv * u : 0.0f;
+            const float friction = fm_clampf(14.0f * u * v + 32.0f * shear,
+                                             -1.25f, 1.25f);
             const float a = (float)(11025u - n) * (1.0f / 11025.0f);
-            e += 0.26f * GHOST_SCRAPE_BOOST * a * a *
-                 (0.65f * noise + 0.35f * ghost_event_noise_lp);
+            ghost_event_scrape_lp += 0.014f * (friction - ghost_event_scrape_lp);
+            treble += GHOST_SCRAPE_COUPLING * a * a *
+                      (friction - ghost_event_scrape_lp);
         } else
             ghost_event_active &= (uint8_t)~2u;
     }
     if (ghost_event_active & 4u) {
         n = ghost_event_age[2]++;
         if (n < 70560u) {
-            const float attack = fm_minf((float)n * (1.0f / 5292.0f), 1.0f);
+            /* A bowed resonance follows the currently playing tones and
+             * their beating, not an independent noise envelope. The product
+             * of slow source powers ensures BOTH parents participate. */
+            const float attack = fm_minf((float)n * (1.0f / 7940.0f), 1.0f);
             const float release = fm_minf((float)(70560u - n) * (1.0f / 13230.0f), 1.0f);
-            e += 0.15f * GHOST_BOW_BOOST * attack * release *
-                 (0.55f * noise + 0.45f * ghost_event_noise_lp);
+            const float interaction = 2.6f * (u + v) + 3.0f * u * v * (u - v);
+            const float both = fm_clampf(2500.0f * ghost.power[0] *
+                                        ghost.power[1], 0.0f, 1.0f);
+            ghost_event_bow_lp += 0.085f * (interaction - ghost_event_bow_lp);
+            e += GHOST_BOW_COUPLING * attack * release *
+                 both * ghost_event_bow_lp;
         } else
             ghost_event_active &= (uint8_t)~4u;
     }
     if (ghost_event_active & 8u) {
         n = ghost_event_age[3]++;
         switch (n) {
-        case 0u:     ghost_event_tremor_env =  0.33f; break;
-        case 2900u:  ghost_event_tremor_env = -0.29f; break;
-        case 6900u:  ghost_event_tremor_env =  0.35f; break;
-        case 12300u: ghost_event_tremor_env = -0.26f; break;
-        case 21900u: ghost_event_tremor_env =  0.40f; break;
+        case 0u:     ghost_event_tremor_env =  0.56f; break;
+        case 1900u:  ghost_event_tremor_env = -0.46f; break;
+        case 4700u:  ghost_event_tremor_env =  0.72f; break;
+        case 8200u:  ghost_event_tremor_env = -0.55f; break;
+        case 13100u: ghost_event_tremor_env =  0.88f; break;
+        case 19100u: ghost_event_tremor_env = -0.66f; break;
+        case 27900u: ghost_event_tremor_env =  0.73f; break;
         default: break;
         }
         bass += GHOST_TREMOR_BOOST * ghost_event_tremor_env;
-        ghost_event_tremor_env *= 0.9985f;
-        if (n >= 30870u) {
+        /* The high partials follow the parents, unlike the low pulse train,
+         * making TREMOR sound different from a repeated STRIKE. */
+        treble += 3.2f * ghost_event_tremor_env *
+                  fm_clampf(3.0f * (u - v), -1.0f, 1.0f);
+        ghost_event_tremor_env *= 0.9979f;
+        if (n >= 33075u) {
             ghost_event_active &= (uint8_t)~8u;
             ghost_event_tremor_env = 0.0f;
         }
     }
-    /* Independent simultaneous-event guard; modal state and GHOST's
-     * existing output saturation/compression provide further protection. */
-    *common = fm_clampf(e, -9.0f, 9.0f);
-    *low = fm_clampf(bass, -5.0f, 5.0f);
+    *common = fm_clampf(e, -11.0f, 11.0f);
+    *low = fm_clampf(bass, -12.0f, 12.0f);
+    *high = fm_clampf(treble, -10.0f, 10.0f);
 }
 /* Legacy diagnostic setters are inert: synthesis is fixed at 50%.
  * The getter retains the older 5/14 classification for host scripts;
@@ -3573,13 +3597,13 @@ static void ghost_input_flush(void)
 static float ghost_morph_sample(float u, float v, float exc_gain)
 {
     float body_exc, cross, body, mode5, mode14;
-    float event = 0.0f, low_event = 0.0f;
+    float event = 0.0f, low_event = 0.0f, high_event = 0.0f;
     const int event_running = ghost_event_active != 0;
-    if (event_running)
-        ghost_event_tick(&event, &low_event);
     ghost_input_sample(u, v);
     u = ghost.in[0][1];
     v = ghost.in[1][1];
+    if (event_running)
+        ghost_event_tick(&event, &low_event, &high_event, u, v);
     body_exc = gh5_body_excitation(u, v);
     cross = gh5_cross_synthesis(u, v);
 #if OM_GHOST_BLEND_REFERENCE
@@ -3589,7 +3613,8 @@ static float ghost_morph_sample(float u, float v, float exc_gain)
         const float terrain = exc_gain * 0.82f *
                               fm_tanhf(14.0f * gh14_terrain(u, v));
         mode14 = gh14_output(event_running ?
-            gh14_resonate_event(terrain, event * exc_gain, low_event * exc_gain) :
+            gh14_resonate_event(terrain, event * exc_gain, low_event * exc_gain,
+                               high_event * exc_gain) :
             gh14_resonate(terrain));
     }
 #else
@@ -3598,7 +3623,8 @@ static float ghost_morph_sample(float u, float v, float exc_gain)
         const float excitation = GHOST_HALF_POWER *
                                  (body_exc + terrain_exc) * exc_gain;
         body = event_running ?
-            gh14_resonate_event(excitation, event * exc_gain, low_event * exc_gain) :
+            gh14_resonate_event(excitation, event * exc_gain, low_event * exc_gain,
+                               high_event * exc_gain) :
             gh14_resonate(excitation);
     }
     mode5 = gh5_mode5_output(body, cross);

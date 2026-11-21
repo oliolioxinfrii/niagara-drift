@@ -3423,6 +3423,10 @@ static uint32_t ghost_event_test_hits[4]; /* diagnostics only; no FM-1 overhead 
 static float ghost_event_scrape_lp, ghost_event_bow_lp;
 static float ghost_event_prev_u, ghost_event_prev_v;
 static float ghost_event_tremor_env;
+/* A short attack and slower post-release tail make modal key events more
+ * present in a dense parent mix. This affects the entire GHOST body (not
+ * the parent drones), using the same resonators; no second bank or voice. */
+static float ghost_event_accent;
 
 static void ghost_event_reset(void)
 {
@@ -3432,6 +3436,7 @@ static void ghost_event_reset(void)
     ghost_event_scrape_lp = ghost_event_bow_lp = 0.0f;
     ghost_event_prev_u = ghost_event_prev_v = 0.0f;
     ghost_event_tremor_env = 0.0f;
+    ghost_event_accent = 0.0f;
 }
 static void ghost_event_fire(uint8_t bits)
 {
@@ -3460,7 +3465,7 @@ static void ghost_event_fire(uint8_t bits)
  * No sinusoid, logarithm, noise generator or allocation is added here. */
 #define GHOST_STRIKE_BOOST 13.0f
 #define GHOST_SCRAPE_COUPLING 46.0f
-#define GHOST_BOW_COUPLING 5.0f
+#define GHOST_BOW_COUPLING 11.0f
 #define GHOST_TREMOR_BOOST 19.0f
 static void ghost_event_tick(float *common, float *low, float *high,
                              float u, float v)
@@ -3502,14 +3507,18 @@ static void ghost_event_tick(float *common, float *low, float *high,
     if (ghost_event_active & 4u) {
         n = ghost_event_age[2]++;
         if (n < 70560u) {
-            /* A bowed resonance follows the currently playing tones and
-             * their beating, not an independent noise envelope. The product
-             * of slow source powers ensures BOTH parents participate. */
+            /* A bowed resonance follows both parent tones and their beating.
+             * The old 2500*p0*p1 multiplier suppressed BOW dramatically at
+             * moderate input levels: e.g. at power 0.002 per parent it
+             * returned just 0.01. The quieter-parent floor is a better
+             * gate: still zero if either parent is silent, strong enough
+             * to excite the modal bank in a normal two-drone soundscape. */
             const float attack = fm_minf((float)n * (1.0f / 7940.0f), 1.0f);
             const float release = fm_minf((float)(70560u - n) * (1.0f / 13230.0f), 1.0f);
             const float interaction = 2.6f * (u + v) + 3.0f * u * v * (u - v);
-            const float both = fm_clampf(2500.0f * ghost.power[0] *
-                                        ghost.power[1], 0.0f, 1.0f);
+            const float both = fm_clampf(800.0f *
+                                        fm_minf(ghost.power[0], ghost.power[1]),
+                                        0.0f, 1.0f);
             ghost_event_bow_lp += 0.085f * (interaction - ghost_event_bow_lp);
             e += GHOST_BOW_COUPLING * attack * release *
                  both * ghost_event_bow_lp;
@@ -3542,6 +3551,25 @@ static void ghost_event_tick(float *common, float *low, float *high,
     *common = fm_clampf(e, -11.0f, 11.0f);
     *low = fm_clampf(bass, -12.0f, 12.0f);
     *high = fm_clampf(treble, -10.0f, 10.0f);
+}
+/* The event energy otherwise suffers TWO masking stages: the GHOST
+ * compressor and the wet/dry crossfade. Do not raise the whole always-on
+ * voice or turn down parent drones: accent only while events sound and
+ * their shared eight-mode resonators ring. At a fully wet mix the extra
+ * gain is +5 dB; at GHOST MIX 50 it reaches about +10.5 dB, and at 25
+ * about +13 dB. At MIX 0 no GHOST is heard: the existing wet coefficient
+ * remains exactly zero. TAIL and MUTE are applied AFTER this accent.
+ *
+ * Attack ~4 ms, fade-out ~0.5 s: a single 15-ms STRIKE is audible as
+ * ringing, but a completed event returns to the unmodified GHOST level.
+ * No expensive math, extra voices or per-sample resonator work. */
+static float ghost_event_output_gain(float wet)
+{
+    if (ghost_event_active)
+        ghost_event_accent = fm_minf(1.0f, ghost_event_accent + 0.006f);
+    else if (ghost_event_accent > 0.0f)
+        ghost_event_accent = fm_maxf(0.0f, ghost_event_accent - 0.000045f);
+    return 1.0f + ghost_event_accent * (0.8f + 5.2f * (1.0f - wet));
 }
 /* Legacy diagnostic setters are inert: synthesis is fixed at 50%.
  * The getter retains the older 5/14 classification for host scripts;
@@ -3719,8 +3747,9 @@ static void ghost_run_single(uint32_t n)
                 fm_maxf(ghost_output_mix - step, target) :
                 fm_minf(ghost_output_mix + step, target);
         }
-        out = ghost_compress(out) * 1.70f * ghost_wet_block[j] *
-              ghost_output_mix * tail_level;
+        out = ghost_compress(out) *
+              (1.70f * ghost_event_output_gain(ghost_wet_block[j])) *
+              ghost_wet_block[j] * ghost_output_mix * tail_level;
         mixl[j] += out;
         mixr[j] += out;
     }
@@ -3763,8 +3792,9 @@ static void ghost_cpu1_mix(fx_c1_slot_t *s)
         ghost_output_mix = target < ghost_output_mix ?
             fm_maxf(ghost_output_mix - step, target) :
             fm_minf(ghost_output_mix + step, target);
-        out = ghost_compress(out) * 1.70f * s->ghost_wet[j] *
-              ghost_output_mix * tail_level;
+        out = ghost_compress(out) *
+              (1.70f * ghost_event_output_gain(s->ghost_wet[j])) *
+              s->ghost_wet[j] * ghost_output_mix * tail_level;
         s->l[j] += out;
         s->r[j] += out;
     }

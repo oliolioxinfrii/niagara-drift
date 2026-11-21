@@ -24,8 +24,9 @@
  *                  round; SEL + OCT the one before; lit while its wave is up
  * White keys: 1-8 STRIP/DARK/STILL/TAIL for the two parents, 9-12
  *   TICK/CHORD/SNARL/STUTTER, 13-16 GHOST STRIKE/SCRAPE/BOW/TREMOR.
- *   The last four keys trigger resonant events (tap once, hold to repeat),
- *   replacing the former WEIGHT/SHIFT/CLEAN/WASH key gestures; legacy
+ *   The last four keys trigger resonant events (tap once, hold to repeat;
+ *   double-tap to latch repetition, press again to cancel), replacing
+ *   the former WEIGHT/SHIFT/CLEAN/WASH key gestures; legacy
  *   project parameters remain readable but are no longer assigned keys.
  * Black keys F#3 G#3 A#3 C#4 D#4 F#4 G#4 A#4 C#5 D#5 F#5:
  *   Normal pages: drone I (Partner, Sub, Filter), global Pitch Lock, drone-II Pitch Link,
@@ -239,8 +240,13 @@ static struct {
     float sub_amt[8];                  /* keys 1-8: four operations per drone */
     int16_t sub_sent[8];
     uint16_t key_held;                 /* subtractive and pressure-gesture white keys */
-    uint8_t ghost_event_held;          /* bits 0..3: excitation keys 13..16 held */
-    uint32_t ghost_event_next[4];      /* next repeat time while held (UI milliseconds) */
+    uint8_t ghost_event_held;          /* physical keys 13..16 held */
+    uint8_t ghost_event_latched;       /* repeated events continue after key-up */
+    uint8_t ghost_event_tap_armed;     /* previous press was a short tap */
+    uint8_t ghost_event_cancel;        /* physical press canceled a latch; no retrigger */
+    uint32_t ghost_event_press[4];     /* press time, to reject held-key double taps */
+    uint32_t ghost_event_release[4];   /* last qualifying release for double-tap */
+    uint32_t ghost_event_next[4];      /* next repeat time in UI milliseconds */
     uint8_t ghost_key_consumed;       /* bits 0/1: SEL+F3/G3 captured; suppress both normal gestures */
     uint16_t key_was_returning;        /* state when the current press began */
     uint16_t key_initial_zero;         /* short touch from zero retains the small value */
@@ -1948,36 +1954,71 @@ static void key_rejoin(int i, int on)
         sd_still_rejoin(i / 4, on);
     }
 }
-/* Key13 STRIKE, 14 SCRAPE, 15 BOW, 16 TREMOR.
- * A press triggers immediately; holding repeats at the chosen interval.
- * These are events, not saved scene parameters or extra synthesis voices. */
+/* Keys 13-16: single press excites once, hold retriggers, double-tap
+ * enables session-only repetition, and the next press cancels a latch.
+ * The FIRST press always sounds immediately (no double-tap latency).
+ * The second press in a double-tap sounds again and begins repeating;
+ * a cancel press only stops the scheduler, leaving existing modal tails.
+ * A long hold cannot count as the first half of a double tap. */
+#define GHOST_EVENT_TAP_MS 220u
+#define GHOST_EVENT_DOUBLE_MS 320u
 static const char *const GHOST_EVENT_NAME[4] = {"STRIKE", "SCRAPE", "BOW", "TREMOR"};
-static const uint16_t GHOST_EVENT_REPEAT_MS[4] = {300u, 650u, 1600u, 900u};
+static const uint16_t GHOST_EVENT_REPEAT_MS[4] = {300u, 420u, 1600u, 900u};
 static void ghost_event_down(int i)
 {
     const int event = i - NSCENES;
     const uint8_t bit = (uint8_t)(1u << event);
+    const uint32_t now = plat_ms();
     if (ui.ghost_event_held & bit) return;
     ui.ghost_event_held |= bit;
-    ui.ghost_event_next[event] = plat_ms() + GHOST_EVENT_REPEAT_MS[event];
-    dr_ghost_excite(event);
-    say_c("GHOST", GHOST_EVENT_NAME[event], K_GOLD);
+    ui.ghost_event_press[event] = now;
+    if (ui.ghost_event_latched & bit) {
+        ui.ghost_event_latched &= (uint8_t)~bit;
+        ui.ghost_event_tap_armed &= (uint8_t)~bit;
+        ui.ghost_event_cancel |= bit;
+        say_c(GHOST_EVENT_NAME[event], "OFF", K_GOLD);
+    } else {
+        const int double_tap = (ui.ghost_event_tap_armed & bit) != 0 &&
+                               now - ui.ghost_event_release[event] <= GHOST_EVENT_DOUBLE_MS;
+        ui.ghost_event_tap_armed &= (uint8_t)~bit;
+        if (double_tap)
+            ui.ghost_event_latched |= bit;
+        ui.ghost_event_next[event] = now + GHOST_EVENT_REPEAT_MS[event];
+        dr_ghost_excite(event);
+        say_c(GHOST_EVENT_NAME[event], double_tap ? "LATCHED" : "GHOST", K_GOLD);
+    }
     ui.scene_at = -1;
 }
 static void ghost_event_up(int i)
 {
-    ui.ghost_event_held &= (uint8_t)~(1u << (i - NSCENES));
+    const int event = i - NSCENES;
+    const uint8_t bit = (uint8_t)(1u << event);
+    const uint32_t now = plat_ms();
+    if (!(ui.ghost_event_held & bit)) return;
+    ui.ghost_event_held &= (uint8_t)~bit;
+    if (!(ui.ghost_event_cancel & bit) &&
+        !(ui.ghost_event_latched & bit) &&
+        now - ui.ghost_event_press[event] <= GHOST_EVENT_TAP_MS) {
+        ui.ghost_event_tap_armed |= bit;
+        ui.ghost_event_release[event] = now;
+    } else {
+        ui.ghost_event_tap_armed &= (uint8_t)~bit;
+    }
+    ui.ghost_event_cancel &= (uint8_t)~bit;
 }
 static void ghost_event_run(void)
 {
     const uint32_t now = plat_ms();
     int event;
-    for (event = 0; event < 4; ++event)
-        if ((ui.ghost_event_held & (1u << event)) &&
+    for (event = 0; event < 4; ++event) {
+        const uint8_t bit = (uint8_t)(1u << event);
+        if (((ui.ghost_event_latched & bit) ||
+             ((ui.ghost_event_held & bit) && !(ui.ghost_event_cancel & bit))) &&
             (int32_t)(now - ui.ghost_event_next[event]) >= 0) {
             dr_ghost_excite(event);
             ui.ghost_event_next[event] = now + GHOST_EVENT_REPEAT_MS[event];
         }
+    }
 }
 static void gesture_down(int i)                  /* i: physical white key, 0..11 */
 {
@@ -3035,8 +3076,12 @@ static void leds(void)
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
     }
-    for (i = 0; i < 4u; ++i)
-        k[WHITE_K[NSCENES + i]] = (ui.ghost_event_held & (1u << i)) ? 255u : 0u;
+    for (i = 0; i < 4u; ++i) {
+        const uint8_t bit = (uint8_t)(1u << i);
+        k[WHITE_K[NSCENES + i]] = (ui.ghost_event_latched & bit) ?
+            (blink(700u) ? 255u : LED_DIM) :
+            (ui.ghost_event_held & bit) && !(ui.ghost_event_cancel & bit) ? 255u : 0u;
+    }
     /* SEL no longer turns gesture keys into bank selectors. */
     if (ui.view == V_SEQ_NOTES)
         sd_key_leds(k);

@@ -87,20 +87,23 @@ static float gh14_resonate(float exc)
     }
     return out;
 }
-/* Performance-key events inject energy into the SAME eight resonators.
- * Keep the original gh14_resonate() hot path entirely unchanged when
- * no event is active; the extra four-mode bias is TREMOR-only. */
-static float gh14_resonate_event(float exc, float event, float low_event)
+/* Performance-key events excite the SAME eight resonators:
+ * STRIKE uses common injection, BOW shares the whole body, SCRAPE
+ * emphasizes upper partials, and TREMOR emphasizes lower partials.
+ * The tested non-event hot path remains gh14_resonate() unchanged. */
+static float gh14_resonate_event(float exc, float event, float low_event,
+                                float high_event)
 {
     float out = 0.0f;
-    const float common = exc + event, low = common + low_event;
+    const float common = exc + event;
+    const float low = common + low_event, high = common + high_event;
     uint32_t i;
     for (i = 0u; i < GH14_N; ++i) {
         const gh14_res_t *tune = &gh14_body[i];
         float *m = gh14_r[i];
         const float re = m[0], im = m[1];
         m[0] = tune->pole * (tune->c * re - tune->s * im)
-             + tune->injection * (i < 4u ? low : common);
+             + tune->injection * (i < 4u ? low : high);
         m[1] = tune->pole * (tune->s * re + tune->c * im);
         out += (i < 4u ? 0.31f : 0.18f) * m[0];
     }

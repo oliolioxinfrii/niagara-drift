@@ -742,6 +742,7 @@ typedef struct {
     float bc;                                     /* the bass makeup's low-pass state */
     float du, dF;                                 /* the DRIVE's antialiasing: its last input, sat_F of it */
     float gf, gtarget;                            /* the voice's fade, 0..1 */
+    float out_fade_step;                          /* 0: legacy FADE, otherwise SEL+OCT MORPH step */
     float lv;                                     /* the level (with the Crossfade), smoothed */
     float peak;
     float pl, pr;                                 /* the pan's gains where the last block ended (Stereo) */
@@ -1594,11 +1595,19 @@ static void drain(void)
             if (a < DR_NPARAMS) {
                 base[a] = (int16_t)(b < PARAMS[a].lo ? PARAMS[a].lo : b > PARAMS[a].hi ? PARAMS[a].hi : b);
                 par[a] = (int16_t)heard(a);    /* with the macros' offset on it, if any */
-                if (a == P_MORPH)
+                if (a == P_MORPH) {
+                    unsigned g;
                     voice_fade_step = (float)CR /
                         (DR_SR * fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.020f));
-                if (a == P_I_OUT || a == P_II_OUT)
-                    grp[a == P_II_OUT].gtarget = b ? 0.0f : 1.0f;
+                    for (g = 0; g < DR_NGROUPS; ++g)
+                        if (grp[g].out_fade_step > 0.0f)
+                            grp[g].out_fade_step = voice_fade_step;
+                }
+                if (a == P_I_OUT || a == P_II_OUT) {
+                    grp_t *v = &grp[a == P_II_OUT];
+                    v->gtarget = b ? 0.0f : 1.0f;
+                    v->out_fade_step = voice_fade_step;
+                }
                 if (a >= P_WANDER && a <= P_GD_3)
                     mac_dirty = 1;             /* an amount or a depth: the offsets again */
                 {   /* its glide: a step a sample, to arrive over the time asked for (or 25 ms) */
@@ -1666,8 +1675,10 @@ static void drain(void)
             duck_to = a ? 0.0f : 1.0f;
             break;
         case C_VOICE:
-            if (a < DR_NGROUPS)
+            if (a < DR_NGROUPS) {
                 grp[a].gtarget = b ? 1.0f : 0.0f;
+                grp[a].out_fade_step = 0.0f;  /* existing dr_voice callers retain FADE */
+            }
             break;
         case C_PANIC: {
             int g;
@@ -2627,7 +2638,8 @@ static void render_group(int g, uint32_t n)
     const int link = g == 1 && par[P_PLINK];
     const float xamt = g == 1 ? depth_amtf(pfs[P_XMOD_AMT]) * 12.0f : 0.0f;
     const float famt_x = depth_amtf(pfs[P_XMOD_AMT]) * 10.0f;   /* CROSS-FM: the other's sound (~+-0.3) x 10 at the top */
-    const float frate = voice_fade_step;  /* MORPH TIME, not PLAY's FADE */
+    const float frate = v->out_fade_step > 0.0f ?
+                        v->out_fade_step : fade_rate() * (float)CR;
     float glide_k;
     uint32_t j0;
     {

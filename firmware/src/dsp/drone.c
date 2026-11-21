@@ -3460,7 +3460,7 @@ static void ghost_event_fire(uint8_t bits)
  * No sinusoid, logarithm, noise generator or allocation is added here. */
 #define GHOST_STRIKE_BOOST 13.0f
 #define GHOST_SCRAPE_COUPLING 46.0f
-#define GHOST_BOW_COUPLING 12.0f
+#define GHOST_BOW_COUPLING 5.0f
 #define GHOST_TREMOR_BOOST 19.0f
 static void ghost_event_tick(float *common, float *low, float *high,
                              float u, float v)

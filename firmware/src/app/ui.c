@@ -2087,6 +2087,19 @@ static void gesture_run(void)
                 proj.par[gl_par(g)] = (int16_t)(*amount * 100.0f + 0.5f);
         }
     }
+    /* Keys 13-16 now trigger GHOST events, but the four historical
+     * WEIGHT/SHIFT/CLEAN/WASH latch parameters remain in saved projects.
+     * They no longer have key envelopes; keep their DSP amounts in sync
+     * after boot, scene load, transition, and archived Motion Loop replay.
+     * ui.g_sent suppresses redundant audio commands while idle. */
+    for (i = 0; i < G_PRESS; ++i) {
+        const int16_t q = (int16_t)(fm_clampf(
+            fm_maxf(ui.g_amt[i], loop_gest(i)), 0.0f, 1.0f) * 1000.0f + 0.5f);
+        if (q != ui.g_sent[i]) {
+            ui.g_sent[i] = q;
+            dr_gesture(i, q);
+        }
+    }
 }
 
 static void global_turn(int role, int p, const char *name, int32_t e)

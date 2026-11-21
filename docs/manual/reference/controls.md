@@ -56,7 +56,7 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 ## Navigation and saved sounds
 
 - **SAVE** opens the scene browser. White keys **1–4** operate STRIP/DARK/STILL/TAIL for drone I, and **5–8** do the same for drone II.
-- **Keys 9–12** activate Tick, Chord, Snarl and Stutter. Keys **13–16** trigger STRIKE, SCRAPE, BOW and TREMOR in the existing GHOST resonators (tap once; hold to repeat; release to stop retriggering). The first twelve white keys retain their separate held-depth gestures. Black keys control drone switches, links and (on LFO pages) modulation routing.
+- **Keys 9–12** activate Tick, Chord, Snarl and Stutter. Keys **13–16** trigger STRIKE, SCRAPE, BOW and TREMOR in the existing GHOST resonators: tap once to excite, hold to repeat, **double-tap to latch repeating**, then press once more to stop. Their latches are session-only. The first twelve white keys retain their separate held-depth gestures. Black keys control drone switches, links and (on LFO pages) modulation routing.
 - **On the Sequence page**, all 27 keys enter notes rather than activating their ordinary switches or gestures. The first event follows the live pitches from HOME → Pitch.
 - **Hold SEL** to use secondary knob functions without replacing the active screen with the former key-map overlay.
 - **SEL + HOME** creates a randomized working sound and sequencer. **SEL + PLAY** starts or pauses the pitch progression without changing the instrument's fade.

@@ -506,6 +506,8 @@ static int expect(const char *what, const char *val)
         got = dr_ghost_mute_get();
     else if (!strcmp(what, "ghostheld"))            /* event keys 13..16 held (four-bit mask) */
         got = ui.ghost_event_held;
+    else if (!strcmp(what, "ghostlatched"))         /* double-tap locks, press cancels (four-bit mask) */
+        got = ui.ghost_event_latched;
     else if (!strncmp(what, "ghosthits", 9))         /* GHOST event N fired count (N=0..3) */
         got = (int)dr_ghost_event_hits_test(atoi(what + 9));
     else if (!strcmp(what, "dirty"))

@@ -667,7 +667,7 @@ void dr_param_text(int i, int v, char *b)
 }
 
 /* -------------------------------------------------------------- commands --- */
-enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT };
+enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
 #define QN 256u
@@ -696,6 +696,7 @@ void dr_lfo_transport_set(int state) {
 }
 void dr_seed(uint32_t s) { post(C_SEED, (int)(s >> 16 & 0xFFu), (int)(s & 0xFFFFu)); }
 void dr_gesture(int g, int amt) { post(C_GEST, g, amt); }
+void dr_ghost_excite(int event) { if ((unsigned)event < 4u) post(C_GHOST_EXC, event, 0); }
 void dr_subtract(int key, int amt) { if ((unsigned)key < 8u) post(C_SUB, key, amt); }
 void dr_still_rejoin(int g, int on) { if ((unsigned)g < DR_NGROUPS) post(C_SUB_RETURN, g, on); }
 
@@ -1012,6 +1013,7 @@ static float rnd(void)                            /* -1..1 */
     return (float)(int32_t)rng * (1.0f / 2147483648.0f);
 }
 
+static float voice_fade_step;                   /* per CR samples: SEL+OCT uses MORPH TIME */
 static float fade_rate(void)                      /* per sample: 0.05 s * 1200^(v/100) for a full fade */
 {
     float s = dr_time_s(P_FADE, par[P_FADE]);
@@ -1024,6 +1026,9 @@ static void fx_c1_init_snapshot(void);
 static uint8_t fx_c1_clear_req, fx_c1_silence;
 #endif
 static void ghost_clear(void);                   /* relational GHOST state, below */
+static void ghost_event_fire(uint8_t bits);       /* active DSP-core resonator impulse scheduler */
+static uint8_t ghost_evt_pending;                 /* CPU0: triggers for next immutable CPU1 snapshot */
+static uint32_t ghost_evt_rng;                   /* DSP-core event noise; reset to a deterministic seed */
 static void gh5_prepare(void);                   /* spectral coefficients, below */
 /* Browser-only direct-parent output monitor. Source generation remains live. */
 static volatile uint8_t ghost_monitor_req;
@@ -1065,6 +1070,7 @@ void dr_init(void)
         pfs[i] = (float)par[i];
         pslide_ms[i] = 0;
     }
+    voice_fade_step = (float)CR / (DR_SR * fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.020f));
     for (g = 0; g < DR_NGROUPS; g++) {
         grp_t *v = &grp[g];
         *v = (grp_t){0};
@@ -1128,6 +1134,8 @@ void dr_init(void)
     ghost_tail_gain = 1.0f;
     ghost_exc_gain = 1.0f;
     ghost_tail_wait = 0u;
+    ghost_evt_pending = 0u;
+    ghost_evt_rng = 0xF03A51D7u;
     master_gain_smooth = 0.0f; /* fade output in at boot, no gain step */
     master_trim_smooth = 1.0f;
     ghost_clear();
@@ -1573,10 +1581,22 @@ static void drain(void)
                 mac_dirty = 1;
             }
             break;
+        case C_GHOST_EXC:
+            if ((unsigned)a < 4u) {
+#if OM_FX_CPU1 && !defined(OM_HOST)
+                ghost_evt_pending |= (uint8_t)(1u << a);
+#else
+                ghost_event_fire((uint8_t)(1u << a));
+#endif
+            }
+            break;
         case C_SET:
             if (a < DR_NPARAMS) {
                 base[a] = (int16_t)(b < PARAMS[a].lo ? PARAMS[a].lo : b > PARAMS[a].hi ? PARAMS[a].hi : b);
                 par[a] = (int16_t)heard(a);    /* with the macros' offset on it, if any */
+                if (a == P_MORPH)
+                    voice_fade_step = (float)CR /
+                        (DR_SR * fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.020f));
                 if (a == P_I_OUT || a == P_II_OUT)
                     grp[a == P_II_OUT].gtarget = b ? 0.0f : 1.0f;
                 if (a >= P_WANDER && a <= P_GD_3)
@@ -2136,7 +2156,7 @@ typedef struct {
     float l[BLK], r[BLK];  /* parent dry stereo, then GHOST and FX in-place */
     float source_a[BLK], source_b[BLK], ghost_wet[BLK];
     float ghost_pitch[2];
-    uint8_t ghost_mute, ghost_active, ghost_tail_closed;
+    uint8_t ghost_mute, ghost_active, ghost_tail_closed, ghost_events;
     int16_t par[DR_NPARAMS];
     float pfs[DR_NPARAMS], lfo[2][BLK / CR + 1];
     float fade, fade_target, ext_spb;
@@ -2337,6 +2357,8 @@ static void fx_c1_exchange(float *l, float *r, uint32_t n)
         fx_c1_snapshot(s);
         s->clear = fx_c1_clear_req;
         fx_c1_clear_req = 0;
+        s->ghost_events = ghost_evt_pending;
+        ghost_evt_pending = 0u;
         fx_c1_prepared_slot = slot;
         fx_c1_prepared = 1;
     }
@@ -2605,7 +2627,7 @@ static void render_group(int g, uint32_t n)
     const int link = g == 1 && par[P_PLINK];
     const float xamt = g == 1 ? depth_amtf(pfs[P_XMOD_AMT]) * 12.0f : 0.0f;
     const float famt_x = depth_amtf(pfs[P_XMOD_AMT]) * 10.0f;   /* CROSS-FM: the other's sound (~+-0.3) x 10 at the top */
-    const float frate = fade_rate() * (float)CR;
+    const float frate = voice_fade_step;  /* MORPH TIME, not PLAY's FADE */
     float glide_k;
     uint32_t j0;
     {
@@ -3559,6 +3581,7 @@ static void ghost_cpu1_mix(fx_c1_slot_t *s)
     float tail_delta = 0.0f, tail_level;
     float exc_delta = 0.0f, exc_level = 1.0f;
     uint32_t j;
+    ghost_event_fire(s->ghost_events);  /* launch only on CPU1, never mutate CPU1 state from UI/CPU0 */
     if (!s->ghost_active) {
         ghost_output_mix = target;
         ghost_clear();

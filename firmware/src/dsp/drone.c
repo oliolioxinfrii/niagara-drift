@@ -3565,6 +3565,8 @@ static void ghost_event_tick(float *common, float *low, float *high,
  * No expensive math, extra voices or per-sample resonator work. */
 static float ghost_event_output_gain(float wet)
 {
+    if (!ghost_event_active && ghost_event_accent <= 0.0f)
+        return 1.0f;  /* normal GHOST path: no event arithmetic */
     if (ghost_event_active)
         ghost_event_accent = fm_minf(1.0f, ghost_event_accent + 0.006f);
     else if (ghost_event_accent > 0.0f)

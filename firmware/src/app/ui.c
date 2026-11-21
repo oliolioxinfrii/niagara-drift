@@ -22,10 +22,11 @@
  *   button's pages.
  *   OCT- / OCT+    the LFO's Wave I / Wave II (LFO I and II on screen): a tap is the next shape, round and
  *                  round; SEL + OCT the one before; lit while its wave is up
- * White keys: 16 scenes. Tap: recall (every value morphs there over the Scene time; a knob turned stops
- *   it); hold (a visit): there while held, back to where it was when let go (a knob turned: it stays);
- *   hold SAVE and tap: store. Lit: the slot holds a scene; blinking slowly: the sound is that scene (stored or
- *   recalled, and no knob, switch or LFO control touched since).
+ * White keys: 1-8 STRIP/DARK/STILL/TAIL for the two parents, 9-12
+ *   TICK/CHORD/SNARL/STUTTER, 13-16 GHOST STRIKE/SCRAPE/BOW/TREMOR.
+ *   The last four keys trigger resonant events (tap once, hold to repeat),
+ *   replacing the former WEIGHT/SHIFT/CLEAN/WASH key gestures; legacy
+ *   project parameters remain readable but are no longer assigned keys.
  * Black keys F#3 G#3 A#3 C#4 D#4 F#4 G#4 A#4 C#5 D#5 F#5:
  *   Normal pages: drone I (Partner, Sub, Filter), global Pitch Lock, drone-II Pitch Link,
  *   drone II (Partner, Sub, Filter), LFO lock/reset, Hard Sync, Cross-mod.
@@ -119,8 +120,8 @@ static const struct {
 /* ------------------------------------------------------------ switches --- */
 /* the black keys (key numbers, F3 = 0) and what each does: normally, and on the LFO page */
 static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
-/* the white keys: the first NPLAY (F3 .. F4) the scenes of the bank; the next four (G4 .. C5, which sense pressure
- * too) the pressure gestures; the top four (D5 .. G5, no pressure) the gestures (Weight, Shift, Clean, Wash). */
+/* White keys: 1-8 subtractive parent gestures; 9-12 pressure gestures;
+ * 13-16 (D5..G5) trigger GHOST resonator events (replacing macro keys). */
 #define NWHITE 16
 static const uint8_t WHITE_K[NWHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const char BANK_L[NBANKS] = {'A', 'B', 'C', 'P', 'D', 'E', 'F', 'P'};
@@ -237,7 +238,9 @@ static struct {
     int16_t g_sent[DR_NGEST];
     float sub_amt[8];                  /* keys 1-8: four operations per drone */
     int16_t sub_sent[8];
-    uint16_t key_held;                 /* all sixteen white keys, physical positions */
+    uint16_t key_held;                 /* subtractive and pressure-gesture white keys */
+    uint8_t ghost_event_held;          /* bits 0..3: excitation keys 13..16 held */
+    uint32_t ghost_event_next[4];      /* next repeat time while held (UI milliseconds) */
     uint8_t ghost_key_consumed;       /* bits 0/1: SEL+F3/G3 captured; suppress both normal gestures */
     uint16_t key_was_returning;        /* state when the current press began */
     uint16_t key_initial_zero;         /* short touch from zero retains the small value */
@@ -1930,12 +1933,10 @@ static void midi_in(void)
     }
 }
 
-/* Every white key controls a depth without pressure or a separate latch command.
- * Hold increases at 100% / Morph Time; release retains the current amount.
- * A tap of a stationary nonzero key begins a return, another tap pauses it;
- * holding during a return reverses to increasing. No automatic reversal at 100%.
- * Keys 1-8 are STRIP/DARK/STILL/TAIL for drone I and II; 9-16 retain
- * TICK/CHORD/SNARL/STUTTER/WEIGHT/SHIFT/CLEAN/WASH. */
+/* Keys 1-12 use gesture depth/latch semantics. Keys 13-16 trigger
+ * percussive resonator events instead of altering saved macro depths.
+ * For the first twelve, hold increases at 100% / Morph Time; release
+ * retains the depth, and a stationary tap starts or pauses the return. */
 #define GEST_TAP_MS 220u
 static int key_gesture(int i) { return i < NPLAY ? -1 : i < NSCENES ? G_PRESS + i - NPLAY : i - NSCENES; }
 static uint32_t gkey(int g) { return g < G_PRESS ? WHITE_K[NSCENES + g] : WHITE_K[NPLAY + g - G_PRESS]; }
@@ -1947,7 +1948,38 @@ static void key_rejoin(int i, int on)
         sd_still_rejoin(i / 4, on);
     }
 }
-static void gesture_down(int i)                  /* i: physical white key, 0..15 */
+/* Key13 STRIKE, 14 SCRAPE, 15 BOW, 16 TREMOR.
+ * A press triggers immediately; holding repeats at the chosen interval.
+ * These are events, not saved scene parameters or extra synthesis voices. */
+static const char *const GHOST_EVENT_NAME[4] = {"STRIKE", "SCRAPE", "BOW", "TREMOR"};
+static const uint16_t GHOST_EVENT_REPEAT_MS[4] = {300u, 650u, 1600u, 900u};
+static void ghost_event_down(int i)
+{
+    const int event = i - NSCENES;
+    const uint8_t bit = (uint8_t)(1u << event);
+    if (ui.ghost_event_held & bit) return;
+    ui.ghost_event_held |= bit;
+    ui.ghost_event_next[event] = plat_ms() + GHOST_EVENT_REPEAT_MS[event];
+    dr_ghost_excite(event);
+    say_c("GHOST", GHOST_EVENT_NAME[event], K_GOLD);
+    ui.scene_at = -1;
+}
+static void ghost_event_up(int i)
+{
+    ui.ghost_event_held &= (uint8_t)~(1u << (i - NSCENES));
+}
+static void ghost_event_run(void)
+{
+    const uint32_t now = plat_ms();
+    int event;
+    for (event = 0; event < 4; ++event)
+        if ((ui.ghost_event_held & (1u << event)) &&
+            (int32_t)(now - ui.ghost_event_next[event]) >= 0) {
+            dr_ghost_excite(event);
+            ui.ghost_event_next[event] = now + GHOST_EVENT_REPEAT_MS[event];
+        }
+}
+static void gesture_down(int i)                  /* i: physical white key, 0..11 */
 {
     const uint16_t bit = (uint16_t)(1u << i);
     if (ui.key_held & bit) return;
@@ -2011,7 +2043,7 @@ static void gesture_run(void)
     int i;
     ui.g_last = now;
     if (dt > 100u) dt = 100u;
-    for (i = 0; i < NWHITE; i++) {
+    for (i = 0; i < NSCENES; i++) {
         const uint16_t bit = (uint16_t)(1u << i);
         const int g = key_gesture(i);
         float *amount = key_amount(i);
@@ -2568,10 +2600,13 @@ static void input(void)
     for (i = 0; i < NWHITE; i++) {
         if (i < NPLAY && ui.scene_keys_enabled) continue; /* legacy scenario only */
         if (i < 2u && (ui.ghost_key_consumed & (1u << i))) continue; /* diagnostics, not STRIP/DARK */
-        if ((ch & keys) >> WHITE_K[i] & 1u)
-            gesture_down((int)i);
-        if ((ch & ~keys) >> WHITE_K[i] & 1u)
-            gesture_up((int)i);
+        if (i >= NSCENES) {
+            if ((ch & keys) >> WHITE_K[i] & 1u) ghost_event_down((int)i);
+            if ((ch & ~keys) >> WHITE_K[i] & 1u) ghost_event_up((int)i);
+        } else {
+            if ((ch & keys) >> WHITE_K[i] & 1u) gesture_down((int)i);
+            if ((ch & ~keys) >> WHITE_K[i] & 1u) gesture_up((int)i);
+        }
     }
     } /* end normal keyboard dispatch; sequencer's keyboard is handled separately */
     for (i = 0; i < 2u; ++i)
@@ -2983,10 +3018,12 @@ static void leds(void)
     if (!ui.scene_keys_enabled)
         for (i = 0; i < NPLAY; i++)
             k[WHITE_K[i]] = (uint8_t)(255.0f * ui.sub_amt[i] + 0.5f);
-    for (i = 0; i < DR_NGEST; i++) {
+    for (i = G_PRESS; i < DR_NGEST; i++) {
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
     }
+    for (i = 0; i < 4u; ++i)
+        k[WHITE_K[NSCENES + i]] = (ui.ghost_event_held & (1u << i)) ? 255u : 0u;
     /* SEL no longer turns gesture keys into bank selectors. */
     if (ui.view == V_SEQ_NOTES)
         sd_key_leds(k);
@@ -4049,6 +4086,7 @@ void ui_frame(void)
     input();
     press_run();
     gesture_run();
+    ghost_event_run();
     tips_run();
     scene_morph();
     autosave();

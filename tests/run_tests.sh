@@ -29,6 +29,9 @@ run fastmath sh -c "$CC -O2 -ffp-contract=off -Wall -Wextra -Werror -o $OUT/fast
 run ghost-mode5 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror -o $OUT/ghost_mode5_test tests/host/ghost_mode5_test.c -lm && $OUT/ghost_mode5_test"
 run ghost-mode14 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror \
     -o $OUT/ghost_mode14_test tests/host/ghost_mode14_test.c -lm && $OUT/ghost_mode14_test"
+# Parent-coupled excitation events: scrape/bow must respond to both sources.
+run ghost-events sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Werror -DOM_HOST -Ifirmware/src/dsp \
+    -o $OUT/ghost_events_test tests/host/ghost_events_test.c -lm && $OUT/ghost_events_test"
 run flash-id sh -c "$CC -O2 -Wall -Wextra -Werror -Ifirmware/hal -o $OUT/flash_id_test tests/host/flash_id_test.c && $OUT/flash_id_test"
 run encoder sh -c "$CC -O2 -w -Ifirmware/hal -o $OUT/encoder_test tests/host/encoder_test.c && $OUT/encoder_test"
 run uac sh -c "$CC -O2 -w -Ifirmware/src -Ifirmware/hal -o $OUT/uac_test tests/host/uac_test.c -lm && $OUT/uac_test"

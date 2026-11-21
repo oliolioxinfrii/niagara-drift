@@ -110,3 +110,18 @@ key w15 up
 expect ghostlatched 0
 tapkey w15
 expect ghostlatched 0
+
+# Leaving ordinary performance controls while holding a key must not
+# leave a phantom held scheduler running after physical release.
+key w12 down
+expect ghostheld 1
+tap SAVE
+key w12 up
+expect ghostheld 0
+tap HOME
+key w13 down
+expect ghostheld 2
+page 18
+key w13 up
+expect ghostheld 0
+expect ghostlatched 0

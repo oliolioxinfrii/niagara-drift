@@ -3450,7 +3450,18 @@ static inline float ghost_event_noise(void)
  * extra resonator bank. Idle GHOST samples never call this function.
  * STRIKE: 15ms shaped hit; SCRAPE: 250ms irregular noise;
  * BOW: 1.6s noise-driven rise/hold/release; TREMOR: 5 low-mode pulses.
- * Retriggers restart the event envelope, but existing resonances persist. */
+ * Retriggers restart the event envelope, but existing resonances persist.
+ *
+ * The modal injection coefficient in gh14_tune() is only about 0.0002-0.0004
+ * per sample. Initial envelope amplitudes (0.15-0.65) were effectively
+ * inaudible against the running GHOST body. These event-specific gains
+ * compensate for that weak coupling without changing the parent/terrain
+ * excitation or the idle resonator path. The final combined injection is
+ * clamped before entering the eight existing resonators. */
+#define GHOST_STRIKE_BOOST 8.0f
+#define GHOST_SCRAPE_BOOST 48.0f
+#define GHOST_BOW_BOOST 30.0f
+#define GHOST_TREMOR_BOOST 12.0f
 static void ghost_event_tick(float *common, float *low)
 {
     float e = 0.0f, bass = 0.0f, noise = 0.0f;
@@ -3459,7 +3470,7 @@ static void ghost_event_tick(float *common, float *low)
         n = ghost_event_age[0]++;
         if (n < 662u) {
             const float a = (float)(662u - n) * (1.0f / 662.0f);
-            e += 0.65f * a * a;
+            e += 0.65f * GHOST_STRIKE_BOOST * a * a;
         } else
             ghost_event_active &= (uint8_t)~1u;
     }
@@ -3471,7 +3482,8 @@ static void ghost_event_tick(float *common, float *low)
         n = ghost_event_age[1]++;
         if (n < 11025u) {
             const float a = (float)(11025u - n) * (1.0f / 11025.0f);
-            e += 0.26f * a * a * (0.65f * noise + 0.35f * ghost_event_noise_lp);
+            e += 0.26f * GHOST_SCRAPE_BOOST * a * a *
+                 (0.65f * noise + 0.35f * ghost_event_noise_lp);
         } else
             ghost_event_active &= (uint8_t)~2u;
     }
@@ -3480,7 +3492,7 @@ static void ghost_event_tick(float *common, float *low)
         if (n < 70560u) {
             const float attack = fm_minf((float)n * (1.0f / 5292.0f), 1.0f);
             const float release = fm_minf((float)(70560u - n) * (1.0f / 13230.0f), 1.0f);
-            e += 0.15f * attack * release *
+            e += 0.15f * GHOST_BOW_BOOST * attack * release *
                  (0.55f * noise + 0.45f * ghost_event_noise_lp);
         } else
             ghost_event_active &= (uint8_t)~4u;
@@ -3495,15 +3507,17 @@ static void ghost_event_tick(float *common, float *low)
         case 21900u: ghost_event_tremor_env =  0.40f; break;
         default: break;
         }
-        bass += ghost_event_tremor_env;
+        bass += GHOST_TREMOR_BOOST * ghost_event_tremor_env;
         ghost_event_tremor_env *= 0.9985f;
         if (n >= 30870u) {
             ghost_event_active &= (uint8_t)~8u;
             ghost_event_tremor_env = 0.0f;
         }
     }
-    *common = fm_clampf(e, -0.70f, 0.70f);
-    *low = fm_clampf(bass, -0.45f, 0.45f);
+    /* Independent simultaneous-event guard; modal state and GHOST's
+     * existing output saturation/compression provide further protection. */
+    *common = fm_clampf(e, -9.0f, 9.0f);
+    *low = fm_clampf(bass, -5.0f, 5.0f);
 }
 /* Legacy diagnostic setters are inert: synthesis is fixed at 50%.
  * The getter retains the older 5/14 classification for host scripts;

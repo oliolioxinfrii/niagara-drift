@@ -92,6 +92,7 @@ reboot
 wait 500
 expect par93 100
 expect gam3 100
+expect gsent3 100
 expect heard63 >60
 macro 3 0
 wait 500

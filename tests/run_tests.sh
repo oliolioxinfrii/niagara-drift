@@ -16,7 +16,11 @@ run() {
         echo "  ok   $name"
     else
         echo "  FAIL $name (see $OUT/$name.log)"
-        tail -15 "$OUT/$name.log" | sed 's/^/       /'
+        # Print the actual failed assertions, not just the final (often
+        # successful) 15 assertions from a scenario that keeps running.
+        grep -n -E '^[[:space:]]*FAIL' "$OUT/$name.log" | head -25 | sed 's/^/       /' || true
+        echo "       --- final log lines ---"
+        tail -8 "$OUT/$name.log" | sed 's/^/       /'
         FAIL=1
     fi
 }

@@ -66,3 +66,47 @@ expect par90 0
 expect par91 0
 expect par92 0
 expect par93 0
+expect ghostlatched 0
+
+# Two short taps latch a single event. The FIRST tap fires immediately.
+tapkey w12
+expect ghostlatched 0
+expect ghosthits0 4
+wait 100
+expect ghosthits0 4
+tapkey w12
+expect ghostlatched 1
+expect ghosthits0 5
+wait 650
+expect ghosthits0 7
+# One press cancels; it must NOT cause an extra hit.
+tapkey w12
+expect ghostlatched 0
+expect ghosthits0 7
+wait 650
+expect ghosthits0 7
+
+# Each key has its OWN latch; two different types can run together.
+tapkey w13
+tapkey w13
+expect ghostlatched 2
+wait 500
+expect ghosthits1 >4
+tapkey w14
+tapkey w14
+expect ghostlatched 6
+wait 1700
+expect ghosthits2 >5
+tapkey w13
+expect ghostlatched 4
+tapkey w14
+expect ghostlatched 0
+wait 2100
+
+# A long-held press is not the first half of a double tap.
+key w15 down
+wait 950
+key w15 up
+expect ghostlatched 0
+tapkey w15
+expect ghostlatched 0

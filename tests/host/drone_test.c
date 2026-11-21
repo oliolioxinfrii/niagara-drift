@@ -2404,12 +2404,20 @@ int main(void)
                 diff += d * d;
             }
             diff = sqrtf(diff * (1.0f / 8192.0f));
-            printf("    GHOST event %d: reference/trigger difference RMS %.7f\n",
-                   event + 13, (double)diff);
-            if (!(diff > 0.000001f && isfinite(diff)))
-                all_audible = 0;
+            {
+                const float reference_rms = rms_of(reference, 8192);
+                const float relative = diff / (reference_rms + 1e-8f);
+                printf("    GHOST event %d: difference RMS %.6f, %.1f %% of reference\n",
+                       event + 13, (double)diff, (double)(100.0f * relative));
+                /* The original 1e-6 threshold let all four events pass
+                 * despite being inaudible on hardware. Require a detectable
+                 * absolute change AND a meaningful relative effect in the
+                 * complete GHOST output, using the same rendered patch. */
+                if (!(diff > 0.0010f && relative > 0.025f && isfinite(diff)))
+                    all_audible = 0;
+            }
         }
-        check("All four GHOST key events affect the shared resonator output",
+        check("All four GHOST key events have material output level",
               all_audible);
     }
 

@@ -41,6 +41,32 @@ static float inject_rms(int event, int paired, int region)
 
 int main(void)
 {
+    /* Audio-path gain is applied AFTER GHOST compression but BEFORE the
+     * existing GHOST wet coefficient, mute and TAIL gating. This confirms
+     * a genuine event-vs-idle boost at MIX 25/50, and strict MIX 0 silence. */
+    float idle50, accent25 = 0.0f, accent50 = 0.0f, accent100 = 0.0f;
+    float recovered = 0.0f;
+    int j;
+    dr_init();
+    ghost_event_reset();
+    idle50 = ghost_event_output_gain(0.70710678f);
+    ghost_event_fire(1u);
+    for (j = 0; j < 256; ++j)
+        accent50 = ghost_event_output_gain(0.70710678f);
+    accent25 = ghost_event_output_gain(0.5f);
+    accent100 = ghost_event_output_gain(1.0f);
+    check_event("Event accent raises GHOST at MIX 50 by over 10 dB",
+                idle50 == 1.0f && accent50 > 3.16f);
+    check_event("Event accent rises more at MIX 25 than MIX 100",
+                accent25 > 4.0f && accent100 < 2.0f);
+    check_event("Event gain never bypasses the MIX 0 wet mute",
+                0.0f * ghost_event_output_gain(0.0f) == 0.0f);
+    ghost_event_active = 0u;
+    for (j = 0; j < 26000; ++j)
+        recovered = ghost_event_output_gain(0.70710678f);
+    check_event("Event accent returns to unity after resonator decay",
+                recovered == 1.0f);
+
     const float scrape_live = inject_rms(1, 1, 2);
     const float scrape_one = inject_rms(1, 0, 2);
     const float bow_live = inject_rms(2, 1, 0);

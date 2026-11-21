@@ -36,8 +36,10 @@ Holding **SEL** leaves the current parameter page visible rather than opening th
 | Hold gesture keys 1–12 | Increase intensity toward 100% over Morph Time |
 | Release gesture keys 1–12 | Retain the reached intensity |
 | Tap an already active gesture on keys 1–12 | Return toward zero; tap to pause or resume that return |
-| Tap key 13–16 | Trigger one GHOST excitation event |
-| Hold key 13–16 | Retrigger that event periodically until release |
+| Tap key 13–16 | Fire one GHOST excitation event immediately |
+| Hold key 13–16 | Retrigger periodically until release |
+| Double-tap key 13–16 | Latch continuous retriggering (second tap within 320 ms) |
+| Press a latched key 13–16 | Cancel its latch without firing a new event |
 | Turn **PRESETS** | Adjust **Morph Time** for gesture movement |
 | Tap a page button twice / turn SELECT | Cycle pages within its family |
 | Hold **HOME** (~400 ms) | Inspect geological atlas; release to return |

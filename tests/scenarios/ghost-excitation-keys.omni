@@ -1,0 +1,59 @@
+# Dedicated UI regression for GHOST key events 13-16 on ordinary pages.
+# These keys now send momentary events, not persistent WEIGHT/SHIFT/CLEAN/WASH macros.
+notips
+tap PLAY
+wait 200
+expect ghostheld 0
+expect gam0 0
+expect gam1 0
+expect gam2 0
+expect gam3 0
+
+# STRIKE (D5; physical white key 13) triggers and repeats while held.
+key w12 down
+expect ghostheld 1
+wait 350
+expect ghostheld 1
+key w12 up
+expect ghostheld 0
+expect gam0 0
+
+# SCRAPE (E5; white key 14).
+key w13 down
+expect ghostheld 2
+wait 680
+expect ghostheld 2
+key w13 up
+expect ghostheld 0
+expect gam1 0
+
+# BOW (F5; white key 15).
+key w14 down
+expect ghostheld 4
+wait 1650
+expect ghostheld 4
+key w14 up
+expect ghostheld 0
+expect gam2 0
+
+# TREMOR (G5; white key 16).
+key w15 down
+expect ghostheld 8
+wait 950
+expect ghostheld 8
+key w15 up
+expect ghostheld 0
+expect gam3 0
+
+# Simultaneous keys use independent held bits; releasing one leaves the other.
+key w12 down
+key w14 down
+expect ghostheld 5
+key w12 up
+expect ghostheld 4
+key w14 up
+expect ghostheld 0
+expect par90 0
+expect par91 0
+expect par92 0
+expect par93 0

@@ -2404,7 +2404,7 @@ int main(void)
                 diff += d * d;
             }
             diff = sqrtf(diff * (1.0f / 8192.0f));
-            printf("    GHOST event %d: reference/trigger difference RMS %.7f\\n",
+            printf("    GHOST event %d: reference/trigger difference RMS %.7f\n",
                    event + 13, (double)diff);
             if (!(diff > 0.000001f && isfinite(diff)))
                 all_audible = 0;

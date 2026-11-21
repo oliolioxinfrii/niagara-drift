@@ -2356,6 +2356,63 @@ int main(void)
               dr_ghost_excitation_gain_test() > 0.999f);
     }
 
+    {   /* SEL+OCT drone-in/out uses MORPH TIME, not the PLAY FADE.
+         * At Morph=25 the transition is ~0.96s: halfway after 0.2s. */
+        float partway;
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_MORPH, 25);
+        dr_play(1);
+        run(secs(1.20f));
+        dr_set(P_I_OUT, 1);
+        run(secs(0.20f));
+        partway = dr_level[0];
+        check("SEL+OCT drone-out remains in progress after 200 ms at Morph 25",
+              partway > 0.0001f);
+        run(secs(1.20f));
+        check("SEL+OCT drone-out completes after Morph Time",
+              dr_level[0] < 0.00001f);
+        dr_set(P_I_OUT, 0);
+        run(secs(0.20f));
+        check("SEL+OCT drone-in also uses Morph Time",
+              dr_level[0] > 0.0001f);
+    }
+
+    {   /* Each event injects an audible change into the existing eight
+         * GHOST resonators. The reference and triggered render start from
+         * the same deterministic state; FX is dry to expose the impulse. */
+        static float reference[8192], triggered[8192];
+        int event;
+        int all_audible = 1;
+        for (event = 0; event < 4; ++event) {
+            float diff = 0.0f;
+            int j, pass;
+            for (pass = 0; pass < 2; ++pass) {
+                dry_init();
+                dr_set(P_FADE, 0);
+                dr_set(P_PULSE, 0);
+                dr_set(P_GHOST, 100);
+                dr_set(P_DLY_MIX, 0);
+                dr_set(P_REV_MIX, 0);
+                dr_play(1);
+                run(secs(0.80f));
+                if (pass) dr_ghost_excite(event);
+                capture(pass ? triggered : reference, 8192, 0);
+            }
+            for (j = 0; j < 8192; ++j) {
+                const float d = triggered[j] - reference[j];
+                diff += d * d;
+            }
+            diff = sqrtf(diff * (1.0f / 8192.0f));
+            printf("    GHOST event %d: reference/trigger difference RMS %.7f\\n",
+                   event + 13, (double)diff);
+            if (!(diff > 0.000001f && isfinite(diff)))
+                all_audible = 0;
+        }
+        check("All four GHOST key events affect the shared resonator output",
+              all_audible);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

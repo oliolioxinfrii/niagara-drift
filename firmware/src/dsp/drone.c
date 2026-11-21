@@ -3415,6 +3415,9 @@ static float ghost_comp_power;
  * core owns these ages and envelopes. No additional oscillators. */
 static uint32_t ghost_event_age[4];
 static uint8_t ghost_event_active;
+#ifdef OM_HOST
+static uint32_t ghost_event_test_hits[4]; /* diagnostics only; no FM-1 overhead */
+#endif
 static float ghost_event_noise_lp, ghost_event_tremor_env;
 
 static void ghost_event_reset(void)
@@ -3431,6 +3434,9 @@ static void ghost_event_fire(uint8_t bits)
         if (bits & (1u << i)) {
             ghost_event_age[i] = 0u;
             ghost_event_active |= (uint8_t)(1u << i);
+#ifdef OM_HOST
+            ghost_event_test_hits[i]++;
+#endif
         }
     }
 }
@@ -3506,6 +3512,10 @@ void dr_ghost_blend_set(int amount) { (void)amount; }
 int dr_ghost_blend_get(void) { return GHOST_FIXED_BLEND; }
 #ifdef OM_HOST
 float dr_ghost_excitation_gain_test(void) { return ghost_exc_gain; }
+uint32_t dr_ghost_event_hits_test(int event)
+{
+    return (unsigned)event < 4u ? ghost_event_test_hits[event] : 0u;
+}
 #endif
 void dr_ghost_mode_set(int mode) { (void)mode; }
 int dr_ghost_mode_get(void) { return DR_GHOST_TERRAIN_EXCITES_BODY; }

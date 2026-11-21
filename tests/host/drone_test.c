@@ -2421,6 +2421,43 @@ int main(void)
               all_audible);
     }
 
+    {   /* Check audible EVENT PRESENCE inside a real two-parent mix, not
+         * only isolated GHOST MIX 100. The event sidechain must not be
+         * swallowed by parent masking at MIX 25 or MIX 50. */
+        static float reference[8192], triggered[8192];
+        int mix, event, all_present = 1;
+        for (mix = 25; mix <= 50; mix += 25) {
+            for (event = 0; event < 4; ++event) {
+                float diff = 0.0f, ratio;
+                int pass, j;
+                for (pass = 0; pass < 2; ++pass) {
+                    dry_init();
+                    dr_set(P_FADE, 0);
+                    dr_set(P_PULSE, 0);
+                    dr_set(P_GHOST, mix);
+                    dr_set(P_DLY_MIX, 0);
+                    dr_set(P_REV_MIX, 0);
+                    dr_play(1);
+                    run(secs(0.80f));
+                    if (pass) dr_ghost_excite(event);
+                    capture(pass ? triggered : reference, 8192, 0);
+                }
+                for (j = 0; j < 8192; ++j) {
+                    const float d = triggered[j] - reference[j];
+                    diff += d * d;
+                }
+                diff = sqrtf(diff * (1.0f / 8192.0f));
+                ratio = diff / (rms_of(reference, 8192) + 1e-8f);
+                printf("    MIX %d / key %d: event difference RMS %.6f, relative %.1f %%\n",
+                       mix, event + 13, (double)diff, (double)(100.0f * ratio));
+                if (!(isfinite(diff) && diff > 0.0010f && ratio > 0.05f))
+                    all_present = 0;
+            }
+        }
+        check("All four GHOST events change the complete MIX 25/50 sound",
+              all_present);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

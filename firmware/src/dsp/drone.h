@@ -295,6 +295,7 @@ int dr_ghost_mode_get(void);      /* nearest endpoint (not full morph position) 
 void dr_ghost_blend_set(int amount);  /* legacy setter; inert, fixed at 50 */
 #ifdef OM_HOST
 float dr_ghost_excitation_gain_test(void); /* host-test diagnostic only */
+uint32_t dr_ghost_event_hits_test(int event); /* host-only event/retrigger count */
 #endif
 int dr_ghost_blend_get(void);
 /* Browser-only listening diagnostic: suppress direct parent audio *after*

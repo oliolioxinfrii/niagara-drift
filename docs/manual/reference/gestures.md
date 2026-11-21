@@ -54,16 +54,18 @@ An active Motion Loop can replay original gesture amounts; the exact session beh
 
 ### GHOST excitation events: keys 13–16
 
-These keys excite the existing GHOST eight-resonator bank, rather than introducing four new voices. They are **events**, not persistent 0–100% gesture depths; they are not stored as latches in scenes.
+These keys excite the existing GHOST eight-resonator bank, rather than introducing four new voices. They are **events**, not persistent 0–100% gesture depths. Their repeating latches are **session-only**, not stored in scenes.
 
 | Key | Event | Single press | Repeats while held |
 |---|---|---|---|
-| **13 · D5** | STRIKE | Short, sharply decaying resonator excitation | Every 300 ms |
-| **14 · E5** | SCRAPE | Roughly 250 ms of irregular noise excitation | Every 650 ms |
-| **15 · F5** | BOW | Smooth, roughly 1.6 s sustained excitation | Every 1600 ms |
-| **16 · G5** | TREMOR | Five irregular pulses biased toward the lower four resonators | Every 900 ms |
+| **13 · D5** | STRIKE | A stronger, sharply decaying impact into the shared resonators | Every 300 ms |
+| **14 · E5** | SCRAPE | 250 ms of bright, rough excitation driven by interaction between the two parent waveforms | Every 420 ms |
+| **15 · F5** | BOW | A smooth, roughly 1.6-second tonal excitation that follows the two parents' changing sound and pitch | Every 1600 ms |
+| **16 · G5** | TREMOR | Seven irregular, alternating impacts emphasizing the lower resonators | Every 900 ms |
 
-**Tap** triggers once. **Hold** retriggers at the indicated interval. **Release** stops further triggers but the resonances already excited may continue ringing. Simultaneous events share bounded injection levels. GHOST MIX governs audibility: at MIX 0, GHOST is bypassed after its transition. The GHOST TAIL recovery gate also attenuates event energy while fully closed and during re-entry.
+**Single tap:** one event fires immediately. **Hold:** the event repeats until release. **Double-tap:** two short presses (second press within approximately 320 ms after the first release) start automatic repeating even after release. **Press the same key once more:** cancel the latch and stop new events; resonators already ringing decay naturally. A long hold does not count toward a double-tap.
+
+Each latch operates independently, so STRIKE and TREMOR (for example) can remain running together. Latched keys pulse their LEDs; a non-latched held key illuminates steadily. GHOST MIX governs audibility: at MIX 0, GHOST is bypassed after its transition. The GHOST TAIL recovery gate also attenuates event energy while fully closed and during re-entry. SCRAPE and BOW derive their excitation from the **actual parent audio signals**, not independent noise effects, and are not intended to produce their normal excitation from a single parent.
 
 ## Combining gestures
 

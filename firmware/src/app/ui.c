@@ -2389,8 +2389,10 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
     const uint32_t released = changed & ~btn;
     const uint32_t keyup = ui.keys & ~keys;
     for (i = 0; i < NWHITE; i++)
-        if (keyup >> WHITE_K[i] & 1u)
-            gesture_up((int)i);
+        if (keyup >> WHITE_K[i] & 1u) {
+            if (i >= NSCENES) ghost_event_up((int)i);
+            else gesture_up((int)i);
+        }
     ui.keys = keys;
     if (ui.save_menu == 2) {
         menu_name_input(released);
@@ -2561,6 +2563,13 @@ static void input(void)
         }
     }
     if (ui.view == V_SEQ_NOTES) {
+        /* If the player enters note editing while physically holding an
+         * excitation key, do not leave a phantom held retrigger running
+         * after release. Existing double-tap latches intentionally persist. */
+        for (i = NSCENES; i < NWHITE; ++i)
+            if (!(keys >> WHITE_K[i] & 1u) &&
+                (ui.ghost_event_held & (1u << (i - NSCENES))))
+                ghost_event_up((int)i);
         /* All 27 physical keys belong to pitch entry on the sequence page.
          * SEL+K1 remains a knob-only modifier; holding SEL here must not
          * recall scenes, banks, or the black-key settings. */

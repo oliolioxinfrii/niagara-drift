@@ -35,6 +35,26 @@ adding independent voices. No additional controls or stored project
 parameters were added. Existing historical macro values in saved projects
 remain readable; only their physical key assignments were replaced.
 
+### Event loudness correction (2026-11-20)
+
+The first hardware installation displayed the new event popups but the four
+sounds were not perceptible. Source inspection showed the modal bank injects
+only approximately 0.0002-0.0004 of an excitation per sample; the first
+event envelopes (0.15-0.65) were not calibrated for this coefficient.
+The branch therefore now applies isolated STRIKE/SCRAPE/BOW/TREMOR gains of
+8/48/30/12 before bounded injection, without changing parent excitation,
+resonator tuning, or the no-event DSP path. This is a **provisional
+calibration**, not verified loudness or a proven resolution of hardware
+delivery. The host audio test now requires each event to produce both
+an absolute output RMS difference of over 0.001 and over 2.5% of the
+reference signal, not merely a nonzero difference (previously 0.000001).
+
+If still inaudible after reflashing, first verify GHOST MIX 100, both
+parent drones active, and neither TAIL fully engaged. If those hold and
+the host difference test passes, the remaining suspect is delivery along
+the hardware-only CPU0->CPU1 event mailbox rather than the host DSP itself.
+Do not claim a CPU1 handoff has been verified by the host-only test.
+
 ## Architecture
 
 UI events are queued as `C_GHOST_EXC` commands. CPU0 drains the command

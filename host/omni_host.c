@@ -746,7 +746,7 @@ int main(int argc, char **argv)
         else if (!strcmp(cmd, "macro")) {      /* retired key bindings: test the legacy macro DSP independently */
             const int g = atoi(a), pct = atoi(b);
             if (g < 0 || g >= G_PRESS || pct < 0 || pct > 100) {
-                printf("line %d: invalid legacy macro %s %s\\n", lineno, a, b);
+                printf("line %d: invalid legacy macro %s %s\n", lineno, a, b);
                 return 2;
             }
             ui.g_amt[g] = (float)pct * 0.01f;

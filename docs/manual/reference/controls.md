@@ -9,7 +9,7 @@ intro: The FM-1 buttons, page navigation and global controls
 
 VOLCANO uses the FM-1's four parameter encoders, four global encoders, page buttons and keys. You do not need to memorize the complete key map to begin: open a page and turn the four knobs shown beneath it.
 
-> **Screenshot needed — FM-1 control map:** Capture an authentic annotated panel for this branch. White keys 1–8 are STRIP/DARK/STILL/TAIL for drone I and II; 9–16 are the original eight gestures. Do not reuse the obsolete v1.3 `panel.png`.
+> **Screenshot needed — FM-1 control map:** Capture an authentic annotated panel for this branch. White keys 1–8 are STRIP/DARK/STILL/TAIL for drone I and II; keys 9–12 retain Tick/Chord/Snarl/Stutter and keys 13–16 trigger GHOST STRIKE/SCRAPE/BOW/TREMOR. Do not reuse the obsolete v1.3 `panel.png`.
 
 ## Global knobs
 
@@ -47,7 +47,7 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 | [[SAVE]] | Open the scene browser to save, load, rename or transition between sounds |
 | [[REC]] | Start recording a motion loop; press again to repeat it, and again to stop |
 | [[SEL]] | Modifier for fine adjustments and secondary controls |
-| [[OCT−]] / [[OCT+]] | Select or bypass LFO I / II waveforms |
+| [[OCT−]] / [[OCT+]] | Select or bypass LFO I / II waveforms; SEL+OCT toggles the corresponding drone with a MORPH TIME fade |
 
 **Hold HOME for 400 ms** to display the temporary VOLCANO activity atlas. It shows five geological layers representing effects, drone levels, Swell/sequencing, Feedback/Drift/Character and LFO activity. Releasing HOME returns to the previous page. See [Drones and Pitch](drones.md).
 
@@ -56,7 +56,7 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 ## Navigation and saved sounds
 
 - **SAVE** opens the scene browser. White keys **1–4** operate STRIP/DARK/STILL/TAIL for drone I, and **5–8** do the same for drone II.
-- **Keys 9–16** activate Tick, Chord, Snarl, Stutter, Weight, Shift, Clean and Wash. All 16 white-key gestures use hold/tap timing, not pressure. Black keys control drone switches, links and (on LFO pages) modulation routing.
+- **Keys 9–12** activate Tick, Chord, Snarl and Stutter. Keys **13–16** trigger STRIKE, SCRAPE, BOW and TREMOR in the existing GHOST resonators: tap once to excite, hold to repeat, **double-tap to latch repeating**, then press once more to stop. Their latches are session-only. The first twelve white keys retain their separate held-depth gestures. Black keys control drone switches, links and (on LFO pages) modulation routing.
 - **On the Sequence page**, all 27 keys enter notes rather than activating their ordinary switches or gestures. The first event follows the live pitches from HOME → Pitch.
 - **Hold SEL** to use secondary knob functions without replacing the active screen with the former key-map overlay.
 - **SEL + HOME** creates a randomized working sound and sequencer. **SEL + PLAY** starts or pauses the pitch progression without changing the instrument's fade.

@@ -1,0 +1,127 @@
+# Dedicated UI regression for GHOST key events 13-16 on ordinary pages.
+# These keys now send momentary events, not persistent WEIGHT/SHIFT/CLEAN/WASH macros.
+notips
+tap PLAY
+wait 200
+expect ghostheld 0
+expect gam0 0
+expect gam1 0
+expect gam2 0
+expect gam3 0
+
+# STRIKE (D5; physical white key 13) triggers and repeats while held.
+key w12 down
+expect ghostheld 1
+wait 350
+expect ghostheld 1
+expect ghosthits0 2
+key w12 up
+expect ghostheld 0
+expect gam0 0
+
+# SCRAPE (E5; white key 14).
+key w13 down
+expect ghostheld 2
+wait 680
+expect ghostheld 2
+expect ghosthits1 2
+key w13 up
+expect ghostheld 0
+expect gam1 0
+
+# BOW (F5; white key 15).
+key w14 down
+expect ghostheld 4
+wait 1650
+expect ghostheld 4
+expect ghosthits2 2
+key w14 up
+expect ghostheld 0
+expect gam2 0
+
+# TREMOR (G5; white key 16).
+key w15 down
+expect ghostheld 8
+wait 950
+expect ghostheld 8
+expect ghosthits3 2
+key w15 up
+expect ghostheld 0
+expect gam3 0
+
+# Simultaneous keys use independent held bits; releasing one leaves the other.
+key w12 down
+key w14 down
+expect ghostheld 5
+key w12 up
+expect ghostheld 4
+key w14 up
+expect ghostheld 0
+wait 2000
+expect ghosthits0 3
+expect ghosthits1 2
+expect ghosthits2 3
+expect ghosthits3 2
+expect par90 0
+expect par91 0
+expect par92 0
+expect par93 0
+expect ghostlatched 0
+
+# Two short taps latch a single event. The FIRST tap fires immediately.
+tapkey w12
+expect ghostlatched 0
+expect ghosthits0 4
+wait 100
+expect ghosthits0 4
+tapkey w12
+expect ghostlatched 1
+expect ghosthits0 5
+wait 650
+expect ghosthits0 7
+# One press cancels; it must NOT cause an extra hit.
+tapkey w12
+expect ghostlatched 0
+expect ghosthits0 7
+wait 650
+expect ghosthits0 7
+
+# Each key has its OWN latch; two different types can run together.
+tapkey w13
+tapkey w13
+expect ghostlatched 2
+wait 500
+expect ghosthits1 >4
+tapkey w14
+tapkey w14
+expect ghostlatched 6
+wait 1700
+expect ghosthits2 >5
+tapkey w13
+expect ghostlatched 4
+tapkey w14
+expect ghostlatched 0
+wait 2100
+
+# A long-held press is not the first half of a double tap.
+key w15 down
+wait 950
+key w15 up
+expect ghostlatched 0
+tapkey w15
+expect ghostlatched 0
+
+# Leaving ordinary performance controls while holding a key must not
+# leave a phantom held scheduler running after physical release.
+key w12 down
+expect ghostheld 1
+tap SAVE
+key w12 up
+expect ghostheld 0
+tap HOME
+key w13 down
+expect ghostheld 2
+page 18
+key w13 up
+expect ghostheld 0
+expect ghostlatched 0

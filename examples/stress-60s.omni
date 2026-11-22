@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Fixed 60-second stress render: useful for comparative host audio studies.
+# Load STRESS with SEL+REC and START THE SEQUENCE with SEL+PLAY.
+# Warm up for 12 s, then record three 20-second pitch cycles.
+# Hardware CPU0/CPU1 deadlines must be tested separately on actual FM-1.
+notips
+master 2458
+press SEL
+tap REC
+release SEL
+expect par112 50
+expect ghostmode 14
+expect seqcount 4
+expect seqtotal 20
+tap PLAY
+press SEL
+tap PLAY
+release SEL
+expect seqstate 1
+wait 12000
+wav stress-60s.wav
+wait 60000
+wavstop

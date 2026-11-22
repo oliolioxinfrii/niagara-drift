@@ -2074,6 +2074,390 @@ int main(void)
         check("Random: an init repeats the sequence; a seed (the first PLAY) makes a new one", same0 && !same1);
     }
 
+    {   /* Fixed-balance comparison: the raw GHOST difference is measured
+         * at the SAME dry/wet mix (60), with only its output mute toggled.
+         * Without this, a pure-wet render minus the dry input would falsely
+         * count removal of the parents as a GHOST signal. */
+        static float dry[16384], ghost_on[16384], absent_on[16384], absent_off[16384];
+        float ghost_diff = 0.0f, one_parent_diff = 0.0f;
+        int pass, k;
+        for (pass = 0; pass < 4; pass++) {
+            float *target = pass == 0 ? dry : pass == 1 ? ghost_on :
+                            pass == 2 ? absent_on : absent_off;
+            dry_init();
+            dr_set(P_FADE, 0);
+            dr_set(P_DRIFT, 0);
+            dr_set(P_WIDTH, 0);
+            dr_set(P_PULSE, 0);
+            dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_DRIVE, 0);
+            dr_set(P_CHAR, 0);
+            for (k = 0; k < 2; ++k) {
+                dr_set(DR_GP(k, GP_PARTNER), 0);
+                dr_set(DR_GP(k, GP_MIX), 0);
+                dr_set(DR_GP(k, GP_WAVE), 0);
+                dr_set(DR_GP(k, GP_RESO), 0);
+                dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                dr_set(DR_GP(k, GP_LEVEL), (k == 1 && pass >= 2) ? 0 : 80);
+            }
+            dr_set(DR_GP(0, GP_PITCH), 4100);
+            dr_set(DR_GP(1, GP_PITCH), 5900);
+            dr_set(P_GHOST, 60);
+            dr_ghost_mute_set(pass == 0 || pass == 3);
+            dr_play(1);
+            /* With one parent absent, allow its initial level ramp
+             * and the mode-14 resonator tail to settle before testing
+             * silence. Preserve the strict 1e-6 RMS threshold. */
+            run(secs(pass >= 2 ? 6.0f : 2.0f));
+            capture(target, 16384, 0);
+        }
+        for (k = 0; k < 16384; ++k) {
+            const float dg = ghost_on[k] - dry[k];
+            const float da = absent_on[k] - absent_off[k];
+            ghost_diff += dg * dg;
+            one_parent_diff += da * da;
+        }
+        {
+            const float ghost_rms = sqrtf(ghost_diff / 16384.0f);
+            const float dry_rms = rms_of(dry, 16384);
+            const float absent_rms = sqrtf(one_parent_diff / 16384.0f);
+            printf("    GHOST at MIX 60: effect RMS %.6f (%5.1f %% of dry); one-parent RMS %.7f\n",
+                   (double)ghost_rms,
+                   (double)(100.0f * ghost_rms / (dry_rms + 1e-9f)),
+                   (double)absent_rms);
+            check("GHOST audible at fixed mix and silent with one parent",
+                  ghost_rms > 0.025f * dry_rms &&
+                  ghost_rms < 3.5f * dry_rms &&
+                  absent_rms < 1e-6f);
+        }
+    }
+
+    {   /* The hybrid is fixed internally; old endpoint controls do not override it. */
+        check("GHOST final-voice midpoint on initialization", dr_ghost_blend_get() == 50);
+        dr_ghost_mode_set(DR_GHOST_BODY);
+        dr_ghost_blend_set(0);
+        check("GHOST legacy endpoint setters cannot change midpoint",
+              dr_ghost_blend_get() == 50);
+        dr_init();
+        check("GHOST midpoint persists across reinitialization",
+              dr_ghost_blend_get() == 50);
+    }
+
+    {   /* Complementary monitors with the GHOST knob acting as a mix.
+         * Verify dry endpoint, wet endpoint, and fixed-balance A/B.
+         * The generated parent signals continue at all mix positions. */
+        static float rendered[8][8192];
+        float level[8];
+        int m, k;
+        for (m = 0; m < 8; ++m) {
+            dry_init();
+            dr_set(P_FADE, 0);
+            dr_set(P_DRIFT, 0);
+            dr_set(P_WIDTH, 0);
+            dr_set(P_PULSE, 0);
+            dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_DRIVE, 0);
+            dr_set(P_CHAR, 0);
+            for (k = 0; k < 2; ++k) {
+                dr_set(DR_GP(k, GP_PARTNER), 0);
+                dr_set(DR_GP(k, GP_MIX), 0);
+                dr_set(DR_GP(k, GP_WAVE), 0);
+                dr_set(DR_GP(k, GP_RESO), 0);
+                dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                dr_set(DR_GP(k, GP_LEVEL), 80);
+            }
+            dr_set(DR_GP(0, GP_PITCH), 4100);
+            dr_set(DR_GP(1, GP_PITCH), 5900);
+            /* 0: mix0 dry-only, 1: mix0 diagnostic GHOST ONLY,
+             * 2: mix75 GHOST ONLY, 3: mix75 both outputs cut,
+             * 4: mix75 GHOST muted (attenuated dry),
+             * 5: mix75 normal blend,
+             * 6: mix100 GHOST muted (zero direct parents),
+             * 7: mix50 GHOST muted (equal-power dry coefficient). */
+            dr_set(P_GHOST, m == 0 || m == 1 ? 0 :
+                             m == 6 ? 100 : m == 7 ? 50 : 75);
+            dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
+            check("GHOST diagnostic gates reset on startup",
+                  !dr_ghost_monitor_get() && !dr_ghost_mute_get());
+            dr_ghost_monitor_set(m == 1 || m == 2 || m == 3);
+            dr_ghost_mute_set(m == 3 || m == 4 || m == 6 || m == 7);
+            check("GHOST monitor getters track independent output gates",
+                  dr_ghost_monitor_get() == (m == 1 || m == 2 || m == 3) &&
+                  dr_ghost_mute_get() == (m == 3 || m == 4 || m == 6 || m == 7));
+            dr_play(1);
+            run(secs(2.0f));
+            capture(rendered[m], 8192, 0);
+            level[m] = rms_of(rendered[m], 8192);
+        }
+        {
+            float difference_ghost = 0.0f, ratio50, ratio75;
+            for (k = 0; k < 8192; ++k) {
+                const float d = rendered[5][k] - rendered[4][k];
+                difference_ghost += d*d;
+            }
+            difference_ghost = sqrtf(difference_ghost / 8192.0f);
+            ratio50 = level[7] / (level[0] + 1e-9f);
+            ratio75 = level[4] / (level[0] + 1e-9f);
+            printf("    GHOST mix dry/full %.5f, mix50/dry %.3f, mix75/dry %.3f, ghost-only %.5f, full-wet-muted %.7f\n",
+                   (double)level[0], (double)ratio50, (double)ratio75,
+                   (double)level[2], (double)level[6]);
+            check("GHOST-only diagnostic removes direct parents, not excitation",
+                  level[0] > 0.01f && level[1] < 0.000001f &&
+                  level[2] > 0.002f);
+            check("GHOST output mute removes GHOST at fixed MIX 75",
+                  level[3] < 0.000001f && level[4] > 0.005f &&
+                  difference_ghost > 0.01f * level[4]);
+            check("GHOST MIX endpoints are dry-only and pure-wet",
+                  level[6] < 0.000001f && ratio75 < 0.80f &&
+                  ratio50 > 0.45f && ratio50 < 0.97f);
+        }
+        dr_init();
+        check("GHOST diagnostic output gates are volatile",
+              !dr_ghost_monitor_get() && !dr_ghost_mute_get());
+    }
+
+    {   /* Fixed hybrid GHOST level still has a true zero, and 100 produces
+         * more output than 50 after the gain-boost change. In both cases
+         * the drones remain active but are removed from the audible mix. */
+        float levels[3];
+        int m, k;
+        for (m = 0; m < 3; ++m) {
+            dry_init();
+            dr_set(P_FADE, 0); dr_set(P_DRIFT, 0); dr_set(P_WIDTH, 0);
+            dr_set(P_PULSE, 0); dr_set(P_FEEDBACK, 0);
+            dr_set(P_DLY_DRIVE, 0); dr_set(P_CHAR, 0);
+            for (k = 0; k < 2; ++k) {
+                dr_set(DR_GP(k, GP_PARTNER), 0);
+                dr_set(DR_GP(k, GP_MIX), 0);
+                dr_set(DR_GP(k, GP_WAVE), 0);
+                dr_set(DR_GP(k, GP_RESO), 0);
+                dr_set(DR_GP(k, GP_CUTOFF), 1000);
+                dr_set(DR_GP(k, GP_LEVEL), 80);
+            }
+            dr_set(DR_GP(0, GP_PITCH), 4100);
+            dr_set(DR_GP(1, GP_PITCH), 5900);
+            dr_set(P_GHOST, m == 0 ? 0 : m == 1 ? 50 : 100);
+            dr_ghost_mode_set(DR_GHOST_TERRAIN_EXCITES_BODY);
+            dr_ghost_monitor_set(1);
+            dr_play(1);
+            /* Exclude startup fade and the 12-ms parent-monitor gate.
+             * At MIX 0 the transient is audible briefly, but a settled
+             * GHOST-only monitor must be truly silent. Preserve the
+             * original strict zero threshold on the measured interval. */
+            run(secs(0.5f));
+            run(secs(2.5f));
+            levels[m] = rms();
+        }
+        printf("    Fixed hybrid GHOST 0 / 50 / 100 RMS: %.7f / %.7f / %.7f\n",
+               (double)levels[0], (double)levels[1], (double)levels[2]);
+        check("Fixed hybrid silent at zero and grows toward 100",
+              levels[0] < 0.000001f &&
+              levels[1] > 0.0005f &&
+              levels[2] > 1.25f * levels[1]);
+    }
+
+    {   /* The shipped hybrid midpoint must produce audio and cannot be
+         * changed by the legacy diagnostic interface. */
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_DRIFT, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_FEEDBACK, 0);
+        dr_set(P_DLY_MIX, 0);
+        dr_set(P_REV_MIX, 0);
+        dr_set(P_GHOST, 100);
+        dr_ghost_monitor_set(1);
+        dr_play(1);
+        run(secs(2.0f));
+        check("Fixed GHOST half-terrain hybrid remains audible", rms() > 0.000001f);
+        dr_ghost_blend_set(100);
+        dr_ghost_mode_set(DR_GHOST_CROSS_BODY);
+        check("No runtime change to fixed GHOST excitation blend",
+              dr_ghost_blend_get() == 50);
+        dr_init();
+        check("Fixed GHOST blend initializes to 50", dr_ghost_blend_get() == 50);
+    }
+
+    {   /* TAIL used to apply one block-wide attenuation value, producing
+         * discontinuities when a latched 100% TAIL was released. The same
+         * audio-rate gate now also scales the inputs to GHOST. */
+        float early[256], settled[2048];
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_GHOST, 0);
+        dr_set(DR_GP(1, GP_LEVEL), 0);
+        dr_play(1);
+        run(secs(0.4f));
+        dr_subtract(3, 1000); /* first drone's TAIL, fully off */
+        run(secs(0.12f));  /* allow the 50-ms gate to reach zero */
+        run(secs(0.18f));  /* measure only the settled silence */
+        check("TAIL 100 suppresses the direct parent after its short fade",
+              rms() < 1e-5f);
+        dr_subtract(3, 0); /* return from 100% */
+        capture(early, 256, 0);
+        run(secs(0.25f));
+        capture(settled, 2048, 0);
+        check("TAIL release ramps in without a first-block burst",
+              rms_of(settled, 2048) > 0.002f &&
+              rms_of(early, 256) < 0.3f * rms_of(settled, 2048));
+    }
+
+    {   /* A fully latched TAIL suppresses GHOST even as its resonators
+         * settle. On release, the internal voice can restart silently,
+         * and only then re-enter the shared mix over 150 ms. */
+        float early[4096], late[4096];
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_GHOST, 100);
+        dr_set(P_DLY_MIX, 0);
+        dr_set(P_REV_MIX, 0);
+        dr_play(1);
+        run(secs(1.0f));
+        dr_subtract(3, 1000);
+        run(secs(0.40f));
+        dr_subtract(3, 0);
+        capture(early, 4096, 0); /* first 93 ms after full TAIL */
+        run(secs(0.40f));        /* allow recovery gate to fully open */
+        capture(late, 4096, 0);
+        check("GHOST return remains gated during first 93 ms",
+              rms_of(early, 4096) < 1e-5f);
+        check("GHOST returns after TAIL recovery window",
+              rms_of(late, 4096) > 0.00001f);
+    }
+
+    {   /* A TAIL release must ramp the actual resonator input: the
+         * existing GHOST output gate alone did not prevent the kick. */
+        float at_hold, at_ramp;
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_PULSE, 0);
+        dr_set(P_GHOST, 100);
+        dr_set(P_DLY_MIX, 0);
+        dr_set(P_REV_MIX, 0);
+        dr_play(1);
+        run(secs(0.6f));
+        dr_subtract(3, 1000);
+        run(secs(0.25f));
+        check("TAIL 100 drives GHOST excitation to zero",
+              dr_ghost_excitation_gain_test() < 0.0001f);
+        dr_subtract(3, 0);
+        run(secs(0.05f));
+        at_hold = dr_ghost_excitation_gain_test();
+        run(secs(0.20f));
+        at_ramp = dr_ghost_excitation_gain_test();
+        check("GHOST resonator excitation stays off during recovery hold",
+              at_hold < 0.0001f);
+        check("GHOST resonator excitation rises gradually",
+              at_ramp > 0.03f && at_ramp < 0.70f);
+        run(secs(0.55f));
+        check("GHOST resonator excitation eventually returns to unity",
+              dr_ghost_excitation_gain_test() > 0.999f);
+    }
+
+    {   /* SEL+OCT drone-in/out uses MORPH TIME, not the PLAY FADE.
+         * At Morph=25 the transition is ~0.96s: halfway after 0.2s. */
+        float partway;
+        dry_init();
+        dr_set(P_FADE, 0);
+        dr_set(P_MORPH, 25);
+        dr_play(1);
+        run(secs(1.20f));
+        dr_set(P_I_OUT, 1);
+        run(secs(0.20f));
+        partway = dr_level[0];
+        check("SEL+OCT drone-out remains in progress after 200 ms at Morph 25",
+              partway > 0.0001f);
+        run(secs(1.20f));
+        check("SEL+OCT drone-out completes after Morph Time",
+              dr_level[0] < 0.00001f);
+        dr_set(P_I_OUT, 0);
+        run(secs(0.20f));
+        check("SEL+OCT drone-in also uses Morph Time",
+              dr_level[0] > 0.0001f);
+    }
+
+    {   /* Each event injects an audible change into the existing eight
+         * GHOST resonators. The reference and triggered render start from
+         * the same deterministic state; FX is dry to expose the impulse. */
+        static float reference[8192], triggered[8192];
+        int event;
+        int all_audible = 1;
+        for (event = 0; event < 4; ++event) {
+            float diff = 0.0f;
+            int j, pass;
+            for (pass = 0; pass < 2; ++pass) {
+                dry_init();
+                dr_set(P_FADE, 0);
+                dr_set(P_PULSE, 0);
+                dr_set(P_GHOST, 100);
+                dr_set(P_DLY_MIX, 0);
+                dr_set(P_REV_MIX, 0);
+                dr_play(1);
+                run(secs(0.80f));
+                if (pass) dr_ghost_excite(event);
+                capture(pass ? triggered : reference, 8192, 0);
+            }
+            for (j = 0; j < 8192; ++j) {
+                const float d = triggered[j] - reference[j];
+                diff += d * d;
+            }
+            diff = sqrtf(diff * (1.0f / 8192.0f));
+            {
+                const float reference_rms = rms_of(reference, 8192);
+                const float relative = diff / (reference_rms + 1e-8f);
+                printf("    GHOST event %d: difference RMS %.6f, %.1f %% of reference\n",
+                       event + 13, (double)diff, (double)(100.0f * relative));
+                /* The original 1e-6 threshold let all four events pass
+                 * despite being inaudible on hardware. Require a detectable
+                 * absolute change AND a meaningful relative effect in the
+                 * complete GHOST output, using the same rendered patch. */
+                if (!(diff > 0.0010f && relative > 0.025f && isfinite(diff)))
+                    all_audible = 0;
+            }
+        }
+        check("All four GHOST key events have material output level",
+              all_audible);
+    }
+
+    {   /* Check audible EVENT PRESENCE inside a real two-parent mix, not
+         * only isolated GHOST MIX 100. The event sidechain must not be
+         * swallowed by parent masking at MIX 25 or MIX 50. */
+        static float reference[8192], triggered[8192];
+        int mix, event, all_present = 1;
+        for (mix = 25; mix <= 50; mix += 25) {
+            for (event = 0; event < 4; ++event) {
+                float diff = 0.0f, ratio;
+                int pass, j;
+                for (pass = 0; pass < 2; ++pass) {
+                    dry_init();
+                    dr_set(P_FADE, 0);
+                    dr_set(P_PULSE, 0);
+                    dr_set(P_GHOST, mix);
+                    dr_set(P_DLY_MIX, 0);
+                    dr_set(P_REV_MIX, 0);
+                    dr_play(1);
+                    run(secs(0.80f));
+                    if (pass) dr_ghost_excite(event);
+                    capture(pass ? triggered : reference, 8192, 0);
+                }
+                for (j = 0; j < 8192; ++j) {
+                    const float d = triggered[j] - reference[j];
+                    diff += d * d;
+                }
+                diff = sqrtf(diff * (1.0f / 8192.0f));
+                ratio = diff / (rms_of(reference, 8192) + 1e-8f);
+                printf("    MIX %d / key %d: event difference RMS %.6f, relative %.1f %%\n",
+                       mix, event + 13, (double)diff, (double)(100.0f * ratio));
+                if (!(isfinite(diff) && diff > 0.0010f && ratio > 0.05f))
+                    all_present = 0;
+            }
+        }
+        check("All four GHOST events change the complete MIX 25/50 sound",
+              all_present);
+    }
+
     check("output finite throughout", finite_ok);
     printf(bad ? "drone: %d FAILED\n" : "drone: all ok\n", bad);
     return bad ? 1 : 0;

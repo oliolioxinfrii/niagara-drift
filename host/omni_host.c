@@ -18,6 +18,8 @@
  *   peakreset                    restart the output peak (expect peak_db_min / peak_db_max)
  *   shot FILE.png                save the screen
  *   leds                         print the lit buttons and keys
+ *   macro G PERCENT              host-only legacy Weight/Shift/Clean/Wash DSP fixture (G=0..3);
+ *                                macros remain loadable from saved scenes, but no longer use physical keys.
  *   expect WHAT VALUE            check state: exit 1 on mismatch; VALUE "<N" / ">N" is a bound
  *   reboot                       re-run boot from the simulated flash (persistence test)
  *   listen                       a screen reader starts listening (HELLO, again every 2 s): each SAY is printed
@@ -494,6 +496,20 @@ static int expect(const char *what, const char *val)
         got = keymap_on();
     else if (!strcmp(what, "mtime"))              /* Gesture time, 0..100 (PRESETS; 50 as set, higher slower) */
         got = proj.mtime;
+    else if (!strcmp(what, "ghostmode"))            /* nearest GHOST morph endpoint */
+        got = dr_ghost_mode_get();
+    else if (!strcmp(what, "ghostblend"))           /* fixed hybrid timbre, 50 */
+        got = dr_ghost_blend_get();
+    else if (!strcmp(what, "ghostmonitor"))         /* SEL+white Key 1: parent output removed */
+        got = dr_ghost_monitor_get();
+    else if (!strcmp(what, "ghostmute"))            /* SEL+white Key 2: GHOST output removed */
+        got = dr_ghost_mute_get();
+    else if (!strcmp(what, "ghostheld"))            /* event keys 13..16 held (four-bit mask) */
+        got = ui.ghost_event_held;
+    else if (!strcmp(what, "ghostlatched"))         /* double-tap locks, press cancels (four-bit mask) */
+        got = ui.ghost_event_latched;
+    else if (!strncmp(what, "ghosthits", 9))         /* GHOST event N fired count (N=0..3) */
+        got = (int)dr_ghost_event_hits_test(atoi(what + 9));
     else if (!strcmp(what, "dirty"))
         got = ui.dirty;
     else if (!strcmp(what, "loop"))                /* the motion loop: 0 idle, 1 recording, 2 playing */
@@ -730,6 +746,18 @@ int main(int argc, char **argv)
         else if (!strcmp(cmd, "save")) {       /* project persistence fixture, not a button gesture */
             save_ask(-1);
             run_ms(150);
+        }
+        else if (!strcmp(cmd, "macro")) {      /* retired key bindings: test the legacy macro DSP independently */
+            const int g = atoi(a), pct = atoi(b);
+            if (g < 0 || g >= G_PRESS || pct < 0 || pct > 100) {
+                printf("line %d: invalid legacy macro %s %s\n", lineno, a, b);
+                return 2;
+            }
+            ui.g_amt[g] = (float)pct * 0.01f;
+            ui.g_sent[g] = (int16_t)(10 * pct);
+            proj.par[gl_par(g)] = (int16_t)pct;
+            dr_gesture(g, 10 * pct);
+            run_ms(10);
         }
         else if (!strcmp(cmd, "press") || !strcmp(cmd, "release") || !strcmp(cmd, "tap")) {
             int i = find_name(BTN_N, NB, a);

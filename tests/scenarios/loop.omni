@@ -84,54 +84,55 @@ tap OCT+
 release SEL
 wait 2500
 expect level1 >3
-# GESTURES IN THE LOOP: record Weight rising on hold, then returning on a tap.
+# GESTURES IN THE LOOP: record TICK (key 9 / g4) rising on hold, then returning on a tap.
+# Keys 13-16 now trigger GHOST events instead of old persistent macros.
 # Playback must recreate both movements, with the loop starting from none.
-expect gam0 0
+expect gam4 0
 tap REC
 expect loop 1
 wait 200
-key w12 down
+key w8 down
 wait 2000
-expect gam0 >30
-key w12 up
+expect gam4 >30
+key w8 up
 wait 300
 # Release latches in Volcano; explicitly tap to record a return to zero.
-tapkey w12
+tapkey w8
 wait 950
-expect gam0 0
+expect gam4 0
 tap REC
 expect loop 2
 wait 1900
-expect gsent0 >30
+expect gsent4 >30
 wait 1300
-expect gsent0 <30
+expect gsent4 <30
 # Stopping copies the currently looped gesture into the live latched state.
 wait 1500
 tap REC
 expect loop 0
-expect gam0 >20
+expect gam4 >20
 # A tap, rather than key-up or elapsed time alone, starts the return.
-tapkey w12
+tapkey w8
 wait 8000
-expect gam0 0
+expect gam4 0
 # A second loop with the same gesture starts from the current zero, not where the previous loop left it.
 tap REC
 wait 500
-key w12 down
+key w8 down
 wait 700
-key w12 up
+key w8 up
 wait 300
-tapkey w12
+tapkey w8
 wait 900
-expect gam0 0
+expect gam4 0
 tap REC
 expect loop 2
 wait 50
-expect gsent0 <30
+expect gsent4 <30
 tap REC
 expect loop 0
 wait 8000
-expect gam0 0
+expect gam4 0
 # A SCENE TAPPED IN THE LOOP: a scene with the cutoff up (bank A, key 1), the sound back down; recorded, the tap;
 # looped, each pass starts on the sound the recording began on and goes to the scene again
 bank 0

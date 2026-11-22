@@ -206,15 +206,22 @@ def build_loader():
 
 def build_app():
     flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
-    for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_RAM_CODE", "OM_RAM_FX_CODE",
-                 "OM_NOISE_CHUNK", "OM_FILTER_SPECIALIZE", "OM_DSP_PROFILE"):
+    for flag in ("OM_CDC", "OM_CLOCK_TEST", "OM_FX_CPU1", "OM_NOISE_CHUNK",
+                 "OM_FILTER_SPECIALIZE", "OM_GHOST_BLEND_REFERENCE",
+                 "OM_RAM_CODE", "OM_RAM_FX_CODE", "OM_DSP_PROFILE"):
         v = os.environ.get(flag)
         if flag == "OM_RAM_CODE" and v is None:
-            v = "1"      # drone loop in RAM; OM_RAM_CODE=0 for flash-versus-RAM comparison
+            # Keep the previously hardware-tested CPU1 GHOST arrangement
+            # unchanged by default. RAM hot-loop placement remains opt-in
+            # for this dual-core combination until its timing is measured.
+            v = "0" if os.environ.get("OM_FX_CPU1", "0") == "1" else "1"
         if flag == "OM_RAM_FX_CODE" and v is None:
-            v = "0"      # optional: measure .app_ram size before enabling effects as well
+            v = "0"
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
+    if os.environ.get("OM_FX_CPU1", "0") == "1":
+        # Must agree with fm1_cpu1.S and fm1_cpu1.h.
+        flags.append("-DFM1_CPU1_USTACK_BYTES=4096")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
     if VERSION:
         flags.append(f'-DOM_VERSION="{VERSION}"')
@@ -224,6 +231,9 @@ def build_app():
              ("cc", "-c", FW / "hal" / "fm1_isr.S", "-o", OUT / "fm1_isr.o"),
              ("cc", *flags, "-c", FW / "src" / "main.c", "-o", OUT / "main.o")]
     objs = [OUT / "crt0.o", OUT / "fm1_vec.o", OUT / "fm1_isr.o", OUT / "main.o"]
+    if os.environ.get("OM_FX_CPU1", "0") == "1":
+        units.append(("cc", "-DFM1_CPU1_USTACK_BYTES=4096", "-c", FW / "hal" / "fm1_cpu1.S", "-o", OUT / "fm1_cpu1.o"))
+        objs.append(OUT / "fm1_cpu1.o")
     (OUT / "o2").mkdir(parents=True, exist_ok=True)
     for u in O2_UNITS:
         o = OUT / "o2" / (u.replace("/", "_")[:-2] + ".o")
@@ -275,21 +285,25 @@ def check(img, syms, dis, rt):
         errors.append(f"_start is not at {APP_XIP:#x}")
     if img[:4] != bytes.fromhex("04818000"):
         errors.append(f"image starts with {img[:4].hex()}, not the entry stub")
-    # Only the flash driver needs to run with flash disabled. .app_ram's audio
-    # hot loops run with flash on and may call via the DR_FAR/FX_FAR pointers.
-    ar_start, ar_end = (symv_safe(syms, n) for n in ("_ar_start", "_ar_end"))
+    # The CPU1 dispatch and optional .app_ram audio loops run with
+    # flash enabled and may call XIP code. Only the .ram_text flash-safe
+    # driver region must contain no calls.
+    ar_start, ar_end = (symv_safe(syms, name) for name in ("_ar_start", "_ar_end"))
+    c1_start, c1_end = (symv_safe(syms, name) for name in ("_c1_start", "_c1_end"))
     rt_calls = []
     for ln in rt.splitlines():
         mm = LINE.match(ln)
-        if mm and re.search(r"\bcall\b", ln) and not (ar_start <= int(mm.group(1), 16) < ar_end):
-            rt_calls.append(ln)
+        if mm and re.search(r"\bcall\b", ln):
+            address = int(mm.group(1), 16)
+            if not (ar_start <= address < ar_end or c1_start <= address < c1_end):
+                rt_calls.append(ln)
     if rt_calls:
-        errors.append(f".ram_text flash-safe region contains calls: {rt_calls[:3]}")
+        errors.append(f"flash-safe .ram_text contains calls: {rt_calls[:3]}")
     else:
         notes.append(f".ram_text: {len([ln for ln in rt.splitlines() if LINE.match(ln)])} insns; "
-                     f".app_ram {ar_end - ar_start} B")
+                     f".app_ram {ar_end - ar_start} B; CPU1 dispatch {c1_end - c1_start} B")
     if symv_safe(syms, "_rt_end") - 0x01C00000 > 0x8000:
-        errors.append("RAM code exceeds its 32 KiB region (try OM_RAM_FX_CODE=0 or OM_RAM_CODE=0)")
+        errors.append("RAM code exceeds 32 KiB (try OM_RAM_CODE=0 or OM_RAM_FX_CODE=0)")
     for ln in dis.splitlines():     # nothing may call or load an address in the chip ROM
         mm = LINE.match(ln)
         if not mm:

@@ -394,6 +394,7 @@ header nav { z-index: 6; }
     <div class="start-col">
       <ol>
         <li><kbd>PLAY</kbd>: the drones fade in</li>
+        <li>Experimental sound: hold <kbd>SEL</kbd> + tap <kbd>REC</kbd> to audition <b>FUMAROLE</b>; <kbd>SEL</kbd> + <kbd>PLAY</kbd> starts its pitch progression</li>
         <li>Tap white keys 1–8: a Preset on each</li>
         <li>Hold a gesture key, then let go: the top eight white keys</li>
         <li>Turn KNOB 1–4: each drone's level and cutoff</li>
@@ -608,7 +609,7 @@ const TIP = { FX: "Space: the delay's repeats and mix, the reverb's length (to I
   ENV: "Life: feedback, drift, character, age (again: Tone: noise and its color, white to pink); hold to peek", LFO: "LFO sends: each drone's pitch and cutoff sends; the keys pick the routing (again: Mods: speed mod, source, delay mod, cross-mod)",
   EDIT: "Osc: X-Wave, pulse width (again: Sub · Drive: osc mix, with SEL the sub's wave; drive); hold to peek", GLO: "Setup 1: fade, morph, scene time, sync (again: Setup 2: tuning, tune, stereo width, pressure)",
   HOME: "Drones: levels, cutoffs (again: Pitch: pitches, resonance)", SAVE: "Save; hold it first, then tap a white key: store a scene (in banks A to F)", ARP: "Swell: tap for its page, tap again there: on / off; hold to peek", SEQ: "Partner: interval, detune (again: Pitch moves: Shift's move, pitch glide, Wander, its scale)",
-  PLAY: "Drones in / out (with SEL: drone II alone)", REC: "Motion loop: tap to record knob moves, gestures and scenes, again to loop, again to stop", "OCT-": "LFO I: tap for the next shape (with SEL: the one before)", "OCT+": "LFO II: tap for the next shape (with SEL: the one before)",
+  PLAY: "Drones in / out (with SEL: drone II alone)", REC: "Motion loop: tap to record, again to loop, again to stop; with SEL: load FUMAROLE experimental sound and pitch sequence", "OCT-": "LFO I: tap for the next shape (with SEL: the one before)", "OCT+": "LFO II: tap for the next shape (with SEL: the one before)",
   SELECT: "LFO rate", PRESETS: "Gesture time: how long every gesture takes, left slower, right faster", ALGORITHM: "Movement: every LFO depth together",
   KNOB1: "Drone I", KNOB2: "Drone I", KNOB3: "Drone II", KNOB4: "Drone II", MASTER: "Volume" };
 for (const [n, c] of [...Object.entries(buttons), ...Object.entries(knobs)]) if (TIP[n]) c.g.setAttribute("aria-description", TIP[n]);

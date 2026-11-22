@@ -15,7 +15,7 @@ intro: Page controls, transport, gesture taps and SEL combinations
 | **SEL + PLAY** | Start/pause/resume pitch-sequencer transport without changing the global PLAY fade |
 | **SEL + HOME** | Randomize the current sound and working sequence without overwriting saved slots |
 | **SEL + SAVE** | Undo/redo a supported sound change |
-| **SEL + OCT− / OCT+** | Toggle drone I / II on or off |
+| **SEL + OCT− / OCT+** | Toggle drone I / II on or off with MORPH TIME (PLAY retains its separate FADE) |
 | Hold **SEL**, turn a pitch or fine-adjustable knob | Make fine adjustments or use that page's secondary control |
 | **SEL + KNOB 1** on Sequence | Retune selected event on the current grid |
 | **SEL + KNOB 1 or 3** on Sub · Drive | Change the selected drone's sub waveform |
@@ -31,10 +31,15 @@ Holding **SEL** leaves the current parameter page visible rather than opening th
 |---|---|
 | **White keys 1–4** | STRIP, DARK, STILL, TAIL for drone I |
 | **White keys 5–8** | STRIP, DARK, STILL, TAIL for drone II |
-| **White keys 9–16** | Tick, Chord, Snarl, Stutter, Weight, Shift, Clean, Wash |
-| Hold any gesture key | Increase intensity toward 100% over Morph Time |
-| Release a gesture key | Retain the reached intensity |
-| Tap an already active gesture | Return toward zero; tap to pause or resume that return |
+| **White keys 9–12** | Tick, Chord, Snarl, Stutter (retained depth gestures) |
+| **White keys 13–16** | STRIKE, SCRAPE, BOW, TREMOR (GHOST resonator events) |
+| Hold gesture keys 1–12 | Increase intensity toward 100% over Morph Time |
+| Release gesture keys 1–12 | Retain the reached intensity |
+| Tap an already active gesture on keys 1–12 | Return toward zero; tap to pause or resume that return |
+| Tap key 13–16 | Fire one GHOST excitation event immediately |
+| Hold key 13–16 | Retrigger periodically until release |
+| Double-tap key 13–16 | Latch continuous retriggering (second tap within 320 ms) |
+| Press a latched key 13–16 | Cancel its latch without firing a new event |
 | Turn **PRESETS** | Adjust **Morph Time** for gesture movement |
 | Tap a page button twice / turn SELECT | Cycle pages within its family |
 | Hold **HOME** (~400 ms) | Inspect geological atlas; release to return |

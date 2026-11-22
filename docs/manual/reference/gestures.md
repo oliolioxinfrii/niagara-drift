@@ -1,15 +1,15 @@
 ---
 title: Gestures
-intro: Sixteen hold-and-tap controls, including independent subtractive gestures
+intro: Twelve held-depth gestures and four resonator excitation keys
 ---
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
 ## Gestures
 
-All **16 white keys** are performance gestures on ordinary pages. They are **independent of pressure and velocity**; the amount depends on how long you hold a key. On **SEQ → Sequence**, the keyboard instead enters pitches.
+On ordinary pages, white keys **1–12** control retained gesture depths; keys **13–16** trigger percussive GHOST excitation events. The first twelve are independent of pressure and velocity: their amount depends on how long a key is held. On **SEQ → Sequence**, all keys enter pitches instead.
 
-> **Screenshot needed — Sixteen gesture keys:** Capture a real v1.5 panel map identifying STRIP / DARK / STILL / TAIL for each drone and the eight remaining gestures.
+> **Screenshot needed — Performance key map:** Capture an authentic panel map identifying keys 1–8 as STRIP/DARK/STILL/TAIL, keys 9–12 as Tick/Chord/Snarl/Stutter, and keys 13–16 as GHOST STRIKE/SCRAPE/BOW/TREMOR.
 
 ### Subtractive gestures: keys 1–8
 
@@ -28,7 +28,7 @@ These are **subtractive**, not alternate oscillator or filter modes. At 100% STI
 
 The two drones share the effect buffers. TAIL can stop adding new dry/effect signal from one drone but cannot isolate or remove the sound already in those buffers. These four gesture amounts per drone are **not stored in scenes** on this development branch.
 
-### Sound gestures: keys 9–16
+### Sound gestures: keys 9–12
 
 | Key | Gesture | Effect |
 |---|---|---|
@@ -36,14 +36,10 @@ The two drones share the effect buffers. TAIL can stop adding new dry/effect sig
 | **10 · A4** | Chord | Shift the partners into a chord in the selected scale |
 | **11 · B4** | Snarl | Introduce detuning, cross-modulation, drive and feedback |
 | **12 · C5** | Stutter | Increase Swell gating for rhythmic chopping |
-| **13 · D5** | Weight | Increase low-end weight and sub, round the tone |
-| **14 · E5** | Shift | Change the relationship between drone pitches |
-| **15 · F5** | Clean | Remove grit, movement and effects while keeping the current pitches |
-| **16 · G5** | Wash | Increase delay/reverb toward a sustained wash |
 
-These eight gestures retain the established sonic transformations. Unlike STRIP/DARK/STILL/TAIL, their **held amounts can be saved as scene latch settings**.
+These four retain their established sonic transformations. Unlike STRIP/DARK/STILL/TAIL, their **held amounts can be saved as scene latch settings**. The retired Weight/Shift/Clean/Wash key bindings are not assigned to physical white keys on this experiment branch, although legacy saved parameter values remain readable.
 
-### How every gesture key behaves
+### How gesture keys 1–12 behave
 
 - **Hold:** increase that gesture's intensity linearly toward **100%**, at a rate set by **Morph Time**. The gesture stops increasing at 100%.
 - **Release:** keep the **exact amount reached**. Releasing does *not* automatically fade it away.
@@ -52,9 +48,24 @@ These eight gestures retain the established sonic transformations. Unlike STRIP/
 - **Hold an active key longer than approximately 220 ms:** increase again from the amount already reached.
 - **Tap from zero:** a brief press can establish a small retained amount, rather than jumping immediately to 100%.
 
-**PRESETS** now adjusts **Morph Time**, also found at **GLO → Setup 1 → Morph**. It controls gesture rise and return speed and the STILL phase rejoining. The previous separate Gesture Time behavior and SEL-to-latch gesture shortcut are retired. The screen reports a percentage rather than a separate “latched” label.
+**PRESETS** adjusts **Morph Time**, also found at **GLO → Setup 1 → Morph**. It controls gesture rise and return speed, STILL phase rejoining, and the SEL+OCT drone in/out transition. The separate Gesture Time behavior and SEL-to-latch gesture shortcut are retired. The screen reports a percentage rather than a separate “latched” label.
 
 An active Motion Loop can replay original gesture amounts; the exact session behavior of STRIP/DARK/STILL/TAIL is separate from stored scene values.
+
+### GHOST excitation events: keys 13–16
+
+These keys excite the existing GHOST eight-resonator bank, rather than introducing four new voices. They are **events**, not persistent 0–100% gesture depths. Their repeating latches are **session-only**, not stored in scenes.
+
+| Key | Event | Single press | Repeats while held |
+|---|---|---|---|
+| **13 · D5** | STRIKE | A stronger, sharply decaying impact into the shared resonators | Every 300 ms |
+| **14 · E5** | SCRAPE | 250 ms of bright, rough excitation driven by interaction between the two parent waveforms | Every 420 ms |
+| **15 · F5** | BOW | A smooth, roughly 1.6-second tonal excitation that follows the two parents' changing sound and pitch | Every 1600 ms |
+| **16 · G5** | TREMOR | Seven irregular, alternating impacts emphasizing the lower resonators | Every 900 ms |
+
+**Single tap:** one event fires immediately. **Hold:** the event repeats until release. **Double-tap:** two short presses (second press within approximately 320 ms after the first release) start automatic repeating even after release. **Press the same key once more:** cancel the latch and stop new events; resonators already ringing decay naturally. A long hold does not count toward a double-tap.
+
+Each latch operates independently, so STRIKE and TREMOR (for example) can remain running together. Latched keys pulse their LEDs; a non-latched held key illuminates steadily. GHOST MIX governs audibility: at MIX 0, GHOST is bypassed after its transition. The GHOST TAIL recovery gate also attenuates event energy while fully closed and during re-entry. SCRAPE and BOW derive their excitation from the **actual parent audio signals**, not independent noise effects, and are not intended to produce their normal excitation from a single parent.
 
 ## Combining gestures
 

@@ -1,6 +1,7 @@
-# Volcano gesture regression: Morph Time governs all gestures; releasing
-# a held gesture latches its depth, and tapping an active key returns to zero.
-# Verify each macro's DSP effect, plus Wander, Age and persistence.
+# Legacy macro DSP and saved-latch regression, using the host-only "macro G PERCENT" fixture.
+# Physical keys 13-16 now belong to GHOST STRIKE/SCRAPE/BOW/TREMOR; no live key
+# invokes WEIGHT/SHIFT/CLEAN/WASH. Their legacy scene values and DSP remain supported.
+# Verify each retained macro's DSP effect, plus Wander, Age and persistence.
 notips
 set 7 700
 set 28 680
@@ -17,18 +18,16 @@ expect gam1 0
 expect gam2 0
 expect gam3 0
 
-# WEIGHT: warmth and sub; a release keeps the full amount.
-key w12 down
-wait 350
-key w12 up
+# WEIGHT: warmth and sub; legacy level persists until fixture returns it to zero.
+macro 0 100
 wait 300
 expect gam0 100
 expect par90 100
 expect heard5 >42
 expect heard7 <700
 expect heard17 0
-# A tap explicitly returns Weight; a release alone never does.
-tapkey w12
+# Clearing the legacy amount restores the original settings.
+macro 0 0
 wait 500
 expect gam0 0
 expect par90 0
@@ -36,38 +35,34 @@ expect heard5 30
 expect heard7 700
 expect heard17 85
 
-# SHIFT: the two pitches move together at full depth.
+# SHIFT: the two pitches move together at full depth (legacy DSP, not an event key).
 set 80 200
-key w13 down
-wait 350
-key w13 up
+macro 1 100
 wait 300
 expect gam1 100
 expect par91 100
 expect mpitch0 <-250
 expect mpitch1 <-250
-tapkey w13
+macro 1 0
 wait 500
 expect gam1 0
 expect par91 0
 expect mpitch0 0
 expect mpitch1 0
 
-# CLEAN: suppress drive, character, and delay wet signal; restore on tap.
+# CLEAN: suppress drive, character, and delay wet signal; restore on reset.
 set 77 60
 set 10 50
 set 62 50
 wait 300
-key w14 down
-wait 350
-key w14 up
+macro 2 100
 wait 300
 expect gam2 100
 expect par92 100
 expect heard77 0
 expect heard10 0
 expect heard62 0
-tapkey w14
+macro 2 0
 wait 500
 expect gam2 0
 expect par92 0
@@ -81,9 +76,7 @@ set 62 25
 set 61 70
 set 62 60
 wait 300
-key w15 down
-wait 350
-key w15 up
+macro 3 100
 wait 300
 expect gam3 100
 expect par93 100
@@ -92,15 +85,16 @@ expect heard62 70
 expect heard63 >60
 expect heard17 28
 expect heard38 -28
-# Persist the latch using the project save path, then reboot.
+# Persist the stored legacy macro parameter using the project save path, then reboot.
 save
 wait 500
 reboot
 wait 500
 expect par93 100
 expect gam3 100
+expect gsent3 100
 expect heard63 >60
-tapkey w15
+macro 3 0
 wait 500
 expect gam3 0
 expect par93 0
@@ -128,13 +122,11 @@ expect heard7 700
 # An inactive drone remains muted even at full Weight.
 set 32 0
 wait 500
-key w12 down
-wait 350
-key w12 up
+macro 0 100
 wait 300
 expect gam0 100
 expect heard32 0
 expect lvl1 -99
-tapkey w12
+macro 0 0
 wait 500
 expect gam0 0

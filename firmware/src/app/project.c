@@ -255,6 +255,74 @@ static void changes_build(int16_t *d, const int16_t *c, int max)   /* the defaul
         d[c[k]] = c[k + 1];
 }
 
+/* STRESS: repeatable dual-core DSP workload, loaded on SEL+REC.
+ * This replaces the retired FUMAROLE scratch audition on the experimental
+ * branch only. It is not one of P1-P16, and no user A-F scene is touched.
+ *
+ * Continuous two-voice excitation, all four primary oscillators (partners
+ * enabled), stereo/sub oscillators, cross-FM and hard sync; both LFO taps
+ * modulate oscillators and filters. GHOST is fixed to mode 14, MIX 50.
+ * CPU1 receives a stereo Grain delay, drive, Shimmer reverb, and moderate
+ * global feedback. CPU0 also runs the full Swell envelope: a stepped base
+ * shape, interpolated envelope variants, skew/edge/width and independent
+ * phase for each drone. The four-step pitch sequence cycles every 20 s
+ * (three cycles in each 60-second reading). A latched WASH at 62 enables
+ * continuously recomputed macro envelopes while extending FX processing.
+ * Drift, Wander and random LFO shapes remain off to limit stochastic
+ * variation. This is a demanding repeatable workload, not a proven WCET.
+ */
+static const int16_t STRESS_CHANGES[] = {
+    I_(GP_PITCH), 5000, I_(GP_WAVE), 73, I_(GP_WIDTH), 50,
+    I_(GP_INTERVAL), 13, I_(GP_DETUNE), 24,
+    I_(GP_MIX), 28, I_(GP_SUBOCT), 2,
+    I_(GP_CUTOFF), 680, I_(GP_RESO), 560, I_(GP_MODE), 0,
+    I_(GP_DRIVE), 45, I_(GP_LEVEL), 78, I_(GP_PARTNER), 1,
+    I_(GP_OLFO), 1, I_(GP_OLFO_DEPTH), 56, I_(GP_OLFO_DEST), 1,
+    I_(GP_FLFO), 2, I_(GP_FLFO_DEPTH), 52, I_(GP_FLFO_DEST), 0,
+    I_(GP_NOISE), 0,
+    II_(GP_PITCH), 5700, II_(GP_WAVE), 83, II_(GP_WIDTH), 45,
+    II_(GP_INTERVAL), 9, II_(GP_DETUNE), 28,
+    II_(GP_MIX), 30, II_(GP_SUBOCT), 3,
+    II_(GP_CUTOFF), 720, II_(GP_RESO), 620, II_(GP_MODE), 1,
+    II_(GP_DRIVE), 50, II_(GP_LEVEL), 76, II_(GP_PARTNER), 1,
+    II_(GP_OLFO), 2, II_(GP_OLFO_DEPTH), -43, II_(GP_OLFO_DEST), 1,
+    II_(GP_FLFO), 1, II_(GP_FLFO_DEPTH), -54, II_(GP_FLFO_DEST), 1,
+    II_(GP_NOISE), 0,
+    P_XMOD, 2, P_XMOD_AMT, 48, P_SYNC, 1, P_PLINK, 0,
+    P_LFO_RATE, 112, P_LFO_W1, 1, P_LFO_W2, 3,
+    P_LFO_AMP1, 100, P_LFO_AMP2, 100, P_LFO_RMOD, 0,
+    P_GLIDE, 0, P_FADE, 18, P_DRIFT, 0, P_MOVE, 76,
+    P_WIDTH, 80, P_PULSE, 1, P_PULSE_RATE, 65,
+    P_PULSE_DEPTH, 58, P_PULSE_SHAPE, 102, P_PULSE_SWING, 25,
+    P_SWELL_PHASE, 31, P_SWELL_WAVE, 52, P_SWELL_SKEW, -38,
+    P_SWELL_EDGE, 72, P_SWELL_WIDTH, 65,
+    P_DLY_TYPE, DR_DLY_GRAIN, P_DLY_TIME, 92,
+    P_DLY_REPEATS, 64, P_DLY_MIX, 55,
+    P_DLY_LFO, DR_LFO_BOTH, P_DLY_LFO_DEPTH, 50,
+    P_DLY_DRIVE, 56, P_DLY_ROUTE, 0,
+    P_REV_TYPE, 4, P_REV_MIX, 65, P_REV_LEN, 86, P_REV_DAMP, 30,
+    P_FEEDBACK, 40, P_CHAR, 20, P_AGE, 0, P_WANDER, 0,
+    P_GL_3, 62,  /* WASH: recurring level envelope, FX length/repeats */
+    P_I_OUT, 0, P_II_OUT, 0, P_SUBW_0, 2, P_SUBW_1, 3,
+    P_GHOST, 50, -1
+};
+/* Four continuously interpolated steps with a 20-second period and a
+ * 17% phase offset between drones. Each 60-second probe contains three
+ * complete cycles regardless of measurement start offset. */
+static const seq_scene_t STRESS_SEQ = {
+    .count = 4, .drone = 1, .phase = 17,
+    .gap_s = {5, 5, 5, 5},
+    .shape = {-55, 35, -25, 45},
+    .note = {{5000, 5400, 4700, 5700}, {5700, 6100, 5300, 6500}}
+};
+void project_stress_build(int16_t out[DR_NPARAMS], seq_scene_t *seq)
+{
+    changes_build(out, STRESS_CHANGES,
+                  (int)(sizeof STRESS_CHANGES / sizeof STRESS_CHANGES[0]));
+    if (seq)
+        *seq = STRESS_SEQ;
+}
+
 static const int16_t *preset_get(int n)
 {
     if (n != preset_n) {
@@ -570,6 +638,8 @@ static int in_range(const int16_t *v)
 #define NP36 108
 #define NP38 110                               /* 37 and 38 */
 #define NP40 111                               /* 39 and 40 */
+#define NP45 112                               /* 41-45, before GHOST */
+_Static_assert(DR_NPARAMS == NP45 + 1, "GHOST is the only new parameter");
 _Static_assert(DR_NPARAMS >= NP36, "the values only grow");
 typedef struct {
     uint32_t magic, format;
@@ -721,8 +791,34 @@ typedef struct {
     uint16_t used, rsv;
     int16_t scene[NSCENES][NP40];
 } bank_v40_t;
+/* Format 45 layout: adding a parameter shifts all following scene and metadata bytes. */
+typedef struct {
+    uint32_t magic, format;
+    int16_t par[NP45];
+    uint8_t leds, bank, mtime;
+    uint8_t gkey_old[4], seen[2];
+    int8_t tun_off[3];
+    uint8_t rsv[4];
+    uint16_t scene_used;
+    int16_t scene[NSCENES][NP45];
+    char bank_name[NBANKS][BANK_NAME_LEN];
+    char slot_name[6][NPLAY][BANK_NAME_LEN];
+} proj_v45_t;
+typedef struct {
+    uint32_t magic, format;
+    uint16_t used, rsv;
+    int16_t scene[NSCENES][NP45];
+} bank_v45_t;
+typedef struct {
+    uint32_t magic, format;
+    uint16_t used, rsv;
+    int16_t scene[NPLAY][NP45];
+} bank8_v45_t;
 static union {
     project_t p;
+    proj_v45_t o45;
+    bank_v45_t b45;
+    bank8_v45_t x45;
     proj_v31_t o31;
     bank_v31_t b31;
     proj_v32_t o32;
@@ -778,7 +874,7 @@ static int seq_bank_write(uint32_t obj, const void *bank, uint32_t len, int inde
 static void widen(int16_t *dst, const int16_t *src, uint32_t from)   /* an old sound: the new values' defaults */
 {
     int k;
-    const int np = from >= 41u ? DR_NPARAMS : from >= 39u ? NP40 : from >= 37u ? NP38 : from >= 36u ? NP36 : from >= 35u ? NP35 : from >= 34u ? NP34 : from >= 33u ? NP33 : from >= 32u ? NP32 : from >= 23u ? NP31 : from >= 22u ? NP22 : NP21;
+    const int np = from >= 41u ? NP45 : from >= 39u ? NP40 : from >= 37u ? NP38 : from >= 36u ? NP36 : from >= 35u ? NP35 : from >= 34u ? NP34 : from >= 33u ? NP33 : from >= 32u ? NP32 : from >= 23u ? NP31 : from >= 22u ? NP22 : NP21;
     for (k = 0; k < DR_NPARAMS; k++)
         dst[k] = k < np ? src[k] : dr_param_info(k)->def;
     if (dst[P_LFO_RATE] < 0)                   /* slower than 50 s, as it went before 2026-10-14: the slowest */
@@ -801,11 +897,11 @@ static void bank_load(int b)                   /* B (1) or C (2): from its objec
     bank_fmt[b - 1] = ld.b.format;
     if (ld.b.format == PROJ_FORMAT) {
         *k = ld.b;
-    } else if (ld.b.format >= 41u && ld.b.format <= 44u) {   /* 41-43: as now, the LFO rate on an old scale (41,
-                                                                * 42) or the X-WAVE and resonance depths (43) */
-        *k = ld.b;
+    } else if (ld.b45.format >= 41u && ld.b45.format <= 45u) {
+        const uint32_t from = ld.b45.format;
+        k->used = ld.b45.used;
         for (i = 0; i < NSCENES; i++)
-            convert(k->scene[i], ld.b.format);
+            widen(k->scene[i], ld.b45.scene[i], from);
         bank_dirty |= (uint8_t)(1u << b);
     } else if (ld.b.format == 39u || ld.b.format == 40u) {   /* 39, 40: 111 values a sound (Tune in cents; 39 the
                                                                * Tunings in their old order) */
@@ -878,8 +974,7 @@ static void bank_load(int b)                   /* B (1) or C (2): from its objec
 
 /* D, E or F (j 0..2) from its object: new in format 43, read in 43 (converted) and 44 (a later format converts it
  * here too, as bank_load does B and C) */
-_Static_assert(PROJ_FORMAT == 45, "bankx_load reads D-F only in formats 43 and 44: add their conversion (as bank_load "
-                                  "does B and C) before raising PROJ_FORMAT, or everyone's D, E and F are dropped");
+_Static_assert(PROJ_FORMAT == 46, "bankx_load covers format 45: update the conversion for a new format");
 static void bankx_load(int j)
 {
     bank8_t *k = &bank_x[j];
@@ -887,16 +982,20 @@ static void bankx_load(int j)
     bankx_blank(k);
     memset(ld.raw, 0, sizeof ld.raw);
     n = plat_store_load(BANKX_OBJ[j], ld.raw, sizeof ld.raw);
-    if (n < (int)sizeof *k || ld.x.magic != BANK_MAGIC ||
-        (ld.x.format != PROJ_FORMAT && ld.x.format != 43u && ld.x.format != 44u))
+    if (n < (int)sizeof(bank8_v45_t) || ld.x.magic != BANK_MAGIC ||
+        (ld.x.format != PROJ_FORMAT && ld.x.format != 43u && ld.x.format != 44u && ld.x.format != 45u))
         return;
     seq_trailer_load(j + 3, n);
-    *k = ld.x;
-    if (k->format != PROJ_FORMAT) {            /* 43: the X-WAVE and resonance depths */
+    if (ld.x.format == PROJ_FORMAT) {
+        if (n < (int)sizeof *k) return;
+        *k = ld.x;
+    } else {
+        const uint32_t from = ld.x45.format;
+        k->used = ld.x45.used;
         for (i = 0; i < NPLAY; i++)
-            convert(k->scene[i], k->format);
+            widen(k->scene[i], ld.x45.scene[i], from);
         k->format = PROJ_FORMAT;
-        bank_dirty |= (uint8_t)(1u << (j + 4));     /* (bits 4-6: D-F) */
+        bank_dirty |= (uint8_t)(1u << (j + 4));
     }
     k->used &= (uint16_t)((1u << NPLAY) - 1u);
     for (i = 0; i < NPLAY; i++)
@@ -913,7 +1012,8 @@ static const int16_t *old_scene(int n, uint32_t *from)   /* scene n of the bank 
 {
     uint32_t f = ld.b.format;
     *from = f;
-    if (f == PROJ_FORMAT || (f >= 41u && f <= 44u)) return ld.b.scene[n];
+    if (f == PROJ_FORMAT) return ld.b.scene[n];
+    if (f >= 41u && f <= 45u) return ld.b45.scene[n];
     if (f == 39u || f == 40u) return ld.b40.scene[n];
     if (f == 37u || f == 38u) return ld.b38.scene[n];
     if (f == 36u) return ld.b36.scene[n];
@@ -1038,12 +1138,20 @@ int project_load(void)
     }
     if (from == PROJ_FORMAT) {
         proj = ld.p;
-    } else if (from >= 41u && from <= 44u) {   /* 41-43: as now, the LFO rate on an old scale (41, 42) or the
-                                                * X-WAVE and resonance depths (43) */
-        proj = ld.p;
-        convert(proj.par, from);
+    } else if (from >= 41u && from <= 45u) {
+        const proj_v45_t *o = &ld.o45;
+        memset(&proj, 0, sizeof proj);
+        widen(proj.par, o->par, from);
+        proj.leds = o->leds;
+        proj.bank = o->bank;
+        proj.mtime = o->mtime;
+        memcpy(proj.seen, o->seen, sizeof proj.seen);
+        memcpy(proj.tun_off, o->tun_off, sizeof proj.tun_off);
+        proj.scene_used = o->scene_used;
         for (i = 0; i < NSCENES; i++)
-            convert(proj.scene[i], from);
+            widen(proj.scene[i], o->scene[i], from);
+        memcpy(proj.bank_name, o->bank_name, sizeof proj.bank_name);
+        memcpy(proj.slot_name, o->slot_name, sizeof proj.slot_name);
     } else if (from == 39u || from == 40u) {   /* 39, 40: 111 values a sound (Tune in cents; 39 the Tunings in
                                                 * their old order) */
         const proj_v40_t *o = &ld.o40;

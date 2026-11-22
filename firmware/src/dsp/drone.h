@@ -154,6 +154,7 @@ enum {
                                      * 2026-10-30; a sound's since 2026-11-08, ledger 3): 0 12-tone .. the 22 shrutis */
     P_CLK_SYNC,                     /* follow a MIDI clock (1, as since v0.3's step 3) or not (0: the clock ignored, its
                                      * tempo forgotten); a room setting (v0.3, Evan 2026-11-01, ledger item 5) */
+    P_GHOST,                        /* GHOST MIX: 0 dry parents, 50 equal-power blend, 100 GHOST only; FX shared */
     DR_NPARAMS
 };
 /* Reuse the eight retired gesture-depth/time slots in format 45: no parameter
@@ -184,6 +185,7 @@ extern const char *const DR_WSCALE_NAME[DR_NWSCALE];
 void dr_subtract(int key, int amt);           /* white keys 1-8: 0..1000, four per drone */
 void dr_still_rejoin(int g, int on);         /* 1 cubic catch-up to master; 0 stop catching up */
 void dr_gesture(int g, int amt);               /* gesture key g's amount now, 0..1000 (the UI swells it) */
+void dr_ghost_excite(int event);              /* keys 13-16: STRIKE / SCRAPE / BOW / TREMOR; 0..3 */
 float dr_wander(void);                         /* Wander's move of drone II now, semitones (the screen) */
 float dr_wander_to(void);                      /* ... and where it's going (the screen) */
 int dr_wander_degs(float *deg);                /* Wander's scale over drone I, on the Tuning, semitones; how many
@@ -251,6 +253,7 @@ int dr_grid_at(int t, int k, int root);        /* ... the note k, cents (0 the r
 extern const char *const DR_ROUTE_NAME[DR_NROUTE];      /* "Both", "Echoes", "Drones" */
 #define DR_NDLY 6
 #define DR_DLY_TAPE 3                                     /* the starting type */
+#define DR_DLY_GRAIN 4                                    /* the grain-modulated stereo delay */
 extern const char *const DR_DLY_NAME[DR_NDLY];          /* "Clean", "Wide", "Ping-pong", "Tape", "Grain", "Self" */
 #define DR_NINTERVALS 17
 extern const float DR_IV_SEMI[DR_NINTERVALS];           /* semitones: -Oct, -5th, -5th just .. +Oct+5 just */
@@ -264,6 +267,52 @@ const dr_param_t *dr_param_info(int i);
 void dr_param_text(int i, int v, char *buf);   /* the value as the screen shows it (12 bytes) */
 
 /* commands (main loop -> render) */
+/* Experimental GHOST selector, RAM-only (never stored in scenes).
+ * The five engines are relational to both parent drones. Modes 5-12
+ * combine their normal outputs; 13 frequency-splits the body/terrain;
+ * 14 drives a separate bank of body resonators with terrain excitation.
+ * Original intermodulation and Live Convolution have been retired. */
+enum {
+    DR_GHOST_BODY,                  /* 0: Resonant Body */
+    DR_GHOST_TERRAIN,               /* 1: Wave Terrain */
+    DR_GHOST_HETERODYNE,            /* 2: Heterodyne */
+    DR_GHOST_CROSS_SYNTH,           /* 3: Cross-Synth */
+    DR_GHOST_FEEDBACK,              /* 4: Coupled Feedback */
+    DR_GHOST_CROSS_BODY,            /* 5: 70% Cross-Synth + 30% Body */
+    DR_GHOST_CROSS_TERRAIN,         /* 6: 70% Cross-Synth + 30% Terrain */
+    DR_GHOST_CROSS_FEEDBACK,        /* 7: 70% Cross-Synth + 30% Feedback */
+    DR_GHOST_TERRAIN_BODY,          /* 8: 60% Terrain + 40% Body */
+    DR_GHOST_BODY_FEEDBACK,         /* 9: 65% Body + 35% Feedback */
+    DR_GHOST_CROSS_HETERODYNE,      /* 10: 70% Cross-Synth + 30% Heterodyne */
+    DR_GHOST_CROSS_BODY_FEEDBACK,   /* 11: 55% Cross + 30% Body + 15% Feedback */
+    DR_GHOST_CROSS_TERRAIN_BODY,    /* 12: 50% Cross + 30% Terrain + 20% Body */
+    DR_GHOST_SPLIT_BODY_TERRAIN,    /* 13: Body lows + Terrain highs */
+    DR_GHOST_TERRAIN_EXCITES_BODY,  /* 14: Terrain driven separate modal body */
+    DR_NGHOSTMODES
+};
+void dr_ghost_mode_set(int mode); /* legacy diagnostic setter; inert in fixed-voice candidate */
+int dr_ghost_mode_get(void);      /* nearest endpoint (not full morph position) */
+void dr_ghost_blend_set(int amount);  /* legacy setter; inert, fixed at 50 */
+#ifdef OM_HOST
+float dr_ghost_excitation_gain_test(void); /* host-test diagnostic only */
+uint32_t dr_ghost_event_hits_test(int event); /* host-only event/retrigger count */
+#endif
+int dr_ghost_blend_get(void);
+/* Browser-only listening diagnostic: suppress direct parent audio *after*
+ * it is generated but before GHOST and the shared FX mix. Not saved. */
+void dr_ghost_monitor_set(int ghost_only);
+int dr_ghost_monitor_get(void);
+/* Temporary complementary diagnostic: remove only GHOST from the output,
+ * retaining its level and DSP state so A/B toggles are immediate. */
+void dr_ghost_mute_set(int muted);
+#if OM_FX_CPU1 && !defined(OM_HOST)
+/* The platform owns CPU1; the effects pipeline receives mailbox callbacks. */
+void dr_fx_cpu1_bind(int (*run)(void (*fn)(uint32_t), uint32_t),
+                     int (*busy)(void), int (*wait)(void), void (*abort)(void));
+void dr_fx_cpu1_unbind(void);    /* after the platform holds CPU1 for OTA/UBOOT */
+void dr_fx_cpu1_stats(uint32_t stats[8]);
+#endif
+int dr_ghost_mute_get(void);
 void dr_init(void);
 void dr_set(int param, int value);
 void dr_play(int on);                          /* fade the whole drone in (1) / out (0) over P_FADE */

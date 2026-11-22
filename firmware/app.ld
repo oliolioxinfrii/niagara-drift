@@ -2,8 +2,9 @@
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
 /* Felucca memory map.
  * Code + constants execute in place from XIP (app.bin offset 0 = 0x02000120).
- * 0x01C00000..0x01C08000 holds .ram_text (flash-safe code and optional
- * .app_ram audio hot loops, adapted from Niagara Drift 0.3.1).
+ * 0x01C00000..0x01C08000 holds flash-safe .ram_text, CPU1 dispatch
+ * .c1_text, and optional RAM-resident .app_ram audio hot loops.
+ * The FM-1 build verifies these sections fit within the 32 KiB region.
  * RAM  : .data/.bss (96 KiB)
  * POOL : big zero-initialised buffers (FX lines, canvases), section .pool
  * STACKS with 256-byte guard bands; NOINIT survives resets and UBOOT entry.
@@ -20,6 +21,7 @@ SECTIONS
 {
     .text : { KEEP(*(.text.crt0)) *(.text*) *(.rodata*) . = ALIGN(4); _etext = .; } > XIP
     .ram_text : { _rt_start = .; KEEP(*(.ram_text*)) . = ALIGN(4);
+                  _c1_start = .; KEEP(*(.c1_text*)) . = ALIGN(4); _c1_end = .;
                   _ar_start = .; *(.app_ram*) . = ALIGN(4); _ar_end = .;
                   _rt_end = .; } > RAMTEXT AT > XIP
     _rt_load = LOADADDR(.ram_text);
@@ -28,6 +30,12 @@ SECTIONS
     .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM
     .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL
     .noinit (NOLOAD) : { *(.noinit*) } > NOINIT
+    /* Dedicated transient shared scratch in high SRAM. It follows NOINIT
+     * without shifting any persistent crash/boot records. Linker enforces
+     * the 0x01C7FD50 boot/mailbox/vector boundary. */
+    .c1_shared (NOLOAD) : { . = ALIGN(32); _c1_shared_start = .;
+                            *(.c1_shared*) . = ALIGN(4);
+                            _c1_shared_end = .; } > NOINIT
     _guard0 = 0x01C74000; _ustack_lo = 0x01C74100; _ustack_top = 0x01C7A000;
     _guard1 = 0x01C7A000; _sstack_lo = 0x01C7A100; _sstack_top = 0x01C7C000;
     /DISCARD/ : { *(.comment) *(.note*) }

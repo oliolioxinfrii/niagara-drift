@@ -152,12 +152,21 @@ expect par48 1
 set 49 10
 tap OCT+
 expect par49 1
-# ALGORITHM: the Movement (every LFO depth together, 50 = as set, 100 = twice)
+# ALGORITHM controls Movement; SEL+ALGORITHM controls GHOST MIX.
+expect par112 0
 expect par75 50
 spin ALGO 5
 expect par75 55
+expect par112 0
 spin ALGO -5
 expect par75 50
+press SEL
+spin ALGO 5
+expect par112 5
+expect par75 50
+spin ALGO -5
+expect par112 0
+release SEL
 # hold ENV to peek: the knobs are the Life page's (Character first) while it's held, then back to Play
 press ENV
 expect view 2

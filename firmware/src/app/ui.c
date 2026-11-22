@@ -7,8 +7,8 @@
  *   KNOB 1-2       drone I's two values on the page shown, KNOB 3-4 drone II's; the Drones page (HOME):
  *                  Pitch and Cutoff. A pitch is continuous, 2 Hz .. 1.6 kHz, a slow full turn an octave;
  *                  hold SEL for a cent a detent. With PITCH LINK on, KNOB 3 moves drone II's offset.
- *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT: every LFO depth together, 0 .. 200 %
- *   PRESETS        MORPH TIME: gesture depth and clock return timing
+ *   SELECT         page navigation (SEL+SELECT: LFO rate)      ALGORITHM   MOVEMENT (SEL+ALGORITHM: GHOST MIX)
+ *   PRESETS        MORPH TIME: gesture depth and clock return timing; SEL+PRESETS unused
  *   PLAY           the drone fades in / out; SEL + PLAY starts/pauses/resumes the pitch progression
  *                  SEL + HOME makes a randomized working sound and sequencer (no scene overwritten)
  *   MASTER         volume      SAVE   saves
@@ -22,10 +22,12 @@
  *   button's pages.
  *   OCT- / OCT+    the LFO's Wave I / Wave II (LFO I and II on screen): a tap is the next shape, round and
  *                  round; SEL + OCT the one before; lit while its wave is up
- * White keys: 16 scenes. Tap: recall (every value morphs there over the Scene time; a knob turned stops
- *   it); hold (a visit): there while held, back to where it was when let go (a knob turned: it stays);
- *   hold SAVE and tap: store. Lit: the slot holds a scene; blinking slowly: the sound is that scene (stored or
- *   recalled, and no knob, switch or LFO control touched since).
+ * White keys: 1-8 STRIP/DARK/STILL/TAIL for the two parents, 9-12
+ *   TICK/CHORD/SNARL/STUTTER, 13-16 GHOST STRIKE/SCRAPE/BOW/TREMOR.
+ *   The last four keys trigger resonant events (tap once, hold to repeat;
+ *   double-tap to latch repetition, press again to cancel), replacing
+ *   the former WEIGHT/SHIFT/CLEAN/WASH key gestures; legacy
+ *   project parameters remain readable but are no longer assigned keys.
  * Black keys F#3 G#3 A#3 C#4 D#4 F#4 G#4 A#4 C#5 D#5 F#5:
  *   Normal pages: drone I (Partner, Sub, Filter), global Pitch Lock, drone-II Pitch Link,
  *   drone II (Partner, Sub, Filter), LFO lock/reset, Hard Sync, Cross-mod.
@@ -119,8 +121,8 @@ static const struct {
 /* ------------------------------------------------------------ switches --- */
 /* the black keys (key numbers, F3 = 0) and what each does: normally, and on the LFO page */
 static const uint8_t BLACK_K[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
-/* the white keys: the first NPLAY (F3 .. F4) the scenes of the bank; the next four (G4 .. C5, which sense pressure
- * too) the pressure gestures; the top four (D5 .. G5, no pressure) the gestures (Weight, Shift, Clean, Wash). */
+/* White keys: 1-8 subtractive parent gestures; 9-12 pressure gestures;
+ * 13-16 (D5..G5) trigger GHOST resonator events (replacing macro keys). */
 #define NWHITE 16
 static const uint8_t WHITE_K[NWHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const char BANK_L[NBANKS] = {'A', 'B', 'C', 'P', 'D', 'E', 'F', 'P'};
@@ -237,7 +239,15 @@ static struct {
     int16_t g_sent[DR_NGEST];
     float sub_amt[8];                  /* keys 1-8: four operations per drone */
     int16_t sub_sent[8];
-    uint16_t key_held;                 /* all sixteen white keys, physical positions */
+    uint16_t key_held;                 /* subtractive and pressure-gesture white keys */
+    uint8_t ghost_event_held;          /* physical keys 13..16 held */
+    uint8_t ghost_event_latched;       /* repeated events continue after key-up */
+    uint8_t ghost_event_tap_armed;     /* previous press was a short tap */
+    uint8_t ghost_event_cancel;        /* physical press canceled a latch; no retrigger */
+    uint32_t ghost_event_press[4];     /* press time, to reject held-key double taps */
+    uint32_t ghost_event_release[4];   /* last qualifying release for double-tap */
+    uint32_t ghost_event_next[4];      /* next repeat time in UI milliseconds */
+    uint8_t ghost_key_consumed;       /* bits 0/1: SEL+F3/G3 captured; suppress both normal gestures */
     uint16_t key_was_returning;        /* state when the current press began */
     uint16_t key_initial_zero;         /* short touch from zero retains the small value */
     uint8_t key_mode[16];             /* 0: stationary, 1: returning, 2: paused return */
@@ -1684,6 +1694,44 @@ static void press_end(void)                            /* the key let go */
     }
 }
 
+/* SEL+REC loads the deterministic STRESS patch without overwriting
+ * existing A-F scenes or factory presets. REC alone remains Motion Loop. */
+static void stress_load(void)
+{
+    int16_t values[DR_NPARAMS];
+    seq_scene_t pattern;
+    int k;
+    if (ui.loop != L_IDLE) {
+        say("STOP MOTION LOOP", "BEFORE STRESS");
+        return;
+    }
+    project_stress_build(values, &pattern);
+    undo_keep();
+    ui.morph = -1;
+    ui.press = -1;
+    ui.visit = -1;
+    ui.transition_seq_pending = 0;
+    ui.scene_at = -1;
+    hands_clear();
+    for (k = 0; k < DR_NPARAMS; ++k)
+        if (!scene_room(k))
+            param_set(k, values[k]);
+    /* Independent pitch cursors must not inherit the room's pitch lock. */
+    param_set(P_PLOCK, 0);
+    /* Reconcile the saved gesture latches with UI's live gesture amounts.
+     * Otherwise the next UI frame can overwrite the new WASH latch with
+     * the amount inherited from the previously loaded sound. */
+    for (k = 0; k < DR_NGEST; ++k) {
+        ui.g_amt[k] = (float)proj.par[gl_par(k)] * 0.01f;
+        ui.g_sent[k] = -1;  /* publish the latch to the audio command queue */
+    }
+    sd_scene_restore(&pattern);     /* prepare cycling sequence, initially stopped */
+    dr_ghost_monitor_set(0);        /* predictable full-mix audition */
+    dr_ghost_mute_set(0);           /* GHOST should be audible */
+    mark_dirty();                   /* the authored sequence changed as well */
+    say_c("CPU STRESS", "PLAY + SEL+PLAY", K_GOLD);
+}
+
 static void button(int b)                              /* the other buttons, on release */
 {
     switch (b) {
@@ -1703,7 +1751,12 @@ static void button(int b)                              /* the other buttons, on 
         }
         break;
     case B_REC:
-        loop_button();
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            stress_load();
+        } else {
+            loop_button();
+        }
         break;
     default: break;                                    /* SEL: a modifier (fine pitch) */
     }
@@ -1900,12 +1953,10 @@ static void midi_in(void)
     }
 }
 
-/* Every white key controls a depth without pressure or a separate latch command.
- * Hold increases at 100% / Morph Time; release retains the current amount.
- * A tap of a stationary nonzero key begins a return, another tap pauses it;
- * holding during a return reverses to increasing. No automatic reversal at 100%.
- * Keys 1-8 are STRIP/DARK/STILL/TAIL for drone I and II; 9-16 retain
- * TICK/CHORD/SNARL/STUTTER/WEIGHT/SHIFT/CLEAN/WASH. */
+/* Keys 1-12 use gesture depth/latch semantics. Keys 13-16 trigger
+ * percussive resonator events instead of altering saved macro depths.
+ * For the first twelve, hold increases at 100% / Morph Time; release
+ * retains the depth, and a stationary tap starts or pauses the return. */
 #define GEST_TAP_MS 220u
 static int key_gesture(int i) { return i < NPLAY ? -1 : i < NSCENES ? G_PRESS + i - NPLAY : i - NSCENES; }
 static uint32_t gkey(int g) { return g < G_PRESS ? WHITE_K[NSCENES + g] : WHITE_K[NPLAY + g - G_PRESS]; }
@@ -1917,7 +1968,73 @@ static void key_rejoin(int i, int on)
         sd_still_rejoin(i / 4, on);
     }
 }
-static void gesture_down(int i)                  /* i: physical white key, 0..15 */
+/* Keys 13-16: single press excites once, hold retriggers, double-tap
+ * enables session-only repetition, and the next press cancels a latch.
+ * The FIRST press always sounds immediately (no double-tap latency).
+ * The second press in a double-tap sounds again and begins repeating;
+ * a cancel press only stops the scheduler, leaving existing modal tails.
+ * A long hold cannot count as the first half of a double tap. */
+#define GHOST_EVENT_TAP_MS 220u
+#define GHOST_EVENT_DOUBLE_MS 320u
+static const char *const GHOST_EVENT_NAME[4] = {"STRIKE", "SCRAPE", "BOW", "TREMOR"};
+static const uint16_t GHOST_EVENT_REPEAT_MS[4] = {300u, 420u, 1600u, 900u};
+static void ghost_event_down(int i)
+{
+    const int event = i - NSCENES;
+    const uint8_t bit = (uint8_t)(1u << event);
+    const uint32_t now = plat_ms();
+    if (ui.ghost_event_held & bit) return;
+    ui.ghost_event_held |= bit;
+    ui.ghost_event_press[event] = now;
+    if (ui.ghost_event_latched & bit) {
+        ui.ghost_event_latched &= (uint8_t)~bit;
+        ui.ghost_event_tap_armed &= (uint8_t)~bit;
+        ui.ghost_event_cancel |= bit;
+        say_c(GHOST_EVENT_NAME[event], "OFF", K_GOLD);
+    } else {
+        const int double_tap = (ui.ghost_event_tap_armed & bit) != 0 &&
+                               now - ui.ghost_event_release[event] <= GHOST_EVENT_DOUBLE_MS;
+        ui.ghost_event_tap_armed &= (uint8_t)~bit;
+        if (double_tap)
+            ui.ghost_event_latched |= bit;
+        ui.ghost_event_next[event] = now + GHOST_EVENT_REPEAT_MS[event];
+        dr_ghost_excite(event);
+        say_c(GHOST_EVENT_NAME[event], double_tap ? "LATCHED" : "GHOST", K_GOLD);
+    }
+    ui.scene_at = -1;
+}
+static void ghost_event_up(int i)
+{
+    const int event = i - NSCENES;
+    const uint8_t bit = (uint8_t)(1u << event);
+    const uint32_t now = plat_ms();
+    if (!(ui.ghost_event_held & bit)) return;
+    ui.ghost_event_held &= (uint8_t)~bit;
+    if (!(ui.ghost_event_cancel & bit) &&
+        !(ui.ghost_event_latched & bit) &&
+        now - ui.ghost_event_press[event] <= GHOST_EVENT_TAP_MS) {
+        ui.ghost_event_tap_armed |= bit;
+        ui.ghost_event_release[event] = now;
+    } else {
+        ui.ghost_event_tap_armed &= (uint8_t)~bit;
+    }
+    ui.ghost_event_cancel &= (uint8_t)~bit;
+}
+static void ghost_event_run(void)
+{
+    const uint32_t now = plat_ms();
+    int event;
+    for (event = 0; event < 4; ++event) {
+        const uint8_t bit = (uint8_t)(1u << event);
+        if (((ui.ghost_event_latched & bit) ||
+             ((ui.ghost_event_held & bit) && !(ui.ghost_event_cancel & bit))) &&
+            (int32_t)(now - ui.ghost_event_next[event]) >= 0) {
+            dr_ghost_excite(event);
+            ui.ghost_event_next[event] = now + GHOST_EVENT_REPEAT_MS[event];
+        }
+    }
+}
+static void gesture_down(int i)                  /* i: physical white key, 0..11 */
 {
     const uint16_t bit = (uint16_t)(1u << i);
     if (ui.key_held & bit) return;
@@ -1981,7 +2098,7 @@ static void gesture_run(void)
     int i;
     ui.g_last = now;
     if (dt > 100u) dt = 100u;
-    for (i = 0; i < NWHITE; i++) {
+    for (i = 0; i < NSCENES; i++) {
         const uint16_t bit = (uint16_t)(1u << i);
         const int g = key_gesture(i);
         float *amount = key_amount(i);
@@ -2023,6 +2140,19 @@ static void gesture_run(void)
             }
             if (ui.morph < 0 && proj.par[gl_par(g)] != (int16_t)(*amount * 100.0f + 0.5f))
                 proj.par[gl_par(g)] = (int16_t)(*amount * 100.0f + 0.5f);
+        }
+    }
+    /* Keys 13-16 now trigger GHOST events, but the four historical
+     * WEIGHT/SHIFT/CLEAN/WASH latch parameters remain in saved projects.
+     * They no longer have key envelopes; keep their DSP amounts in sync
+     * after boot, scene load, transition, and archived Motion Loop replay.
+     * ui.g_sent suppresses redundant audio commands while idle. */
+    for (i = 0; i < G_PRESS; ++i) {
+        const int16_t q = (int16_t)(fm_clampf(
+            fm_maxf(ui.g_amt[i], loop_gest(i)), 0.0f, 1.0f) * 1000.0f + 0.5f);
+        if (q != ui.g_sent[i]) {
+            ui.g_sent[i] = q;
+            dr_gesture(i, q);
         }
     }
 }
@@ -2273,8 +2403,10 @@ static void save_menu_input(uint32_t btn, uint32_t changed, uint32_t keys)
     const uint32_t released = changed & ~btn;
     const uint32_t keyup = ui.keys & ~keys;
     for (i = 0; i < NWHITE; i++)
-        if (keyup >> WHITE_K[i] & 1u)
-            gesture_up((int)i);
+        if (keyup >> WHITE_K[i] & 1u) {
+            if (i >= NSCENES) ghost_event_up((int)i);
+            else gesture_up((int)i);
+        }
     ui.keys = keys;
     if (ui.save_menu == 2) {
         menu_name_input(released);
@@ -2420,11 +2552,49 @@ static void input(void)
     }
     ch = keys ^ ui.keys;                               /* the black keys: switches, on the press */
     ui.keys = keys;
+    /* Browser listening diagnostics: SEL+F3 (Key1) suppresses only parent
+     * output; SEL+G3 (Key2) suppresses only GHOST output. Both inputs
+     * continue running. Consume the whole gesture (including key release)
+     * so neither ordinary STRIP nor DARK gesture is affected. The legacy
+     * scene-key test has priority. Both work during sequencer note entry. */
+    if (!ui.scene_keys_enabled && (btn & (1u << B_SEL))) {
+        for (i = 0; i < 2u; ++i) {
+            if (!(ch & keys & (1u << WHITE_K[i]))) continue;
+            ui.ghost_key_consumed |= (uint8_t)(1u << i);
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            if (i == 0u) {
+                dr_ghost_monitor_set(!dr_ghost_monitor_get());
+                scopy(ui.glab[0], "GHOST MONITOR");
+                scopy(ui.glab[1], dr_ghost_monitor_get() ? "GHOST ONLY" : "FULL MIX");
+            } else {
+                dr_ghost_mute_set(!dr_ghost_mute_get());
+                scopy(ui.glab[0], "GHOST OUTPUT");
+                scopy(ui.glab[1], dr_ghost_mute_get() ? "GHOST MUTED" : "GHOST ON");
+            }
+            ui.glab_until = plat_ms() + 1800u;
+            ui.act_t = plat_ms();
+        }
+    }
     if (ui.view == V_SEQ_NOTES) {
+        /* If the player enters note editing while physically holding an
+         * excitation key, do not leave a phantom held retrigger running
+         * after release. Existing double-tap latches intentionally persist. */
+        for (i = NSCENES; i < NWHITE; ++i)
+            if (!(keys >> WHITE_K[i] & 1u) &&
+                (ui.ghost_event_held & (1u << (i - NSCENES))))
+                ghost_event_up((int)i);
         /* All 27 physical keys belong to pitch entry on the sequence page.
          * SEL+K1 remains a knob-only modifier; holding SEL here must not
          * recall scenes, banks, or the black-key settings. */
-        sd_keys(keys, ch & keys);
+        /* The consumed F3/G3 diagnostic keys must not insert sequencer notes. */
+        {
+            uint32_t consumed = 0u;
+            for (i = 0; i < 2u; ++i)
+                if (ui.ghost_key_consumed & (1u << i))
+                    consumed |= 1u << WHITE_K[i];
+            sd_keys(keys & ~consumed, (ch & keys) & ~consumed);
+        }
         if (btn >> B_SEL & 1u && keys)
             ui.btn_used |= 1u << B_SEL;
     } else {
@@ -2506,12 +2676,19 @@ static void input(void)
     }
     for (i = 0; i < NWHITE; i++) {
         if (i < NPLAY && ui.scene_keys_enabled) continue; /* legacy scenario only */
-        if ((ch & keys) >> WHITE_K[i] & 1u)
-            gesture_down((int)i);
-        if ((ch & ~keys) >> WHITE_K[i] & 1u)
-            gesture_up((int)i);
+        if (i < 2u && (ui.ghost_key_consumed & (1u << i))) continue; /* diagnostics, not STRIP/DARK */
+        if (i >= NSCENES) {
+            if ((ch & keys) >> WHITE_K[i] & 1u) ghost_event_down((int)i);
+            if ((ch & ~keys) >> WHITE_K[i] & 1u) ghost_event_up((int)i);
+        } else {
+            if ((ch & keys) >> WHITE_K[i] & 1u) gesture_down((int)i);
+            if ((ch & ~keys) >> WHITE_K[i] & 1u) gesture_up((int)i);
+        }
     }
     } /* end normal keyboard dispatch; sequencer's keyboard is handled separately */
+    for (i = 0; i < 2u; ++i)
+        if (ch & ~keys & (1u << WHITE_K[i]))
+            ui.ghost_key_consumed &= (uint8_t)~(1u << i); /* consume release even if SEL went first */
     if (btn || keys || ch)
         ui.act_t = plat_ms();
     loop_run();
@@ -2541,10 +2718,25 @@ static void input(void)
                 }
         }
     }
-    if ((e = plat_enc(EN_ALGO)) != 0)                /* ALGORITHM: the Movement, every LFO depth 0 .. 200 % */
-        global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
-    if ((e = plat_enc(EN_PRESET)) != 0)              /* PRESETS: Gesture time, every gesture's speed */
-        global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
+    if ((e = plat_enc(EN_ALGO)) != 0) {              /* ALGORITHM: MOVEMENT; SEL: GHOST */
+        if (ui.btn >> B_SEL & 1u) {
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+            global_turn(EN_ALGO, P_GHOST, "GHOST MIX", e);
+        } else {
+            global_turn(EN_ALGO, P_MOVE, "MOVEMENT", e);
+        }
+    }
+    if ((e = plat_enc(EN_PRESET)) != 0) {            /* PRESETS: MORPH TIME; SEL: unused */
+        if (ui.btn >> B_SEL & 1u) {
+            /* Consume the gesture so SEL release does not activate a
+             * separate command. No timbre parameter is exposed. */
+            ui.btn_used |= 1u << B_SEL;
+            ui.sel_turned = 1;
+        } else {
+            global_turn(EN_PRESET, P_MORPH, "MORPH TIME", e);
+        }
+    }
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
             const int seq_edit = ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE;
@@ -2903,9 +3095,15 @@ static void leds(void)
     if (!ui.scene_keys_enabled)
         for (i = 0; i < NPLAY; i++)
             k[WHITE_K[i]] = (uint8_t)(255.0f * ui.sub_amt[i] + 0.5f);
-    for (i = 0; i < DR_NGEST; i++) {
+    for (i = G_PRESS; i < DR_NGEST; i++) {
         const float amount = fm_clampf(fm_maxf(ui.g_amt[i], loop_gest((int)i)), 0.0f, 1.0f);
         k[gkey((int)i)] = (uint8_t)(255.0f * amount + 0.5f);
+    }
+    for (i = 0; i < 4u; ++i) {
+        const uint8_t bit = (uint8_t)(1u << i);
+        k[WHITE_K[NSCENES + i]] = (ui.ghost_event_latched & bit) ?
+            (blink(700u) ? 255u : LED_DIM) :
+            (ui.ghost_event_held & bit) && !(ui.ghost_event_cancel & bit) ? 255u : 0u;
     }
     /* SEL no longer turns gesture keys into bank selectors. */
     if (ui.view == V_SEQ_NOTES)
@@ -3969,6 +4167,7 @@ void ui_frame(void)
     input();
     press_run();
     gesture_run();
+    ghost_event_run();
     tips_run();
     scene_morph();
     autosave();

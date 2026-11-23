@@ -1,0 +1,96 @@
+# Sustained glide chaining and strict pedal-up note ownership.
+# Under CC64, a completed destination is the new source even while
+# the original note is still physically held or pedal-latched.
+notips
+set 51 0
+set 50 0
+set 71 24
+set 0 4500
+set 21 5700
+press SEL
+tap GLO
+release SEL
+wait 150
+expect midiui 1
+midi B0 40 7F
+wait 25
+expect midipedal0 1
+
+# A2 on I, G5 on II. G5 remains PHYSICALLY held throughout.
+midi 90 2D 64
+midi 90 4F 64
+wait 130
+expect midigate0 1
+expect midigate1 1
+midi 90 51 64
+wait 170
+expect midiextra1 81
+expect midibusy1 1
+expect miditarget1 81
+# Sustain bypasses the old G5 owner's retention at the GLIDE END.
+wait 1250
+expect midibusy1 0
+expect midiextra1 -1
+expect midinote1 81
+expect midigate1 1
+
+# B5 can now begin a NEW glide without Note Off for the old G5.
+midi 90 53 64
+wait 130
+expect midiextra1 83
+expect miditarget1 83
+expect midibusy1 1
+# Pedal-up while exact destination B5 remains PHYSICALLY held
+# must not release it or reverse to previously held G5/A5.
+midi B0 40 00
+wait 50
+expect midipedal0 0
+expect midigate1 1
+expect miditarget1 83
+expect midiextra1 83
+expect midibusy1 1
+wait 1250
+expect midibusy1 0
+expect midinote1 83
+expect midigate1 1
+# Old keys whose note identity was superseded cannot pull back.
+midi 80 4F 00
+midi 80 51 00
+wait 50
+expect midinote1 83
+expect midigate1 1
+
+# Releasing the EXACT current held note finally fades out II.
+midi 80 53 00
+wait 20
+expect midigate1 0
+expect midigate0 1
+
+# A separate CC64 case: an old original G5 is physically held,
+# but the glide destination A5 has been lifted under sustain.
+# Pedal-up must fade out II, NEVER return to old held G5.
+midi B0 40 7F
+midi 90 4F 64
+wait 125
+expect midigate1 1
+midi 90 51 64
+wait 100
+expect midiextra1 81
+expect midibusy1 1
+midi 80 51 00
+wait 60
+expect midiextra1 81
+expect midigate1 1
+midi B0 40 00
+wait 20
+expect midigate1 0
+expect midibusy1 0
+expect midiextra1 -1
+expect midigate0 1
+
+# Save state untouched and normal Note Off of A2 still releases I.
+expect par0 4500
+expect par21 5700
+midi 80 2D 00
+wait 120
+expect midigate0 0

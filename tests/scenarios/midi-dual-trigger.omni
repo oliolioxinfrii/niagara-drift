@@ -4,6 +4,9 @@
 # FADE=0 is 50ms; MIDI pitch must not modify project parameters.
 notips
 set 51 0
+set 50 80
+# Even with global GLIDE high, each new MIDI pitch starts at its final
+# note after the old key has finished its FADE release.
 set 0 4500
 set 21 5700
 set 45 1

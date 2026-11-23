@@ -164,19 +164,25 @@ Host tests and the combined build must pass before hardware flashing:
 cd ~/niagara-drift
 git status -sb
 git fetch origin
-git switch --track origin/experiment/volcano-midi-dual-trigger
+git switch --track origin/experiment/volcano-midi-pedal-seq-curves
 sh tests/run_tests.sh
 OM_FX_CPU1=1 ./build.sh
 sh tests/run_tests.sh
-cp build/omni.fwsc build/volcano-midi-dual-EXPERIMENT.fwsc
+cp build/omni.fwsc build/volcano-midi-pedal-seq-curves-EXPERIMENT.fwsc
 ```
 
-Keep the known-good firmware for rollback. After all tests pass,
+Keep the known-good firmware for rollback. The new named curve codes
+(101..108) fit in existing scene sidecars and new firmware reads legacy
+slider values, but an older firmware build will reject a sequence saved
+with the new curve codes. Back up user sounds/settings before installing
+or rolling back.
+
+After all tests pass,
 the usual Windows Python installer from WSL can flash it:
 
 ```sh
 WIN_INSTALLER=$(wslpath -w "$PWD/tools/fm1_install.py")
-WIN_PACKAGE=$(wslpath -w "$PWD/build/volcano-midi-dual-EXPERIMENT.fwsc")
+WIN_PACKAGE=$(wslpath -w "$PWD/build/volcano-midi-pedal-seq-curves-EXPERIMENT.fwsc")
 python.exe "$WIN_INSTALLER" --info
 python.exe "$WIN_INSTALLER" --backup
 python.exe "$WIN_INSTALLER" "$WIN_PACKAGE"

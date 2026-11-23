@@ -33,7 +33,7 @@ expect midigate0 1
 expect midigate1 1
 # Pedal-up releases only the key no longer physically pressed.
 midi B0 40 00
-wait 35
+wait 20
 expect midipedal0 0
 expect midigate0 0
 expect midigate1 1

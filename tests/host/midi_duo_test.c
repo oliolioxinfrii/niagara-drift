@@ -24,12 +24,18 @@ int main(void)
           midi_duo_off(&d, 0, 36) == 0 && d.key[1] == 59);
     check("B2 takes drone I while B3 remains held",
           midi_duo_on(&d, 0, 47) == 0);
-    check("Two voices maximum: third held note steals drone II",
-          midi_duo_on(&d, 0, 60) == 1 && d.key[1] == 60);
-    check("Late note-off from stolen B3 cannot stop C4",
-          midi_duo_off(&d, 0, 59) == -1 && d.key[1] == 60);
+    check("A third simultaneous note is ignored; no voice stealing",
+          midi_duo_on(&d, 0, 60) == -1 && d.key[0] == 47 && d.key[1] == 59);
+    check("Unassigned note-off does not change a held drone",
+          midi_duo_off(&d, 0, 60) == -1 && d.key[1] == 59);
+    check("Releasing drone I gives next key that same slot",
+          midi_duo_off(&d, 0, 47) == 0 &&
+          midi_duo_on(&d, 0, 60) == 0 && d.key[1] == 59);
+    check("Releasing drone II gives next key that same slot",
+          midi_duo_off(&d, 0, 59) == 1 &&
+          midi_duo_on(&d, 0, 61) == 1 && d.key[0] == 60);
     check("Channel is part of matching note identity",
-          midi_duo_off(&d, 1, 60) == -1 && d.key[1] == 60);
+          midi_duo_off(&d, 1, 61) == -1 && d.key[1] == 61);
     check("All-notes-off on one channel releases only that channel",
           midi_duo_channel_off(&d, 0) == 3u &&
           d.key[0] == -1 && d.key[1] == -1);

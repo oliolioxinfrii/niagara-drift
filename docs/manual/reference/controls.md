@@ -43,11 +43,13 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 
 | Button | Function |
 |---|---|
-| [[PLAY]] | Fade the instrument in or out using the configured Fade time |
+| [[PLAY]] | In normal mode, fade the complete instrument in or out. In MIDI mode, stop or restart note-triggered playback without changing modes |
 | [[SAVE]] | Open the scene browser to save, load, rename or transition between sounds |
 | [[REC]] | Start recording a motion loop; press again to repeat it, and again to stop |
-| [[SEL]] | Modifier for fine adjustments and secondary controls |
+| [[SEL]] | Modifier for fine adjustments, secondary controls, and SEL+GLO performance-mode switching |
 | [[OCT−]] / [[OCT+]] | Select or bypass LFO I / II waveforms; SEL+OCT toggles the corresponding drone with a MORPH TIME fade |
+
+**SEL + GLO** selects either normal PLAY mode or external MIDI mode. Selecting MIDI mode starts both LFO clocks and Swell while leaving both drone gates silent until a MIDI Note On, and disables pitch-sequence playback; switching back leaves normal PLAY mode stopped. See [MIDI](midi.md).
 
 **Hold HOME for 400 ms** to display the temporary VOLCANO activity atlas. It shows five geological layers representing effects, drone levels, Swell/sequencing, Feedback/Drift/Character and LFO activity. Releasing HOME returns to the previous page. See [Drones and Pitch](drones.md).
 

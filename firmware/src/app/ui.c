@@ -1767,12 +1767,52 @@ static void button(int b)                              /* the other buttons, on 
 
 /* External USB-MIDI and TRS MIDI notes share two independent drone slots.
  * This is not a polyphonic keyboard mode: the first held note takes drone I,
- * the second takes II; if both are occupied, a third key waits silently
- * and enters whichever slot is released first. The audio engine
- * handles global-FADE envelopes and delayed retuning of a fading voice.
+ * the second takes II. With both sounding, a third key glides the
+ * nearest drone over Scene Time; ordinary released-slot replacement
+ * still uses the global FADE and silent retune.
  * The physical FM-1 performance keys remain dispatched separately. */
 #include "midi_duo.h"
 static midi_duo_t midi_duo;
+static int16_t midi_sent_note[2];  /* last effective note sent to audio */
+static uint8_t midi_sent_glide[2]; /* note is from simultaneous third key */
+static void midi_note_reset(void)
+{
+    int g;
+    midi_duo_reset(&midi_duo);
+    for (g = 0; g < 2; ++g) {
+        midi_sent_note[g] = -1;
+        midi_sent_glide[g] = 0u;
+    }
+}
+/* Reconcile after EACH MIDI packet, so an Off then On cannot collapse
+ * into an unintended legato change within a single input scan.
+ * Changing the third held pitch does not reset the oscillator/gate. */
+static void midi_note_reconcile(void)
+{
+    int g;
+    for (g = 0; g < 2; ++g) {
+        const int note = midi_duo_slot_note(&midi_duo, g);
+        const int glide = midi_duo_slot_gliding(&midi_duo, g);
+        if (note == midi_sent_note[g] && glide == midi_sent_glide[g])
+            continue;
+        if (note < 0) {
+            if (midi_sent_note[g] >= 0)
+                dr_midi_note(g, midi_sent_note[g], 0);
+        } else if (midi_sent_note[g] < 0) {
+            dr_midi_note(g, note, 1); /* normal FADE-in/retrigger */
+        } else if (note != midi_sent_note[g]) {
+            if (glide || midi_sent_glide[g]) {
+                /* Same clock-aware Scene Time as a scene recall. */
+                dr_midi_glide(g, note, scene_s());
+            } else {
+                dr_midi_note(g, midi_sent_note[g], 0);
+                dr_midi_note(g, note, 1);
+            }
+        }
+        midi_sent_note[g] = (int16_t)note;
+        midi_sent_glide[g] = (uint8_t)glide;
+    }
+}
 
 /* SEL+GLO changes performance modes. The MIDI setting is session-only
  * (not a scene or saved parameter). Entering it runs the two LFO clocks
@@ -1782,7 +1822,7 @@ static midi_duo_t midi_duo;
 static void midi_mode_toggle(void)
 {
     const int on = !ui.midi_mode;
-    midi_duo_reset(&midi_duo);
+    midi_note_reset();
     if (on) {
         sd_stop();
         ui.midi_mode = 1u;
@@ -1980,31 +2020,30 @@ static void midi_in(void)
 #endif
             continue;
         }
-        /* External note messages on any MIDI channel: channel is part of
-         * note identity, not a drone selector. Velocity 0 is Note Off.
-         * Never write GP_PITCH or another saved project parameter. */
-        if (!ui.midi_mode || !ui.playing)
-            continue; /* no implicit takeover: SEL+GLO explicitly arms notes */
+        /* Explicit MIDI mode only. CC64 is channel-specific: keys
+         * released with sustain down remain owners until pedal-up. */
+        if (!ui.midi_mode || !ui.playing) continue;
         if ((st & 0xF0u) == 0x90u && v != 0u) {
-            const int slot = midi_duo_on(&midi_duo, st & 0x0Fu, n);
-            if (slot >= 0) dr_midi_note(slot, (int)n, 1);
+            float p0 = dr_midi_pitch_get(0), p1 = dr_midi_pitch_get(1);
+            /* A three-note chord can arrive before the first audio render.
+             * The assigned MIDI note is more accurate than the old panel
+             * pitch until the newly opened voice reaches the DSP. */
+            if (dr_midi_note_get(0) < 0 && midi_sent_note[0] >= 0)
+                p0 = (float)midi_sent_note[0];
+            if (dr_midi_note_get(1) < 0 && midi_sent_note[1] >= 0)
+                p1 = (float)midi_sent_note[1];
+            (void)midi_duo_on(&midi_duo, st & 0x0Fu, n, p0, p1);
+            midi_note_reconcile();
         } else if ((st & 0xF0u) == 0x80u ||
                    ((st & 0xF0u) == 0x90u && v == 0u)) {
-            const int slot = midi_duo_off(&midi_duo, st & 0x0Fu, n);
-            if (slot >= 0) {
-                const int promoted = midi_duo_promote(&midi_duo, slot);
-                dr_midi_note(slot, (int)n, 0);
-                if (promoted >= 0) dr_midi_note(slot, promoted, 1);
-            }
+            (void)midi_duo_off(&midi_duo, st & 0x0Fu, n);
+            midi_note_reconcile();
+        } else if ((st & 0xF0u) == 0xB0u && n == 64u) {
+            (void)midi_duo_pedal(&midi_duo, st & 0x0Fu, v);
+            midi_note_reconcile();
         } else if ((st & 0xF0u) == 0xB0u && (n == 120u || n == 123u)) {
-            const unsigned released = midi_duo_channel_off(&midi_duo, st & 0x0Fu);
-            int slot;
-            for (slot = 0; slot < 2; ++slot)
-                if (released & (1u << slot)) {
-                    const int promoted = midi_duo_promote(&midi_duo, slot);
-                    dr_midi_note(slot, 0, 0);
-                    if (promoted >= 0) dr_midi_note(slot, promoted, 1);
-                }
+            (void)midi_duo_channel_off(&midi_duo, st & 0x0Fu);
+            midi_note_reconcile();
         }
     }
 }
@@ -2622,7 +2661,7 @@ static void input(void)
                  * selected performance mode. In MIDI mode it also releases
                  * held MIDI assignments when stopped; both drones remain
                  * silent until new Note On events when restarted. */
-                if (ui.midi_mode) midi_duo_reset(&midi_duo);
+                if (ui.midi_mode) midi_note_reset();
                 ui.playing = (uint8_t)!ui.playing;
                 dr_play(ui.playing);
                 if (!ui.midi_mode) sd_global_play(ui.playing);
@@ -3229,7 +3268,7 @@ static void autosave(void)
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
-    midi_duo_reset(&midi_duo);
+    midi_note_reset();
     ui.hold_btn = -1;
     ui.morph = -1;
     ui.visit = -1;

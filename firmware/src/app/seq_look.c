@@ -137,8 +137,8 @@ static void lk_pic_seq_shape(void)
         }
         /* A discontinuity is vertical at the node itself, not a diagonal
          * extending into the adjacent segment. */
-        if (sd.shape[i] <= -100) cv_rect(xe, high, 1, low - high + 2, c);
-        if (sd.shape[i] >= 100) cv_rect(xs, high, 1, low - high + 2, c);
+        if (sd.shape[i] == SD_CURVE_LATE) cv_rect(xe, high, 1, low - high + 2, c);
+        if (sd.shape[i] == SD_CURVE_EARLY) cv_rect(xs, high, 1, low - high + 2, c);
         cv_round(xs - 1, low - 1, 3, 3, 1, LK_WHITE);
         cv_round(xe - 1, high - 1, 3, 3, 1, LK_WHITE);
     }
@@ -241,6 +241,21 @@ static void lk_pic_sequence(int timing)
         cv_text(sd.paused ? 192 : 202, 0, &FONT_XS, sd.paused ? "PAUSE" : "ON", LK_GOLD);
 }
 
+/* Keep the entire SEQ graph and knob layout visible but unmistakably
+ * disabled when SEL+GLO has selected MIDI mode. The working RGB565
+ * canvas is converted to a dim neutral gray immediately before blit.
+ * No separate full framebuffer, allocation or screen redesign. */
+static void sd_dim_canvas(void)
+{
+    uint32_t i;
+    for (i = 0; i < cv_w * cv_h; ++i) {
+        const uint16_t v = swap16(cv_px[i]);
+        const uint32_t r = (v >> 11) & 31u, g = (v >> 5) & 63u, b = v & 31u;
+        const uint32_t gray = ((3u*r + 3u*g + b) / 10u) * 60u / 100u;
+        cv_px[i] = swap16((uint16_t)((gray << 11) | (gray * 2u << 5) | gray));
+    }
+}
+
 /* Values use the same bottom row as the standard 0.3 pages. Inactive timing
  * controls are visibly empty and cannot affect the sequence. */
 static void lk_values_sequence(void)
@@ -248,7 +263,7 @@ static void lk_values_sequence(void)
     const int timing = ui.view == V_SEQ_TIME, shaping = ui.view == V_SEQ_SHAPE;
     uint32_t h = hash(2166136261u, ui.view | (uint32_t)sd.count << 8 | (uint32_t)sd.position << 12 |
                                  (uint32_t)sd.drone << 16 | (uint32_t)sd.phase << 18 |
-                                 (uint32_t)sd.enabled << 26);
+                                 (uint32_t)sd.enabled << 26 | (uint32_t)ui.midi_mode << 27);
     int i;
     for (i = 0; i < 4; i++) {
         h = hash(h, (uint32_t)(uint8_t)sd.shape[i] | (uint32_t)sd.gap_s[i] << 8);
@@ -265,14 +280,14 @@ static void lk_values_sequence(void)
         const int32_t cx = 36 + 56 * i;
         const int active = shaping ? (sd.count > 1 && i < sd.count) : !timing ? !(sd_linked() && (i == 1 || i == 3)) :
                            (sd.count > 1 && (i == 3 || i + 1 < sd.count));
-        const uint16_t col = !active ? LK_UNLIT : lit(i) ? LK_WHITE :
+        const uint16_t col = !active || ui.midi_mode ? LK_UNLIT : lit(i) ? LK_WHITE :
                              !timing && i == 1 ? LK_DRONE[sd.drone] : LK_NEUTRAL;
         const char *name = shaping ? (i == 0 ? "1 to 2" : i == 1 ? "2 to 3" : i == 2 ? "3 to 4" : "4 to 1") :
                            timing ? (i == 0 ? "Node 2" : i == 1 ? "Node 3" : i == 2 ? "Node 4" : "Loop") :
                            (i == 0 ? (ui.btn >> B_SEL & 1u ? "Pitch" : "Position") :
                             i == 1 ? "Drone" : i == 2 ? "Steps" : "Phase");
         char value[20];
-        if (lit(i) && active) {
+        if (lit(i) && active && !ui.midi_mode) {
             cv_round(cx - 26, 4, 52, 81, 5, LK_DRONE[!timing && i == 1 ? sd.drone : 0]);
             cv_round(cx - 25, 5, 50, 79, 4, LK_BG);
         }
@@ -280,17 +295,7 @@ static void lk_values_sequence(void)
         if (!active) {
             scopy(value, !timing && i == 1 && sd_linked() ? "LINK" : "--");
         } else if (shaping) {
-            if (sd.shape[i] == -100) scopy(value, "Late");
-            else if (sd.shape[i] == 100) scopy(value, "Early");
-            else if (!sd.shape[i]) scopy(value, "Sine");
-            else {
-                char *q;
-                if (sd.shape[i] > 0) value[0] = '+';
-                itoa_u((uint32_t)(sd.shape[i] < 0 ? -sd.shape[i] : sd.shape[i]), value + (sd.shape[i] > 0));
-                q = value;
-                while (*q) q++;
-                scopy(q, "%");
-            }
+            scopy(value, SD_CURVE_NAME[sd_curve_index(sd.shape[i])]);
         } else if (timing) {
             char *q;
             const uint32_t t = i == 3 ? sd_total_s() : sd_node_s(i + 1);
@@ -320,9 +325,10 @@ static void lk_values_sequence(void)
             scopy(q, "%");
         }
         text_c(cx, 39, text_w(&FONT_N1, value) <= 52 ? &FONT_N1 : &FONT_N2,
-               value, active ? LK_WHITE : LK_UNLIT);
+               value, active && !ui.midi_mode ? LK_WHITE : LK_UNLIT);
         if (active && shaping) {
-            lk_dotrow(cx, 72, (float)(sd.shape[i] + 100) / 200.0f, LK_RAMP[0][0], LK_RAMP[0][1], 0, 0);
+            lk_dotrow(cx, 72, (float)sd_curve_index(sd.shape[i]) / (float)(SD_CURVE_COUNT - 1),
+                      LK_RAMP[0][0], LK_RAMP[0][1], 0, ui.midi_mode);
         } else if (active && timing) {
             const uint32_t total = sd_total_s();
             const uint32_t value = i == 3 ? total : sd_node_s(i + 1);
@@ -335,5 +341,6 @@ static void lk_values_sequence(void)
             lk_dotrow(cx, 72, max > 0 ? (float)v / (float)max : 0.0f, LK_RAMP[0][0], LK_RAMP[0][1], 0, 0);
         }
     }
+    if (ui.midi_mode) sd_dim_canvas();
     cv_blit(0, LK_VAL_Y);
 }

@@ -12,10 +12,11 @@ intro: Page controls, transport, gesture taps and SEL combinations
 | Input | Action |
 |---|---|
 | Hold **[[SEL]]**, turn **SELECT** | Change the shared LFO rate or clock-synchronized division |
-| **SEL + PLAY** | Start/pause/resume pitch-sequencer transport without changing the global PLAY fade |
+| **SEL + PLAY** | In normal PLAY mode, start/pause/resume the pitch sequencer; unavailable in MIDI mode |
 | **SEL + HOME** | Randomize the current sound and working sequence without overwriting saved slots |
 | **SEL + SAVE** | Undo/redo a supported sound change |
-| **SEL + OCT− / OCT+** | Toggle drone I / II on or off with MORPH TIME (PLAY retains its separate FADE) |
+| **SEL + OCT− / OCT+** | In normal PLAY mode, toggle drone I / II on or off with MORPH TIME (PLAY retains its separate FADE) | 
+| **SEL + GLO** | Toggle normal PLAY / external MIDI performance mode. MIDI mode runs LFOs and Swell with both drones gated off until MIDI Note On; no sequence |
 | Hold **SEL**, turn a pitch or fine-adjustable knob | Make fine adjustments or use that page's secondary control |
 | **SEL + KNOB 1** on Sequence | Retune selected event on the current grid |
 | **SEL + KNOB 1 or 3** on Sub · Drive | Change the selected drone's sub waveform |

@@ -843,7 +843,10 @@ int main(void)
             in.phase = (uint8_t)(b * 13);
             for (i = 0; i < SEQ_STEPS; i++) {
                 in.gap_s[i] = (uint16_t)(7 + b + i);
-                in.shape[i] = (int8_t)(i * 40 - 60);
+                /* Even-numbered banks retain legacy signed slider data;
+                 * odd-numbered banks exercise new named curve codes.
+                 * Both must round-trip through the same sidecar format. */
+                in.shape[i] = (int8_t)((b & 1) ? (101 + i) : (i * 40 - 60));
                 for (g = 0; g < 2; g++)
                     in.note[g][i] = (int16_t)(4000 + 100 * b + 50 * g + i * 120);
             }

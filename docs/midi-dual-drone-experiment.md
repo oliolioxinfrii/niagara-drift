@@ -52,18 +52,26 @@ STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
   reopening that same drone. A new note is not glide-connected to
   the previous note; its oscillators snap to the new tuning while
   silent, then the global-FADE attack opens.
-- If both drones still have held keys, a third Note On **waits
-  silently**. When one assigned note is released, its slot is given
-  to that waiting key, following that slot's FADE-out. Which slot
-  changes is therefore determined by **which key was released**, not
-  by the incoming note's order or MIDI channel. At most one waiting
-  key is remembered (the most recent extra Note On has priority).
-  Releasing an unassigned waiting key cancels it. This does not create
-  a third voice or steal either held note.
-- Note On with velocity zero functions as Note Off. Repeated Note On
-  messages for the same held key are ignored. MIDI CC 120 or 123
-  releases notes belonging to that channel. Other MIDI input,
-  including MIDI clock, continues its original behavior.
+- When both drone slots are already sounding, the **third simultaneous
+  held note** moves the existing drone **nearest in current sounding
+  pitch** to its new target over the global **Scene Time** (or the
+  current clock-aware Scene Bars duration when synced). The other drone
+  keeps its pitch, and only two oscillator voices exist. If the
+  original key on the chosen drone is released first, the glide
+  continues while the third key remains held. If the third key is
+  released first, the glide reverses toward its original held note.
+  When neither remains held/sustained, that drone stops transitioning
+  and fades out via global FADE. A fourth overlapping key is ignored.
+- Ordinary Note On after a slot is freed STILL uses its former
+  fade-out/retune/fade-in behavior, regardless of when the replacement
+  arrives during the old note's FADE.
+- Note On with velocity zero functions as Note Off. MIDI sustain
+  pedal **CC64 >=64** latches notes after key release (including the
+  third-note glide target); **CC64 <64** releases only physically
+  released keys. Each channel's pedal state is independent. CC120
+  and CC123 explicitly release notes on that channel, regardless
+  of pedal state. Other MIDI messages, including MIDI clock,
+  continue their original behavior.
 - MIDI pitches are **temporary**, not written to saved project
   parameters. Only **SEL+GLO** exits MIDI mode. PLAY in MIDI mode
   stops or restarts MIDI note triggering; the stored pitch link
@@ -91,19 +99,26 @@ With no held notes, a subsequent Note On again takes Drone I.
 
 ## Implementation
 
-- `firmware/src/app/midi_duo.h`: two-slot held-note allocator; each
-  note's MIDI channel is part of its identifier. No voice stealing.
+- `firmware/src/app/midi_duo.h`: two-slot allocator plus a single
+  third-note pitch target; each note remembers physical key-down and
+  per-channel CC64 sustain. A held original and third key may
+  control the same existing drone, but there are never three voices.
 - `firmware/src/app/ui.c`: SEL+GLO toggles mode and stops the
   sequencer on entry; Note On/Off/velocity-zero only reach the note
   allocator when MIDI mode is armed. Neither mode nor MIDI notes
   change `proj.par[GP_PITCH]`. PLAY remains a transport control.
 - `firmware/src/dsp/drone.c`: explicit `C_MIDI_MODE` enables the
   two MIDI voice gates and temporarily forces the existing Swell
-  engine active; `C_MIDI_NOTE` controls their attacks and releases.
-  Once a gate has reached zero, queued replacement pitch is installed
-  and its attack begins. The transport remains active for LFO, Swell
-  and the CPU1 GHOST+FX pipeline even with no sounding drone. A mode
-  exit finishes its global fade before restoring panel pitches.
+  engine active; `C_MIDI_NOTE` controls FADE-based attacks and
+  releases. New `C_MIDI_GLIDE_TIME` + `C_MIDI_GLIDE` interpolate
+  the *live* sounding pitch of the chosen existing drone over the
+  Scene Time captured at key press, independently of global GLIDE.
+  The transition continues if its old owner releases, reverses
+  if the third key releases while the original is held, and freezes
+  at the instantaneous pitch if both keys release. No new DSP voice
+  or saved project parameter is allocated. The transport remains
+  active for LFO, Swell and CPU1 GHOST/FX. On mode exit the global
+  fade completes before the panel pitches are restored.
 - `tests/host/midi_duo_test.c`: independent allocator tests.
 - `tests/scenarios/midi-dual-trigger.omni`: full host MIDI routing,
   gate, fade-before-retune, saved-pitch independence, and PLAY handoff.

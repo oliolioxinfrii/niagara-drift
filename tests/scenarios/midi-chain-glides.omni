@@ -5,6 +5,10 @@ set 51 0
 set 50 0
 set 71 24
 set 55 0
+# Set a known panel pitch explicitly, then verify MIDI glides do not
+# overwrite saved drone pitches (rather than assuming the default).
+set 0 4500
+set 21 5700
 press SEL
 tap GLO
 release SEL

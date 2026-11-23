@@ -25,6 +25,9 @@ run() {
     fi
 }
 run fastmath sh -c "$CC -O2 -ffp-contract=off -Wall -Wextra -Werror -o $OUT/fastmath_test tests/host/fastmath_test.c -lm && $OUT/fastmath_test"
+# External MIDI voice allocation is independent of the FM-1 physical keys.
+run midi-duo sh -c "$CC -O2 -std=c99 -Wall -Wextra -Werror -Ifirmware/src/app \
+    -o $OUT/midi_duo_test tests/host/midi_duo_test.c && $OUT/midi_duo_test"
 # Isolated GHOST modal and restored Cross-Synth engine tests.
 run ghost-mode5 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror -o $OUT/ghost_mode5_test tests/host/ghost_mode5_test.c -lm && $OUT/ghost_mode5_test"
 run ghost-mode14 sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wno-unused-function -Werror \

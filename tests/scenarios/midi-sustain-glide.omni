@@ -96,7 +96,17 @@ expect miditarget1 60
 expect midiglide1 1
 expect midigate1 1
 
-# Pedal can hold a third-note glide target even after its key releases.
+# A return glide is still active. A new F3 press targeting busy
+# Drone II must be ignored, rather than interrupting or queuing it.
+midi 90 35 64
+wait 35
+expect midiextra -1
+expect miditarget1 60
+midi 80 35 00
+# Finish the return glide before re-pressing F3. The next press
+# should now start a fresh Scene-Time transition.
+wait 1200
+expect midiglide1 0
 midi B0 40 7F
 midi 90 35 64
 wait 100

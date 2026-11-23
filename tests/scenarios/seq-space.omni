@@ -59,7 +59,8 @@ expect seqgain0 >990
 expect seqgain1 >990
 wavstop
 
-# Drone II's phase offset moves its silence independently of drone I.
+# With Pitch Lock off, drone II's phase moves its silence independently.
+set 74 0
 page 18
 spin K4 25
 expect seqphase 25

@@ -7,9 +7,37 @@ merged `main` with half-rate GHOST and reactive excitation keys).
 **Status:** Source and host regressions committed. This merged firmware
 has **not** been compiled or hardware-timed in the assistant environment.
 
+## Performance modes
+
+**SEL+GLO** is the session-only performance-mode toggle. The MIDI mode
+is not inferred from a cable insertion or the first Note On.
+
+| | PLAY mode | MIDI mode |
+|---|---|---|
+| Enter | Power-up default; SEL+GLO from MIDI | SEL+GLO from PLAY |
+| PLAY | Normal continuous drone transport | Arms/disarms MIDI-triggered audio without changing mode |
+| At rest | Stopped until PLAY pressed | Both drone envelopes closed; LFO I/II phase clocks and Swell run |
+| Drone tuning | Panel knobs, pitch link, sequences | External MIDI keys independently assign two drone pitches |
+| Sequencer | SEL+PLAY available | Stopped; SEL+PLAY does not start it |
+| Drone I/II outputs | SEL+OCT−/OCT+ | Gated only by external MIDI Note On/Off |
+| GLO button without SEL | Setup pages | Setup pages |
+
+Switching **into MIDI mode** starts both LFO transport clocks and forces
+the Swell engine active without setting the patch's saved `P_PULSE`.
+It closes both drone gates using global FADE and stops the sequencer
+without deleting the authored note sequence. Releasing/pressing PLAY in
+MIDI mode stops or restarts note triggering without switching modes.
+Switching **out** with SEL+GLO fades to silence, returns to normal PLAY
+mode in its stopped state, and preserves all saved pitches, PITCH LINK,
+and the patch's Swell switch.
+
+The physical FM-1 keys, scene controls, GHOST excitation keys and
+other gestures are unchanged in either mode.
+
 ## Behavior
 
-Incoming **external USB MIDI or TRS MIDI** Note On/Off messages trigger
+Only while MIDI mode is selected and PLAY is armed, incoming
+**external USB MIDI or TRS MIDI** Note On/Off messages trigger
 the **two existing drones**. The physical FM-1 keyboard remains assigned
 to the original STRIP/DARK/STILL/TAIL, pressure gestures and GHOST
 STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
@@ -37,8 +65,8 @@ STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
   releases notes belonging to that channel. Other MIDI input,
   including MIDI clock, continues its original behavior.
 - MIDI pitches are **temporary**, not written to saved project
-  parameters. A physical PLAY press exits MIDI-trigger mode and
-  returns to normal panel-drone transport. The stored pitch link
+  parameters. Only **SEL+GLO** exits MIDI mode. PLAY in MIDI mode
+  stops or restarts MIDI note triggering; the stored pitch link
   setting remains unchanged but is bypassed while external MIDI
   controls independent pitches.
 - Both the voice releases and attacks use **global FADE** (`P_FADE`),
@@ -65,16 +93,17 @@ With no held notes, a subsequent Note On again takes Drone I.
 
 - `firmware/src/app/midi_duo.h`: two-slot held-note allocator; each
   note's MIDI channel is part of its identifier. No voice stealing.
-- `firmware/src/app/ui.c`: receives Note On/Off/velocity-zero,
-  routes only external MIDI into the allocator, and does not change
-  `proj.par[GP_PITCH]`. PLAY releases MIDI ownership.
-- `firmware/src/dsp/drone.c`: asynchronous `C_MIDI_NOTE` commands
-  target the two existing voice gate envelopes. Once a gate has
-  reached zero, queued replacement pitch is installed and its
-  attack begins. Global PLAY fade is bypassed only while MIDI
-  owns the voices; each voice still obeys `P_FADE` locally.
-  MIDI can feed the existing CPU1 GHOST+FX pipeline while the
-  global PLAY transport is stopped.
+- `firmware/src/app/ui.c`: SEL+GLO toggles mode and stops the
+  sequencer on entry; Note On/Off/velocity-zero only reach the note
+  allocator when MIDI mode is armed. Neither mode nor MIDI notes
+  change `proj.par[GP_PITCH]`. PLAY remains a transport control.
+- `firmware/src/dsp/drone.c`: explicit `C_MIDI_MODE` enables the
+  two MIDI voice gates and temporarily forces the existing Swell
+  engine active; `C_MIDI_NOTE` controls their attacks and releases.
+  Once a gate has reached zero, queued replacement pitch is installed
+  and its attack begins. The transport remains active for LFO, Swell
+  and the CPU1 GHOST+FX pipeline even with no sounding drone. A mode
+  exit finishes its global fade before restoring panel pitches.
 - `tests/host/midi_duo_test.c`: independent allocator tests.
 - `tests/scenarios/midi-dual-trigger.omni`: full host MIDI routing,
   gate, fade-before-retune, saved-pitch independence, and PLAY handoff.
@@ -106,8 +135,9 @@ python.exe "$WIN_INSTALLER" "$WIN_PACKAGE"
 python.exe "$WIN_INSTALLER" --info
 ```
 
-First test external MIDI while PLAY is off with FADE short (~50 ms),
-then FADE of about 1 s; release and replace each drone separately,
+First test normal PLAY with incoming MIDI ignored, then SEL+GLO
+entering a silent MIDI mode with LFO/Swell visibly running. Test
+FADE short (~50 ms) and then about 1 s; release and replace each drone separately,
 with held intervals, third notes, and ghost excitation active. Do a
 new CPU0/CPU1 60-s timing check with GHOST MIX 50 and two MIDI
 notes held before any prolonged STRESS V2 run. No new CPU1 waveform

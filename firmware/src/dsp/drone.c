@@ -743,7 +743,7 @@ void dr_param_text(int i, int v, char *b)
 }
 
 /* -------------------------------------------------------------- commands --- */
-enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC, C_MIDI_NOTE };
+enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC, C_MIDI_NOTE, C_MIDI_MODE };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
 #define QN 256u
@@ -767,6 +767,7 @@ void dr_midi_note(int g, int note, int on)
     if ((unsigned)g < DR_NGROUPS && (unsigned)note < 128u)
         post(C_MIDI_NOTE, g, note | (on ? 256 : 0));
 }
+void dr_midi_mode_set(int on) { post(C_MIDI_MODE, on != 0, 0); }
 void dr_panic(void) { post(C_PANIC, 0, 0); }
 void dr_duck(int on) { post(C_DUCK, on, 0); }
 void dr_slide(int g, int ms) { post(C_SLIDE, g, ms); }
@@ -1102,7 +1103,7 @@ static float rnd(void)                            /* -1..1 */
  * A new key on an occupied/fading slot is held pending until the old
  * note's global-FADE release has reached zero, preventing pitch glissandi
  * during a retrigger. No project parameter is written. */
-static uint8_t midi_mode;
+static uint8_t midi_mode, midi_exit_pending;
 static int16_t midi_note_now[DR_NGROUPS], midi_note_pending[DR_NGROUPS];
 /* A replacement note is retuned only at zero output. Snap the silent
  * oscillator pitch and its two anti-click one-poles BEFORE opening its
@@ -1181,7 +1182,7 @@ void dr_init(void)
         pslide_ms[i] = 0;
     }
     voice_fade_step = (float)CR / (DR_SR * fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.020f));
-    midi_mode = 0;
+    midi_mode = midi_exit_pending = 0;
     for (g = 0; g < DR_NGROUPS; g++) {
         midi_note_now[g] = midi_note_pending[g] = -1;
     }
@@ -1777,61 +1778,69 @@ static void drain(void)
             if (a < DR_NGROUPS)
                 grp[a].slide_ms = (uint16_t)(b < 1 ? 1 : b > 30000 ? 30000 : b);
             break;
-        case C_PLAY: {
-            int g;
-            /* The FM-1 PLAY key resumes its familiar continuous-drone
-             * transport; MIDI note gates do not alter its saved state. */
-            if (midi_mode) {
-                midi_mode = 0u;
+        case C_PLAY:
+            /* PLAY is the transport in either performance mode. In MIDI
+             * mode it starts/stops the modulation engines and FX, never
+             * converts MIDI mode back to ordinary PLAY. */
+            fade_target = a ? 1.0f : 0.0f;
+            if (!a && midi_mode) {
+                int g;
                 for (g = 0; g < DR_NGROUPS; ++g) {
-                    midi_note_now[g] = midi_note_pending[g] = -1;
-                    grp[g].gtarget = par[g ? P_II_OUT : P_I_OUT] ? 0.0f : 1.0f;
-                    grp[g].out_fade_step = 0.0f;
+                    grp[g].gtarget = 0.0f;
+                    midi_note_pending[g] = -1;
                 }
             }
-            fade_target = a ? 1.0f : 0.0f;
 #if OM_FX_CPU1 && !defined(OM_HOST)
             if (a) fx_c1_silence = 0;
 #endif
             break;
-        }
+        case C_MIDI_MODE:
+            if (a) {
+                int g;
+                const int panel_audible = fade > 0.0f || fade_target > 0.0f;
+                midi_mode = 1u;
+                midi_exit_pending = 0u;
+                for (g = 0; g < DR_NGROUPS; ++g) {
+                    /* Close both panel drones, with normal global FADE
+                     * if already sounding, and no pitch change until
+                     * their output gates are fully closed. */
+                    if (!panel_audible) grp[g].gf = 0.0f;
+                    grp[g].gtarget = 0.0f;
+                    grp[g].out_fade_step = 0.0f;
+                    midi_note_now[g] = midi_note_pending[g] = -1;
+                }
+#if OM_FX_CPU1 && !defined(OM_HOST)
+                fx_c1_silence = 0;
+#endif
+            } else if (midi_mode) {
+                int g;
+                /* Leave the old MIDI pitches intact until the global
+                 * transport fade reaches silence, then restore the
+                 * panel settings. This avoids a pitch jump on exit. */
+                midi_exit_pending = 1u;
+                fade_target = 0.0f;
+                for (g = 0; g < DR_NGROUPS; ++g) {
+                    grp[g].gtarget = 0.0f;
+                    midi_note_pending[g] = -1;
+                }
+            }
+            break;
         case C_MIDI_NOTE:
-            if ((unsigned)a < DR_NGROUPS) {
+            if (midi_mode && !midi_exit_pending && fade_target > 0.0f &&
+                (unsigned)a < DR_NGROUPS) {
                 grp_t *v = &grp[a];
                 if (b & 256) {
                     const int note = b & 127;
-                    int g;
-                    if (!midi_mode) {
-                        /* First external key takes ownership of the
-                         * existing two voices. If PLAY was already sounding
-                         * the panel drones, release those over global FADE
-                         * before the first MIDI note retunes; otherwise
-                         * (PLAY silent) the old panel gates can be reset
-                         * immediately without producing an audio click. */
-                        const int transport_audible = fade > 0.0f ||
-                                                      fade_target > 0.0f;
-                        midi_mode = 1u;
-                        for (g = 0; g < DR_NGROUPS; ++g) {
-                            if (!transport_audible)
-                                grp[g].gf = 0.0f;
-                            grp[g].gtarget = 0.0f;
-                            grp[g].out_fade_step = 0.0f; /* use global FADE */
-                            midi_note_now[g] = midi_note_pending[g] = -1;
-                        }
-                    }
-#if OM_FX_CPU1 && !defined(OM_HOST)
-                    fx_c1_silence = 0;
-#endif
-                    /* Retune only at the silent end of any prior note.
-                     * The queued pitch always replaces an older pending
-                     * pitch, so no third sounding voice is possible. */
+                    /* The allocator chooses the exact free drone slot.
+                     * Replacements cannot retune it while it rings: fade
+                     * out first, then fade in at the new note. */
                     if (v->gf <= 0.0f) {
                         midi_start_voice(a, note);
                     } else {
                         midi_note_pending[a] = (int16_t)note;
                         v->gtarget = 0.0f;
                     }
-                } else if (midi_mode) {
+                } else {
                     midi_note_pending[a] = -1;
                     v->gtarget = 0.0f;
                 }
@@ -1856,7 +1865,7 @@ static void drain(void)
             fx_clear();                          /* silence now: the echoes and the tail too */
 #endif
             fade = fade_target = 0.0f;
-            midi_mode = 0u;
+            midi_mode = midi_exit_pending = 0u;
             for (g = 0; g < DR_NGROUPS; g++) {
                 midi_note_now[g] = midi_note_pending[g] = -1;
                 grp[g].gf = grp[g].gtarget = 0.0f;
@@ -3397,7 +3406,9 @@ static float ext_target(float beats_a_breath)          /* where the clock says t
 }
 static void pulse_run(uint32_t n)
 {
-    const int on = par[P_PULSE], ext = dr_ext_spb > 0.0f;
+    /* MIDI mode keeps the Swell engine running even when the stored
+     * scene has Swell disabled; saved P_PULSE is never overwritten. */
+    const int on = par[P_PULSE] || midi_mode, ext = dr_ext_spb > 0.0f;
     const float dbeats = DIV_BEATS[(unsigned)par[P_PULSE_DIV] < DR_NDIV ? par[P_PULSE_DIV] : 2];
     const float hz = ext ? DR_SR / (dbeats * dr_ext_spb) : pulse_hz(par[P_PULSE_RATE]), step = hz * (1.0f / DR_SR),
                 depth = pulse_depth(par[P_PULSE_DEPTH]);
@@ -4015,7 +4026,16 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         int g;
         float frate = fade_rate();
         PROF_START;
-        if (midi_mode) {
+        if (midi_exit_pending && fade <= 0.0f && fade_target <= 0.0f) {
+            midi_mode = midi_exit_pending = 0u;
+            for (g = 0; g < DR_NGROUPS; ++g) {
+                midi_note_now[g] = midi_note_pending[g] = -1;
+                grp[g].gf = grp[g].gtarget =
+                    par[g ? P_II_OUT : P_I_OUT] ? 0.0f : 1.0f;
+                grp[g].out_fade_step = 0.0f;
+            }
+        }
+        if (midi_mode && !midi_exit_pending && fade_target > 0.0f) {
             /* The old note finishes its FADE before the replacement
              * begins; the last incoming MIDI key has priority. */
             for (g = 0; g < DR_NGROUPS; ++g)
@@ -4100,7 +4120,8 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         for (j = 0; j < k; j++) {                /* PLAY fade after the individual swells */
             float a;
             fade = fade_target > fade ? fm_minf(fade + frate, fade_target) : fm_maxf(fade - frate, fade_target);
-            a = midi_mode ? 1.0f : fade * fade;
+            a = midi_mode && !midi_exit_pending && fade_target > 0.0f ?
+                1.0f : fade * fade;
             mixl[j] *= a;
             mixr[j] *= a;
 #if OM_FX_CPU1 && !defined(OM_HOST)

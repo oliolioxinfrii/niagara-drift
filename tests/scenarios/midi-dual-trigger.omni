@@ -28,12 +28,16 @@ expect midigate1 1
 expect pitch0 3600
 expect pitch1 4800
 
-# A third note cannot steal a still-held key.
+# A third note waits silently, never stealing a held key. Releasing
+# that waiting note before either assigned note cancels the request.
 midi 90 3C 64
-wait 15
+wait 20
 expect midinote0 36
 expect midinote1 48
+expect midiwait 60
 midi 80 3C 00
+wait 20
+expect midiwait -1
 
 # Release C3 and replace exactly drone II, AFTER the 50ms fade.
 midi 80 30 00
@@ -69,15 +73,33 @@ wait 20
 expect midigate0 1
 expect midigate1 1
 
-# Release both, reassign first subsequent note to drone I.
+# A third note pressed BEFORE release takes whichever slot is
+# released first. Here B2 (Drone I) is released: waiting C4 takes I,
+# while B3 (Drone II) continues.
+midi 90 3C 64
+wait 20
+expect midiwait 60
+expect midinote0 47
+expect midinote1 59
 midi 80 2F 00
+wait 20
+expect midigate0 0
+expect midipending0 60
+expect midiwait -1
+wait 130
+expect midinote0 60
+expect midinote1 59
+expect midigate0 1
+
+# Release both, reassign first subsequent note to Drone I.
+midi 80 3C 00
 midi 80 3B 00
 wait 110
 expect midigate0 0
 expect midigate1 0
-midi 90 3C 64
+midi 90 3E 64
 wait 100
-expect midinote0 60
+expect midinote0 62
 expect midigate0 1
 expect midigate1 0
 

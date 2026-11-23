@@ -52,16 +52,25 @@ STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
   reopening that same drone. A new note is not glide-connected to
   the previous note; its oscillators snap to the new tuning while
   silent, then the global-FADE attack opens.
-- When both drone slots are already sounding, the **third simultaneous
-  held note** moves the existing drone **nearest in current sounding
-  pitch** to its new target over the global **Scene Time** (or the
-  current clock-aware Scene Bars duration when synced). The other drone
-  keeps its pitch, and only two oscillator voices exist. If the
-  original key on the chosen drone is released first, the glide
-  continues while the third key remains held. If the third key is
-  released first, the glide reverses toward its original held note.
-  When neither remains held/sustained, that drone stops transitioning
-  and fades out via global FADE. A fourth overlapping key is ignored.
+- With two occupied drone slots, a third key glides the **nearest
+  current sounding pitch** over global **Scene Time** (or clock-aware
+  Scene Bars when synchronized). If both drones are equidistant, the
+  drone with the **most recent accepted Note On** is chosen. The other
+  drone stays at its pitch.
+- Each drone independently supports one Scene-Time pitch transition.
+  If a fourth key is closest to the **already gliding** drone, it is
+  ignored without being redirected. If closest to the **other** drone,
+  it starts another simultaneous glide. Neither case adds any voice.
+- Releasing the original note during a glide does not interrupt the
+  third note. On **actual DSP completion**, if that original note is
+  no longer held/sustained, the gliding note becomes the new primary
+  owner. It may then glide again to another key, without any limit on
+  the number of successive transitions. A key ignored while the
+  drone was busy must be physically re-pressed to be considered.
+- Releasing an extra key while its original remains held triggers a
+  Scene-Time return glide; that voice remains unavailable to new
+  overlapping glide targets until the return finishes. Releasing
+  both stops its pitch change and fades out through global FADE.
 - Ordinary Note On after a slot is freed STILL uses its former
   fade-out/retune/fade-in behavior, regardless of when the replacement
   arrives during the old note's FADE.
@@ -99,10 +108,10 @@ With no held notes, a subsequent Note On again takes Drone I.
 
 ## Implementation
 
-- `firmware/src/app/midi_duo.h`: two-slot allocator plus a single
-  third-note pitch target; each note remembers physical key-down and
-  per-channel CC64 sustain. A held original and third key may
-  control the same existing drone, but there are never three voices.
+- `firmware/src/app/midi_duo.h`: two-slot allocator with a separate
+  extra held target per drone; it tracks physical key release, per-channel
+  CC64 sustain and which drone received the latest accepted Note On.
+  Each drone has at most one active extra target. This remains two voices.
 - `firmware/src/app/ui.c`: SEL+GLO toggles mode and stops the
   sequencer on entry; Note On/Off/velocity-zero only reach the note
   allocator when MIDI mode is armed. Neither mode nor MIDI notes
@@ -113,6 +122,9 @@ With no held notes, a subsequent Note On again takes Drone I.
   releases. New `C_MIDI_GLIDE_TIME` + `C_MIDI_GLIDE` interpolate
   the *live* sounding pitch of the chosen existing drone over the
   Scene Time captured at key press, independently of global GLIDE.
+  A per-drone completion epoch reports to the UI when that transition
+  actually ends, ensuring serial glides are neither cut short nor
+  prematurely unlocked before the DSP accepts the queued command.
   The transition continues if its old owner releases, reverses
   if the third key releases while the original is held, and freezes
   at the instantaneous pitch if both keys release. No new DSP voice

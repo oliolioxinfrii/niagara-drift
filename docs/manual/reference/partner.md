@@ -61,11 +61,17 @@ Each knob shapes the pitch movement across one segment of the sequence:
 |---|---|---|---|
 | Segment 1 (1→2) | Segment 2 (2→3, or 2→1 with two steps) | Segment 3 (3→4, or 3→1 with three steps) | Segment 4 (4→1, with four steps) |
 
-The final active segment always returns to **step 1**. With two steps, only KNOBs 1–2 are active; with three steps, only KNOBs 1–3 are active. At one step, transition-shape editing is unavailable. The central setting provides a smooth sinusoidal ease; at −100 the pitch changes at the *end* of the segment, and at +100 it changes at the *beginning*.
+The final active segment always returns to **step 1**. With two steps, only KNOBs 1–2 are active; with three steps, only KNOBs 1–3 are active. At one step, transition editing is unavailable.
+
+Each encoder detent cycles through **eight named transition types** (wrapping in both directions): **Late**, **Pw** (cubic power), **Quad**, **Sine**, **Line** (linear), **Sqrt** (square root), **Log** (logarithmic), **Early**. Late changes at the end of the interval; Early changes at the start. The other six are continuous curves, from strongly delayed to strongly anticipatory. The top graph displays the actual interpolation curve used for pitch playback, and its **LATE — SINE — EARLY** ruler is unchanged. Previously stored percentage-based sequences are mapped to the nearest named types when loaded.
 
 **Step 1** follows the current pitches on **HOME → Pitch**. Changing those live pitches changes the first sequencer event. **Pitch Lock** or **Pitch Link** can make drone II follow drone I instead of an independent progression.
 
 > **Screenshot needed — Transitions:** Capture SEQ page 5 with non-default shapes for each active segment.
+
+### MIDI mode
+
+**SEL + GLO** selects the separate MIDI performance mode. While it is selected, SEQ pages **Sequence, Intervals and Transitions** remain visible but are **dimmed and read-only**. Turning a sequence-editing knob displays **SEQUENCER DISABLED** without changing the saved progression. SEL+PLAY cannot start the sequencer. The first two SEQ pages, **Partner** and **Pitch moves**, remain available as synthesis controls. Returning to normal PLAY mode restores the sequence editors and the existing pattern.
 
 ## Transport, randomization and storage
 

@@ -181,18 +181,13 @@ static inline unsigned midi_duo_pedal(midi_duo_t *d, unsigned channel, unsigned 
         const int target_on_channel = d->extra[g] >= 0 &&
                                       (unsigned)d->extra[g] / 128u == channel;
         if (target_on_channel) {
-            /* The latest destination, not the superseded original,
-             * determines survival. This includes an unfinished glide. */
-            if (!d->extra_down[g]) {
+            /* The latest destination is the ONLY note that may
+             * survive pedal-up. An older held base cannot cause
+             * a return to its previous pitch, even across channels. */
+            if (!d->extra_down[g])
                 d->extra[g] = -1;
-                if (base_on_channel) {
-                    d->key[g] = -1;
-                    d->down[g] = 0u;
-                }
-            } else if (base_on_channel) {
-                d->key[g] = -1;
-                d->down[g] = 0u;
-            }
+            d->key[g] = -1;
+            d->down[g] = 0u;
             mask |= 1u << g;
         } else if (base_on_channel) {
             if (d->extra[g] >= 0 || !d->down[g]) {

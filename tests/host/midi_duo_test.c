@@ -129,15 +129,62 @@ int main(void)
     midi_duo_on(&d,0,81,45,79,0,0);
     midi_duo_pedal(&d,0,127);
     midi_duo_off(&d,0,79); /* sustained original */
-    test("Completed glide cannot promote while original is pedal-held",
-         midi_duo_promote_completed(&d,1)==0 &&
-         d.key[1]==79 && d.extra[1]==81);
-    test("Pedal-up releases old key but leaves physically held A5",
-         midi_duo_pedal(&d,0,0)==2 &&
+    test("Pedal down promotes completed glide despite sustained old G5",
          midi_duo_promote_completed(&d,1)==1 &&
-         d.key[1]==81 && d.extra[1]<0);
-    test("New target may glide immediately after that promotion",
-         midi_duo_on(&d,0,83,45,81,0,0)==3);
+         d.key[1]==81 && d.extra[1]<0 && d.down[1]);
+    test("New B5 starts a chained glide without releasing the pedal",
+         midi_duo_on(&d,0,83,45,81,0,0)==3 &&
+         d.extra[1]==83 && d.key[1]==81);
+    test("Old physically lifted G5 no longer owns the new glide",
+         midi_duo_off(&d,0,79)==-1 && d.extra[1]==83);
+    test("Pedal-up with B5 held preserves the exact destination",
+         midi_duo_pedal(&d,0,0)==2 &&
+         d.key[1]<0 && d.extra[1]==83 && d.extra_down[1]);
+    test("B5 becomes primary after the already-running glide completes",
+         midi_duo_promote_completed(&d,1)==1 &&
+         d.key[1]==83 && d.extra[1]<0);
+
+    /* Pedal release is deliberately NOT ordinary legato fallback:
+     * the physically held old note cannot revive a released target. */
+    midi_duo_reset(&d);
+    midi_duo_on(&d,0,45,45,79,0,0);
+    midi_duo_on(&d,0,79,45,79,0,0);
+    midi_duo_pedal(&d,0,127);
+    midi_duo_on(&d,0,81,45,79,0,0);
+    test("Releasing third while pedal down leaves target latched",
+         midi_duo_off(&d,0,81)==-1 && d.extra[1]==81 &&
+         !d.extra_down[1] && d.down[1]);
+    test("Pedal-up fades II even when superseded G5 is physically held",
+         midi_duo_pedal(&d,0,0)==2 &&
+         midi_duo_slot_note(&d,1)==-1 && d.key[1]<0 &&
+         d.extra[1]<0 && midi_duo_slot_note(&d,0)==45);
+
+    midi_duo_reset(&d);
+    midi_duo_on(&d,0,45,45,79,0,0);
+    midi_duo_on(&d,0,79,45,79,0,0);
+    midi_duo_pedal(&d,0,127);
+    midi_duo_on(&d,0,81,45,79,0,0);
+    test("Pedal-up with third A5 physically held keeps its glide",
+         midi_duo_pedal(&d,0,0)==2 &&
+         d.key[1]<0 && d.extra[1]==81 && d.extra_down[1]);
+    test("The held target becomes the exact new primary after glide",
+         midi_duo_promote_completed(&d,1)==1 &&
+         d.key[1]==81 && d.down[1] && d.extra[1]<0);
+    test("Releasing that exact target finally frees Drone II",
+         midi_duo_off(&d,0,81)==1 && d.key[1]<0);
+
+    midi_duo_reset(&d);
+    midi_duo_on(&d,0,45,45,79,0,0);
+    midi_duo_on(&d,0,79,45,79,0,0);
+    midi_duo_pedal(&d,0,127);
+    midi_duo_on(&d,0,81,45,79,0,0);
+    test("Pedal still held: completed A5 wins even if G5 held",
+         midi_duo_promote_completed(&d,1)==1 &&
+         d.key[1]==81 && d.down[1]);
+    test("Releasing pedal with A5 physically held keeps II active",
+         midi_duo_pedal(&d,0,0)==0 && d.key[1]==81);
+    test("Next Note Off for A5 releases only the current pitch",
+         midi_duo_off(&d,0,81)==1 && d.key[1]<0);
 
     midi_duo_reset(&d);
     midi_duo_on(&d,2,45,45,79,0,0);

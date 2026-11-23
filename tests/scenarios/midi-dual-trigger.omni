@@ -195,5 +195,5 @@ press SEL
 tap OCT-
 release SEL
 wait 100
-expect par110 1
+expect par82 1
 

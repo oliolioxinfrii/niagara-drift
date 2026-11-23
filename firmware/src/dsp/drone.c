@@ -1835,6 +1835,7 @@ static void drain(void)
                 for (g = 0; g < DR_NGROUPS; ++g) {
                     grp[g].gtarget = 0.0f;
                     midi_note_pending[g] = -1;
+                    midi_stop_glide(g);
                 }
             }
 #if OM_FX_CPU1 && !defined(OM_HOST)

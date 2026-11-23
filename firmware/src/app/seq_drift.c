@@ -6,10 +6,38 @@
 #define SD_MAX 4
 #define SD_LIMIT_S 240u
 #define SD_DEFAULT_S 10u
+/* Codes 101..108 are disjoint from legacy slider values -100..100;
+ * saved sequence records remain byte-compatible. */
+enum {
+    SD_CURVE_LATE = 101, SD_CURVE_POWER, SD_CURVE_QUAD,
+    SD_CURVE_SINE, SD_CURVE_LINEAR, SD_CURVE_SQRT,
+    SD_CURVE_LOG, SD_CURVE_EARLY, SD_CURVE_COUNT = 8
+};
+static const char *const SD_CURVE_NAME[SD_CURVE_COUNT] = {
+    "Late", "Pw", "Quad", "Sine", "Line", "Sqrt", "Log", "Early"
+};
+static int sd_curve_valid(int v) { return v >= SD_CURVE_LATE && v <= SD_CURVE_EARLY; }
+static int sd_curve_from_saved(int v)
+{
+    if (sd_curve_valid(v)) return v;
+    /* Map old slider values to representative discrete responses. */
+    if (v <= -90) return SD_CURVE_LATE;
+    if (v <= -45) return SD_CURVE_POWER;
+    if (v <= -12) return SD_CURVE_QUAD;
+    if (v < 12) return SD_CURVE_SINE;
+    if (v < 38) return SD_CURVE_LINEAR;
+    if (v < 70) return SD_CURVE_SQRT;
+    if (v < 90) return SD_CURVE_LOG;
+    return SD_CURVE_EARLY;
+}
+static int sd_curve_index(int code)
+{
+    return sd_curve_valid(code) ? code - SD_CURVE_LATE : SD_CURVE_SINE - SD_CURVE_LATE;
+}
 static struct {
     uint8_t count, position, drone, phase, enabled, paused, stopping;
     uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
-    int8_t shape[SD_MAX];               /* -100: late jump, 0: sine ease, +100: early jump */
+    int8_t shape[SD_MAX];               /* 101..108: named transition curves */
     uint16_t node_frac[SD_MAX];          /* Q16 cycle positions; K4 scale changes do not re-round their source */
     int16_t note[2][SD_MAX];
     int16_t sent[2];
@@ -174,6 +202,7 @@ static void sd_init(void)
     sd.preview_key = -1;
     for (i = 0; i < SD_MAX; i++) {
         sd.gap_s[i] = SD_DEFAULT_S;
+        sd.shape[i] = SD_CURVE_SINE;
         for (g = 0; g < 2; g++)
             sd.note[g][i] = proj.par[DR_GP(g, GP_PITCH)];
     }
@@ -229,7 +258,7 @@ static void sd_scene_restore(const seq_scene_t *saved)
     sd.phase = saved->phase;
     for (i = 0; i < SD_MAX; i++) {
         sd.gap_s[i] = saved->gap_s[i];
-        sd.shape[i] = saved->shape[i];
+        sd.shape[i] = (int8_t)sd_curve_from_saved(saved->shape[i]);
         for (g = 0; g < 2; g++)
             sd.note[g][i] = saved->note[g][i];
     }
@@ -282,23 +311,24 @@ static void sd_toggle(void)
     }
 }
 
-/* A segment's shape applies to both drones. Endpoints at +/-100 have
- * discontinuous changes; all intermediate settings preserve both endpoints.
- * The midpoint is one half-period of a cosine. */
+/* Named monotonic curves: one interpolation for playback and display.
+ * LATE and EARLY are deliberate steps; all other types are continuous. */
 static float sd_interp(int seg, float x)
 {
-    const int shape = sd.shape[seg];
-    float s, bias;
-    if (x <= 0.0f) return shape == 100 ? 1.0f : 0.0f;
+    const int curve = sd_curve_from_saved(sd.shape[seg]);
+    if (x <= 0.0f) return curve == SD_CURVE_EARLY ? 1.0f : 0.0f;
     if (x >= 1.0f) return 1.0f;
-    if (shape <= -100) return 0.0f;
-    if (shape >= 100) return 1.0f;
-    s = 0.5f - 0.5f * fm_cosf(3.14159265f * x);
-    if (!shape) return s;
-    bias = (float)(shape < 0 ? -shape : shape) * 0.01f;
-    bias = 32.0f * bias * bias;
-    return shape > 0 ? s * (1.0f + bias) / (1.0f + bias * s) :
-                       s / (1.0f + bias * (1.0f - s));
+    switch (curve) {
+    case SD_CURVE_LATE:   return 0.0f;
+    case SD_CURVE_POWER:  return x * x * x;
+    case SD_CURVE_QUAD:   return x * x;
+    case SD_CURVE_SINE:   return 0.5f - 0.5f * fm_cosf(3.14159265f * x);
+    case SD_CURVE_LINEAR: return x;
+    case SD_CURVE_SQRT:   return fm_sqrtf(x);
+    case SD_CURVE_LOG:    return fm_log2f(1.0f + 9.0f * x) * 0.30102999566f;
+    case SD_CURVE_EARLY:  return 1.0f;
+    default:              return x;
+    }
 }
 
 /* Smoothly interpolate across unequal event intervals. In Pitch Link mode,
@@ -575,19 +605,11 @@ static void sd_randomize(int (*between)(int lo, int hi))
         sd.gap_s[i] = (uint16_t)(1u + allot);
         assigned += allot;
     }
-    /* Include the shape of every transition in Random Start, including
-     * the final interval returning to step 1. Previously they remained at
-     * sd_init's sine default even when the notes and durations changed. */
-    for (i = 0; i < sd.count; i++) {
-        int shape = between(-100, 100);
-        /* Avoid imperceptibly near-sine rolls, while preserving both
-         * early and late transitions over the complete range. */
-        if (shape > -12 && shape < 12)
-            shape = shape < 0 ? -12 : 12;
-        sd.shape[i] = (int8_t)shape;
-    }
+    /* Random Start chooses from the named responses, including wrap. */
+    for (i = 0; i < sd.count; i++)
+        sd.shape[i] = (int8_t)(SD_CURVE_LATE + between(0, SD_CURVE_COUNT - 1));
     for (i = sd.count; i < SD_MAX; i++) {
-        sd.shape[i] = 0;
+        sd.shape[i] = SD_CURVE_SINE;
         sd.gap_s[i] = SD_DEFAULT_S;
         for (g = 0; g < 2; g++)
             sd.note[g][i] = sd.note[g][sd.count - 1];
@@ -655,15 +677,13 @@ static void sd_time_knob(int i, int32_t e)
     }
 }
 
-/* The four controls shape the four chronological segments, including the
- * wrap from the final step to step 1. Inactive segments are not editable. */
+/* Each detent advances one named curve, wrapping in either direction. */
 static void sd_shape_knob(int i, int32_t e)
 {
-    int value;
-    if (sd.count < 2 || i >= sd.count) return;
-    value = (int)sd.shape[i] + (int)accel(EN_K1 + i, e, 200);
-    if (value < -100) value = -100;
-    if (value > 100) value = 100;
-    sd.shape[i] = (int8_t)value;
+    int idx;
+    if (sd.count < 2 || i >= sd.count || !e) return;
+    idx = sd_curve_index(sd.shape[i]);
+    idx = (idx + (int)(e % SD_CURVE_COUNT) + SD_CURVE_COUNT) % SD_CURVE_COUNT;
+    sd.shape[i] = (int8_t)(SD_CURVE_LATE + idx);
     sd.sent[0] = sd.sent[1] = -32768;
 }

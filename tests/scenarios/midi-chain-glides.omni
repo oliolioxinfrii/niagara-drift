@@ -1,0 +1,137 @@
+# Repeated, independent Scene-Time MIDI drone glides. This is
+# two existing oscillators, never polyphony or a new voice.
+notips
+set 51 0
+set 50 0
+set 71 24
+set 55 0
+press SEL
+tap GLO
+release SEL
+wait 180
+expect midiui 1
+expect midimode 1
+expect midigate0 0
+expect midigate1 0
+
+# A2 on I, G5 on II. Third A5 must glide the closest II.
+midi 90 2D 64
+midi 90 4F 64
+wait 150
+expect midinote0 45
+expect midinote1 79
+expect midilastslot 1
+midi 90 51 64
+wait 200
+expect midiextra0 -1
+expect midiextra1 81
+expect midibusy1 1
+expect miditarget1 81
+expect midipitch1 >7900
+expect midipitch1 <8100
+
+# B5 arrives DURING that glide, and is closest to II. Do not
+# interrupt II, reroute it to I, or queue B5 for later.
+midi 90 53 64
+wait 25
+expect midiextra0 -1
+expect midiextra1 81
+expect miditarget1 81
+expect midibusy1 1
+midi 80 53 00
+
+# Original G5 released: A5 stays held, so II finishes toward A5.
+midi 80 4F 00
+wait 90
+expect midigate1 1
+expect midibusy1 1
+expect miditarget1 81
+wait 1050
+expect midibusy1 0
+expect midiextra1 -1
+expect midinote1 81
+expect midigate1 1
+
+# RE-PRESS B5 after that completion: A5 is now II's primary.
+# The next Scene-Time glide is permitted, without touching I.
+midi 90 53 64
+wait 120
+expect midiextra1 83
+expect midibusy1 1
+expect miditarget1 83
+expect midinote0 45
+
+# While II glides A5 -> B5, press nearby B2. It must glide I
+# independently instead of being blocked by II's active glide.
+midi 90 2F 64
+wait 100
+expect midiextra0 47
+expect midiextra1 83
+expect midibusy0 1
+expect midibusy1 1
+expect miditarget0 47
+expect miditarget1 83
+
+# A further near-II key is ignored while II is still in motion.
+midi 90 54 64
+wait 20
+expect midiextra0 47
+expect midiextra1 83
+expect miditarget1 83
+midi 80 54 00
+
+# Releasing both extras while original A2 / A5 are held glides
+# the same two voices back, again without adding oscillator voices.
+midi 80 53 00
+midi 80 2F 00
+wait 80
+expect midiextra0 -1
+expect midiextra1 -1
+expect midibusy0 1
+expect midibusy1 1
+expect miditarget0 45
+expect miditarget1 81
+wait 1200
+expect midibusy0 0
+expect midibusy1 0
+expect midigate0 1
+expect midigate1 1
+
+# Last-pressed tie: with A2 (45) and G5 (79), D4 (62) is
+# exactly 17 semitones from each. Most recently played G5 is II.
+midi 80 51 00
+wait 100
+midi 90 4F 64
+wait 140
+expect midinote1 79
+expect midilastslot 1
+midi 90 3E 64
+wait 40
+expect midiextra0 -1
+expect midiextra1 62
+expect midiextraslot 1
+midi 80 3E 00
+wait 1200
+
+# Now re-press A2 AFTER G5, making I the most recently played.
+# D4's equidistant third key must glide I instead.
+midi 80 2D 00
+wait 100
+midi 90 2D 64
+wait 160
+expect midilastslot 0
+midi 90 3E 64
+wait 50
+expect midiextra0 62
+expect midiextra1 -1
+expect midiextraslot 0
+midi 80 3E 00
+
+# The original drone pitches are never stored or overwritten.
+expect par0 4500
+expect par21 5700
+midi 80 2D 00
+midi 80 4F 00
+wait 140
+expect midigate0 0
+expect midigate1 0

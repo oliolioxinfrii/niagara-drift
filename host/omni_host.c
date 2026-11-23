@@ -512,8 +512,18 @@ static int expect(const char *what, const char *val)
         got = dr_midi_mode_get();
     else if (!strcmp(what, "midiui"))               /* SEL+GLO mode visible to the UI */
         got = ui.midi_mode;
-    else if (!strcmp(what, "midiwait"))             /* unassigned third MIDI key, -1 if none */
-        got = midi_duo.waiting < 0 ? -1 : midi_duo.waiting % 128;
+    else if (!strcmp(what, "midiextra"))            /* simultaneous third key's note or -1 */
+        got = midi_duo.extra < 0 ? -1 : midi_duo.extra % 128;
+    else if (!strcmp(what, "midiextraslot"))        /* closest sounding drone, -1 when absent */
+        got = midi_duo.extra_slot;
+    else if (!strcmp(what, "midipedal0"))           /* sustain pedal on MIDI channel 1 */
+        got = (midi_duo.pedal & 1u) != 0u;
+    else if (!strncmp(what, "midiglide", 9))        /* active DSP scene-time pitch glide */
+        got = dr_midi_glide_get(atoi(what + 9));
+    else if (!strncmp(what, "miditarget", 10))      /* target note while gliding */
+        got = dr_midi_target_get(atoi(what + 10));
+    else if (!strncmp(what, "midipitch", 9))        /* actual drone pitch in cents */
+        got = (int)(100.0f * dr_midi_pitch_get(atoi(what + 9)) + 0.5f);
     else if (!strncmp(what, "midinote", 8))         /* note currently sounded on slot 0/1 */
         got = dr_midi_note_get(atoi(what + 8));
     else if (!strncmp(what, "midipending", 11))     /* next note, waiting for old one to fade out */

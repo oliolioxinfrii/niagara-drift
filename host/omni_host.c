@@ -510,6 +510,8 @@ static int expect(const char *what, const char *val)
         got = ui.ghost_event_latched;
     else if (!strcmp(what, "midimode"))             /* external two-voice trigger active */
         got = dr_midi_mode_get();
+    else if (!strcmp(what, "midiwait"))             /* unassigned third MIDI key, -1 if none */
+        got = midi_duo.waiting < 0 ? -1 : midi_duo.waiting % 128;
     else if (!strncmp(what, "midinote", 8))         /* note currently sounded on slot 0/1 */
         got = dr_midi_note_get(atoi(what + 8));
     else if (!strncmp(what, "midipending", 11))     /* next note, waiting for old one to fade out */

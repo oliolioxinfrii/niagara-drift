@@ -113,6 +113,7 @@ static void lk_pic_seq_shape(void)
     cv_text(9, 1, &FONT_XS, "TRANSITION CURVES", LK_LABEL);
     for (i = 0; i < SD_MAX; i++) {
         const int active = sd.count > 1 && i < sd.count;
+        const int space = sd.shape[i] == SD_CURVE_SPACE;
         const uint16_t c = active ? LK_DRONE[i & 1] : LK_UNLIT;
         const int32_t y = y0 + slot_h * i, low = y + 15, high = y + 3;
         int32_t prev = low;
@@ -126,7 +127,8 @@ static void lk_pic_seq_shape(void)
          * false gaps, and the late plateau now overlays its baseline. */
         for (j = xs; j <= xe; j++) {
             const float x = (float)(j - xs) / (float)(xe - xs);
-            const int32_t yy = low - (int32_t)(sd_interp(i, x) * 14.0f + 0.5f);
+            const float value = space ? sd_curve_gain(i, x) : sd_interp(i, x);
+            const int32_t yy = low - (int32_t)(value * 14.0f + 0.5f);
             if (j > xs && yy != prev) {
                 const int32_t a = yy < prev ? yy : prev;
                 cv_rect(j, a, 1, (yy < prev ? prev - yy : yy - prev) + 2, c);
@@ -139,7 +141,8 @@ static void lk_pic_seq_shape(void)
          * extending into the adjacent segment. */
         if (sd.shape[i] == SD_CURVE_LATE) cv_rect(xe, high, 1, low - high + 2, c);
         if (sd.shape[i] == SD_CURVE_EARLY) cv_rect(xs, high, 1, low - high + 2, c);
-        cv_round(xs - 1, low - 1, 3, 3, 1, LK_WHITE);
+        cv_round(xs - 1, (space ? high : low) - 1, 3, 3, 1, LK_WHITE);
+        if (space) cv_round((xs + xe) / 2 - 1, low - 1, 3, 3, 1, LK_WHITE);
         cv_round(xe - 1, high - 1, 3, 3, 1, LK_WHITE);
     }
     cv_text(20, 108, &FONT_XS, "LATE", LK_LABEL);

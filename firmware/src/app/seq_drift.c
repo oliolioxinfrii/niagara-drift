@@ -6,17 +6,17 @@
 #define SD_MAX 4
 #define SD_LIMIT_S 240u
 #define SD_DEFAULT_S 10u
-/* Codes 101..108 are disjoint from legacy slider values -100..100;
+/* Codes 101..109 are disjoint from legacy slider values -100..100;
  * saved sequence records remain byte-compatible. */
 enum {
     SD_CURVE_LATE = 101, SD_CURVE_POWER, SD_CURVE_QUAD,
     SD_CURVE_SINE, SD_CURVE_LINEAR, SD_CURVE_SQRT,
-    SD_CURVE_LOG, SD_CURVE_EARLY, SD_CURVE_COUNT = 8
+    SD_CURVE_LOG, SD_CURVE_EARLY, SD_CURVE_SPACE, SD_CURVE_COUNT = 9
 };
 static const char *const SD_CURVE_NAME[SD_CURVE_COUNT] = {
-    "Late", "Pw", "Quad", "Sine", "Line", "Sqrt", "Log", "Early"
+    "Late", "Pw", "Quad", "Sine", "Line", "Sqrt", "Log", "Early", "Space"
 };
-static int sd_curve_valid(int v) { return v >= SD_CURVE_LATE && v <= SD_CURVE_EARLY; }
+static int sd_curve_valid(int v) { return v >= SD_CURVE_LATE && v <= SD_CURVE_SPACE; }
 static int sd_curve_from_saved(int v)
 {
     if (sd_curve_valid(v)) return v;
@@ -37,10 +37,10 @@ static int sd_curve_index(int code)
 static struct {
     uint8_t count, position, drone, phase, enabled, paused, stopping;
     uint16_t gap_s[SD_MAX];              /* adjacent intervals; final one wraps to step 1 */
-    int8_t shape[SD_MAX];               /* 101..108: named transition curves */
+    int8_t shape[SD_MAX];               /* 101..109: named transition curves */
     uint16_t node_frac[SD_MAX];          /* Q16 cycle positions; K4 scale changes do not re-round their source */
     int16_t note[2][SD_MAX];
-    int16_t sent[2];
+    int16_t sent[2], gain_sent[2];
     uint32_t started_ms, sent_ms, paused_ms;
     /* STILL: local elapsed = master elapsed + error, independent for each drone.
      * Return interpolates error and its derivative to zero in Morph Time. */
@@ -114,6 +114,7 @@ static void sd_reset_clock(void)
     sd.paused = 0;
     sd.sent_ms = 0;
     sd.sent[0] = sd.sent[1] = -32768;
+    sd.gain_sent[0] = sd.gain_sent[1] = -1;
 }
 /* Local phase is stored as a bounded offset from the independent master.
  * Neither drone is used as the other's timing reference. */
@@ -225,6 +226,10 @@ static void sd_stop(void)
     sd.enabled = 0;
     sd.stopping = 0;
     sd_reset_clock();
+    for (int g = 0; g < 2; g++) {
+        dr_seq_gain(g, 1000);
+        sd.gain_sent[g] = 1000;
+    }
     if (sd.preview_key < 0) sd_restore_pitch();
 }
 /* The authored progression is independent of transport and live STILL clocks.
@@ -327,8 +332,17 @@ static float sd_interp(int seg, float x)
     case SD_CURVE_SQRT:   return fm_sqrtf(x);
     case SD_CURVE_LOG:    return fm_log2f(1.0f + 9.0f * x) * 0.30102999566f;
     case SD_CURVE_EARLY:  return 1.0f;
+    case SD_CURVE_SPACE:  return x < 0.5f ? 0.0f : 1.0f;
     default:              return x;
     }
+}
+
+/* SPACE holds A until the silent midpoint, then retunes to B. Its
+ * raised-cosine amplitude reaches zero with zero slope at that midpoint. */
+static float sd_curve_gain(int seg, float x)
+{
+    if (sd.shape[seg] != SD_CURVE_SPACE) return 1.0f;
+    return 0.5f + 0.5f * fm_cosf(6.2831853f * fm_clampf(x, 0.0f, 1.0f));
 }
 
 /* Smoothly interpolate across unequal event intervals. In Pitch Link mode,
@@ -362,6 +376,29 @@ static int sd_at_len(int g, uint32_t elapsed_ms, uint32_t len_ms, int linked)
 static int sd_at(int g, uint32_t elapsed_ms)
 {
     return sd_at_len(g, elapsed_ms, sd_total_s() * 1000u, sd_linked());
+}
+static float sd_gain_at_len(int g, uint32_t elapsed_ms, uint32_t len_ms, int linked)
+{
+    uint32_t t;
+    int i;
+    if (!len_ms) return 1.0f;
+    t = elapsed_ms % len_ms;
+    if (g && !linked)
+        t = (t + (uint32_t)sd.phase * len_ms / 100u) % len_ms;
+    for (i = 0; i < sd.count; i++) {
+        const uint32_t gap = (uint32_t)sd.gap_s[i] * 1000u;
+        if (t < gap)
+            return sd_curve_gain(i, (float)t / (float)gap);
+        t -= gap;
+    }
+    return 1.0f;
+}
+static void sd_gain_set(int g, float gain)
+{
+    const int v = (int)(1000.0f * fm_clampf(gain, 0.0f, 1.0f) + 0.5f);
+    if (v == sd.gain_sent[g]) return;
+    sd.gain_sent[g] = (int16_t)v;
+    dr_seq_gain(g, v);
 }
 static void sd_note_set(int pos, int g, int cents)
 {
@@ -441,6 +478,7 @@ static void sd_run(void)
     if (sd.preview_key >= 0) {
         const int audible_g = sd_linked() ? 0 : sd.drone;
         const int v = sd_pitch(audible_g, sd.position);
+        for (g = 0; g < 2; g++) sd_gain_set(g, 1.0f);
         if (!ui.playing && !sd.preview_sounded && !sd.stopping) {
             dr_play(1);
             sd.preview_sounded = 1;
@@ -477,7 +515,9 @@ static void sd_run(void)
     sd.sent_ms = now | 1u;
     dr_set(P_PLINK, 0);               /* scene recalls cannot re-enable link on the audio cursor */
     for (g = 0; g < 2; g++) {
-        const int v = sd_at(g, sd_elapsed_local(g));
+        const uint32_t elapsed = sd_elapsed_local(g);
+        const int v = sd_at(g, elapsed);
+        sd_gain_set(g, sd_gain_at_len(g, elapsed, sd_total_s() * 1000u, sd_linked()));
         if (v != sd.sent[g]) {
             dr_slide(g, sd.paused ? 25 : 80);
             dr_set(DR_GP(g, GP_PITCH), v);

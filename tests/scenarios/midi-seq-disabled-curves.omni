@@ -7,14 +7,14 @@ spin K3 2
 expect seqcount 3
 page 20
 expect view 20
-expect seqcurvecount 8
+expect seqcurvecount 9
 expect seqshape0 104
 expect seqcurvemid 500
 expect seqcurveq1 >140
 expect seqcurveq1 <155
 
 # One detent = one named curve. Sine -> Linear -> Sqrt -> Log ->
-# Early (jump at start) -> Late (jump at end) -> Power -> Quad.
+# Early (jump at start) -> Space (fade through silence) -> Late -> Power -> Quad.
 spin K1 1
 expect seqshape0 105
 expect seqcurveq1 250
@@ -28,6 +28,13 @@ expect seqcurveq1 <525
 spin K1 1
 expect seqshape0 108
 expect seqcurveq1 1000
+spin K1 1
+expect seqshape0 109
+expect seqcurveq1 0
+expect seqcurvemid 1000
+expect seqcurvegainq1 500
+expect seqcurvegainmid 0
+expect seqcurvegainq3 500
 spin K1 1
 expect seqshape0 101
 expect seqcurveq1 0

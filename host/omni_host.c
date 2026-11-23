@@ -628,6 +628,14 @@ static int expect(const char *what, const char *val)
         got = (int)(sd_interp(0, 0.25f) * 1000.0f + 0.5f);
     else if (!strcmp(what, "seqcurvemid"))
         got = (int)(sd_interp(0, 0.5f) * 1000.0f + 0.5f);
+    else if (!strcmp(what, "seqcurvegainq1"))
+        got = (int)(sd_curve_gain(0, 0.25f) * 1000.0f + 0.5f);
+    else if (!strcmp(what, "seqcurvegainmid"))
+        got = (int)(sd_curve_gain(0, 0.5f) * 1000.0f + 0.5f);
+    else if (!strcmp(what, "seqcurvegainq3"))
+        got = (int)(sd_curve_gain(0, 0.75f) * 1000.0f + 0.5f);
+    else if (!strcmp(what, "seqgain0") || !strcmp(what, "seqgain1"))
+        got = (int)(dr_seq_gain_get(what[7] - '0') * 1000.0f + 0.5f);
     else if (!strcmp(what, "seqcurvecount"))
         got = SD_CURVE_COUNT;
     else if (!strncmp(what, "seqshape", 8))

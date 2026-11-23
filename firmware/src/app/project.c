@@ -41,7 +41,7 @@ static int seq_valid(const seq_scene_t *s)
     if (s->count < 1 || s->count > SEQ_STEPS || s->phase > 100 || s->drone > 1)
         return 0;
     for (i = 0; i < SEQ_STEPS; i++) {
-        if ((s->shape[i] < -100 || s->shape[i] > 108) || s->gap_s[i] < 1 || s->gap_s[i] > 240)
+        if ((s->shape[i] < -100 || s->shape[i] > 109) || s->gap_s[i] < 1 || s->gap_s[i] > 240)
             return 0;
         if (i < s->count) sum += s->gap_s[i];
     }

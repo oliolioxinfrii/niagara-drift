@@ -1,0 +1,55 @@
+# SPACE: A fades to silence at half an interval, then B fades in.
+# Both drones follow their own sequencer phase; ordinary curves remain full-level.
+notips
+set 51 25
+tap PLAY
+page 18
+spin K3 1
+expect seqcount 2
+page 19
+spin K4 -18
+expect seqtotal 2
+page 20
+spin K1 5
+spin K2 5
+expect seqshape0 109
+expect seqshape1 109
+expect seqcurveq1 0
+expect seqcurvemid 1000
+expect seqcurvegainq1 500
+expect seqcurvegainmid 0
+expect seqcurvegainq3 500
+shot seq-space-envelope.png
+
+press SEL
+tap PLAY
+release SEL
+expect seqstate 1
+wait 490
+expect seqgain0 <150
+expect seqgain1 <150
+wait 490
+expect seqgain0 >800
+expect seqgain1 >800
+
+# Pausing holds both pitch and envelope at the same point.
+press SEL
+tap PLAY
+release SEL
+expect seqstate 2
+wait 300
+expect seqgain0 >800
+expect seqgain1 >800
+press SEL
+tap PLAY
+release SEL
+wait 520
+expect seqgain0 <150
+expect seqgain1 <150
+
+# Stopping releases the temporary envelope even when silence is selected.
+tap PLAY
+wait 1800
+expect seqstate 0
+expect seqgain0 >990
+expect seqgain1 >990

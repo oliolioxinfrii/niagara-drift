@@ -743,7 +743,7 @@ void dr_param_text(int i, int v, char *b)
 }
 
 /* -------------------------------------------------------------- commands --- */
-enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC, C_MIDI_NOTE, C_MIDI_MODE, C_MIDI_GLIDE_TIME, C_MIDI_GLIDE };
+enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC, C_MIDI_NOTE, C_MIDI_MODE, C_MIDI_GLIDE_TIME, C_MIDI_GLIDE, C_SEQ_GAIN };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
 #define QN 256u
@@ -762,6 +762,11 @@ static void post(uint32_t c, int a, int b)
 void dr_set(int p, int v) { post(C_SET, p, v); }
 void dr_play(int on) { post(C_PLAY, on, 0); }
 void dr_voice(int g, int on) { post(C_VOICE, g, on); }
+void dr_seq_gain(int g, int permille)
+{
+    if ((unsigned)g < DR_NGROUPS && (unsigned)permille <= 1000u)
+        post(C_SEQ_GAIN, g, permille);
+}
 void dr_midi_note(int g, int note, int on)
 {
     if ((unsigned)g < DR_NGROUPS && (unsigned)note < 128u)
@@ -798,6 +803,11 @@ void dr_still_rejoin(int g, int on) { if ((unsigned)g < DR_NGROUPS) post(C_SUB_R
 /* ----------------------------------------------------------------- state --- */
 volatile float dr_level[DR_NGROUPS];
 volatile float dr_fade;
+static float seq_gain[DR_NGROUPS] = {1.0f, 1.0f};
+static float seq_gain_target[DR_NGROUPS] = {1.0f, 1.0f};
+#ifdef OM_HOST
+float dr_seq_gain_get(int g) { return (unsigned)g < DR_NGROUPS ? seq_gain[g] : 1.0f; }
+#endif
 volatile float dr_duck_level = 1.0f;
 volatile float dr_tail;
 static float duck = 1.0f, duck_to = 1.0f;     /* the dip around a save while playing (ui.c) */
@@ -1237,6 +1247,7 @@ void dr_init(void)
         midi_glide_left[g] = 0u;
         midi_glide_done[g] = 0u;
         midi_glide_pitch[g] = midi_glide_step[g] = midi_pitch_hold[g] = 0.0f;
+        seq_gain[g] = seq_gain_target[g] = 1.0f;
     }
     for (g = 0; g < DR_NGROUPS; g++) {
         grp_t *v = &grp[g];
@@ -1865,6 +1876,7 @@ static void drain(void)
                     if (!panel_audible) grp[g].gf = 0.0f;
                     grp[g].gtarget = 0.0f;
                     grp[g].out_fade_step = 0.0f;
+                    seq_gain_target[g] = 1.0f;
                     midi_note_now[g] = midi_note_pending[g] = -1;
                     midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
                 }
@@ -1938,6 +1950,10 @@ static void drain(void)
                 grp[a].out_fade_step = 0.0f;  /* existing dr_voice callers retain FADE */
             }
             break;
+        case C_SEQ_GAIN:
+            if (!midi_mode && a < DR_NGROUPS)
+                seq_gain_target[a] = (float)b * 0.001f;
+            break;
         case C_PANIC: {
             int g;
 #if OM_FX_CPU1 && !defined(OM_HOST)
@@ -1953,6 +1969,7 @@ static void drain(void)
                 midi_note_now[g] = midi_note_pending[g] = -1;
                 midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
                 grp[g].gf = grp[g].gtarget = 0.0f;
+                seq_gain[g] = seq_gain_target[g] = 1.0f;
                 grp[g].ic1 = grp[g].ic2 = grp[g].bc = 0.0f;
             }
             for (g = 0; g < (int)FB_N; g++)      /* and nothing left to feed back */
@@ -3588,6 +3605,25 @@ static void pulse_run(uint32_t n)
         tail1 = fm_clampf(tail_to1, tail1 - tail_step, tail1 + tail_step);
         pgain[0][j] = g * tail0;
         pgain[1][j] = g2 * tail1;
+    }
+    /* Only active sequencer envelopes incur gain multiplication. This
+     * gates the two parent excitations before GHOST and the shared FX. */
+    if (n && (seq_gain[0] < 1.0f || seq_gain[1] < 1.0f ||
+              seq_gain_target[0] < 1.0f || seq_gain_target[1] < 1.0f)) {
+        const float alpha = fm_minf((float)n / (0.005f * DR_SR), 1.0f);
+        const float end0 = seq_gain[0] + alpha * (seq_gain_target[0] - seq_gain[0]);
+        const float end1 = seq_gain[1] + alpha * (seq_gain_target[1] - seq_gain[1]);
+        const float step0 = (end0 - seq_gain[0]) / (float)n;
+        const float step1 = (end1 - seq_gain[1]) / (float)n;
+        float g0 = seq_gain[0], g1 = seq_gain[1];
+        for (j = 0; j < n; j++) {
+            g0 += step0;
+            g1 += step1;
+            pgain[0][j] *= g0;
+            pgain[1][j] *= g1;
+        }
+        seq_gain[0] = seq_gain_target[0] == 1.0f && end0 > 0.99999f ? 1.0f : end0;
+        seq_gain[1] = seq_gain_target[1] == 1.0f && end1 > 0.99999f ? 1.0f : end1;
     }
     tail_gate[0] = tail0;
     tail_gate[1] = tail1;

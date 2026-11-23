@@ -317,6 +317,12 @@ void dr_init(void);
 void dr_set(int param, int value);
 void dr_play(int on);                          /* fade the whole drone in (1) / out (0) over P_FADE */
 void dr_voice(int group, int on);              /* fade one drone in / out */
+/* Sequencer-only pre-FX amplitude, 0..1000. Independent of saved levels,
+ * PLAY fade, and MIDI note gates. Space envelopes use this send. */
+void dr_seq_gain(int group, int permille);
+#ifdef OM_HOST
+float dr_seq_gain_get(int group);
+#endif
 /* SEL+GLO selects a session-only performance mode. MIDI mode keeps the
  * LFOs and Swell running, disables sequencer-driven pitch, and starts with
  * both drones gated off. MIDI note messages are ignored outside this mode.

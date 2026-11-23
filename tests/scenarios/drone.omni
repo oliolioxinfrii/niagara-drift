@@ -571,10 +571,15 @@ expect par47 108
 spin PRESET 2
 expect par48 1
 expect par49 1
-# MIDI: a note on channel 2 tunes drone II to it exactly
+# Normal PLAY mode must ignore external MIDI Note On, including channel 2.
+# Only SEL+GLO explicitly arms the two-drone MIDI trigger mode; MIDI must
+# never alter saved project pitches in ordinary PLAY mode.
+expect midimode 0
+expect par21 5617
 midi 91 3C 64
 wait 20
-expect par21 6000
+expect midimode 0
+expect par21 5617
 # Persist the project (separate fixture; the SAVE browser is tested in v14-controls).
 save
 wait 150
@@ -612,13 +617,13 @@ wavstop
 reboot
 wait 300
 expect par0 5017
-expect par21 6000
+expect par21 5617
 expect par42 1
 expect par44 1
 expect par6 2
 expect playing 0
-# stopped, the screen still shows where the pitches are set (MIDI put drone II on C4)
-expect pitch1 6000
+# Stopped, the displayed drone-II pitch remains the saved unmodified value.
+expect pitch1 5617
 # scenes: SAVE held + white key 1 stores (into the flash at once); the key lights
 press SAVE
 tapkey w0

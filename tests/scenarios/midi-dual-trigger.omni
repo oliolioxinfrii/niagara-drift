@@ -11,6 +11,7 @@ set 0 4500
 set 21 5700
 set 45 1
 set 55 0
+set 82 0
 expect playing 0
 expect midimode 0
 expect midiui 0
@@ -57,7 +58,7 @@ expect midinote0 36
 expect midinote1 -1
 expect midigate0 1
 expect midigate1 0
-expect playing 0
+expect playing 1
 midi 90 30 64
 wait 100
 expect midinote0 36

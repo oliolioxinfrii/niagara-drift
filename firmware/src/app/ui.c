@@ -241,6 +241,8 @@ static struct {
     float sub_amt[8];                  /* keys 1-8: four operations per drone */
     int16_t sub_sent[8];
     uint16_t key_held;                 /* subtractive and pressure-gesture white keys */
+    uint8_t midi_mode;                 /* SEL+GLO: external MIDI-trigger performance mode */
+    uint8_t midi_glo_used;             /* suppress the ordinary GLO page action for this chord */
     uint8_t ghost_event_held;          /* physical keys 13..16 held */
     uint8_t ghost_event_latched;       /* repeated events continue after key-up */
     uint8_t ghost_event_tap_armed;     /* previous press was a short tap */
@@ -1771,6 +1773,33 @@ static void button(int b)                              /* the other buttons, on 
  * The physical FM-1 performance keys remain dispatched separately. */
 #include "midi_duo.h"
 static midi_duo_t midi_duo;
+
+/* SEL+GLO changes performance modes. The MIDI setting is session-only
+ * (not a scene or saved parameter). Entering it runs the two LFO clocks
+ * and the Swell even if the saved sound has Swell switched off; only
+ * incoming MIDI key gates can make either parent drone audible.
+ * The sequencer is deliberately stopped, but its authored notes stay. */
+static void midi_mode_toggle(void)
+{
+    const int on = !ui.midi_mode;
+    midi_duo_reset(&midi_duo);
+    if (on) {
+        sd_stop();
+        ui.midi_mode = 1u;
+        ui.playing = 1u;
+        dr_midi_mode_set(1);
+        dr_lfo_transport_set(DR_LFO_RUN);
+        dr_play(1);
+        say_c("MIDI MODE", "LFO / SWELL RUNNING", K_GOLD);
+    } else {
+        ui.midi_mode = 0u;
+        ui.playing = 0u;
+        dr_play(0);
+        dr_midi_mode_set(0);
+        say_c("PLAY MODE", "PRESS PLAY TO START", K_GOLD);
+    }
+    ui.act_t = plat_ms();
+}
 /* MIDI CLOCK IN (v0.3, step 3; a test build first, OM_CLOCK_TEST: the tempo and jitter on screen). 24 pulses a beat,
  * each stamped as it came in (us; the inputs are read between renders, so a pulse can wait one out). Over the last
  * two beats (48 pulses) a straight line through their times: its slope the tempo, how far each pulse sits off it the
@@ -1954,6 +1983,8 @@ static void midi_in(void)
         /* External note messages on any MIDI channel: channel is part of
          * note identity, not a drone selector. Velocity 0 is Note Off.
          * Never write GP_PITCH or another saved project parameter. */
+        if (!ui.midi_mode || !ui.playing)
+            continue; /* no implicit takeover: SEL+GLO explicitly arms notes */
         if ((st & 0xF0u) == 0x90u && v != 0u) {
             const int slot = midi_duo_on(&midi_duo, st & 0x0Fu, n);
             if (slot >= 0) dr_midi_note(slot, (int)n, 1);
@@ -2514,6 +2545,22 @@ static void input(void)
     }
     if (!(btn >> B_SEL & 1u))
         ui.km_key = -1;
+    /* Detect either ordering of SEL+GLO. Neither the GLO page cycle
+     * nor SEL's short-release action is allowed to consume the chord.
+     * In the reverse order (GLO then SEL), restore the previous page. */
+    if ((btn & ((1u << B_SEL) | (1u << B_GLO))) ==
+        ((1u << B_SEL) | (1u << B_GLO)) &&
+        (ch & btn & ((1u << B_SEL) | (1u << B_GLO))) &&
+        !ui.midi_glo_used) {
+        if (ui.hold_btn == B_GLO) {
+            set_view(ui.hold_from);
+            ui.hold_btn = -1;
+        }
+        ui.midi_glo_used = 1u;
+        ui.btn_used |= (1u << B_SEL) | (1u << B_GLO);
+        ui.sel_turned = 1u;
+        midi_mode_toggle();
+    }
     {   /* HEADPHONE JACK: the speaker bass cut is enabled only when its built-in speaker plays; a plug settled
          * for 150 ms (its contacts bounce) */
         int ph = plat_headphones();
@@ -2528,6 +2575,10 @@ static void input(void)
         uint32_t m = 1u << i;
         if (!(ch & m))
             continue;
+        if (i == B_GLO && ui.midi_glo_used) {
+            if (!(btn & m)) ui.midi_glo_used = 0u;
+            continue;  /* SEL+GLO never changes the setup page */
+        }
         if (page_btn((int)i) >= 0) {                   /* page buttons: on the press and the release */
             if (btn & m)
                 page_down((int)i);
@@ -2541,29 +2592,37 @@ static void input(void)
                 oct_used[w] = 0;
                 ui.btn_used |= m;
                 if (btn >> B_SEL & 1u) {
-                    const int p = w ? P_II_OUT : P_I_OUT;
-                    param_set(p, !proj.par[p]);
-                    say_c(w ? "DRONE II" : "DRONE I", proj.par[p] ? "OUT" : "IN", K_DRONE[w]);
+                    if (ui.midi_mode) {
+                        say_c("MIDI MODE", "DRONES FOLLOW MIDI", K_GOLD);
+                    } else {
+                        const int p = w ? P_II_OUT : P_I_OUT;
+                        param_set(p, !proj.par[p]);
+                        say_c(w ? "DRONE II" : "DRONE I", proj.par[p] ? "OUT" : "IN", K_DRONE[w]);
+                    }
                     ui.btn_used |= 1u << B_SEL;
                     oct_used[w] = 1;
                 }
             }
             if (i == B_PLAY && (btn >> B_SEL & 1u)) {
                 ui.btn_used |= 1u << B_SEL;
-                sd_toggle();              /* independent transport; only plain PLAY fades audio */
+                if (ui.midi_mode)
+                    say_c("MIDI MODE", "SEQUENCE DISABLED", K_GOLD);
+                else
+                    sd_toggle();          /* ordinary PLAY mode: sequencer independent */
             } else if (i == B_PLAY) {                  /* PLAY responds immediately, as before */
                 static uint8_t seeded;
                 if (!seeded) {
                     seeded = 1;
                     dr_seed(plat_ms());
                 }
-                /* A physical PLAY press returns to the normal drone
-                 * transport; release the external MIDI note ownership.
-                 * The audio engine also drops MIDI takeover on C_PLAY. */
-                midi_duo_reset(&midi_duo);
+                /* PLAY starts/stops the transport without changing the
+                 * selected performance mode. In MIDI mode it also releases
+                 * held MIDI assignments when stopped; both drones remain
+                 * silent until new Note On events when restarted. */
+                if (ui.midi_mode) midi_duo_reset(&midi_duo);
                 ui.playing = (uint8_t)!ui.playing;
                 dr_play(ui.playing);
-                sd_global_play(ui.playing);
+                if (!ui.midi_mode) sd_global_play(ui.playing);
             }
         } else if (i == B_OCTDN || i == B_OCTUP) {
             const int w = i == B_OCTUP;
@@ -3063,6 +3122,8 @@ static void leds(void)
     for (i = 0; i < NPAGE_BTN; i++)                  /* the button of the page shown */
         if (on_pages((int)i))
             b[PAGE_BTN[i].btn] = 255;
+    if (ui.midi_mode)
+        b[B_GLO] = (uint8_t)(now % 800u < 400u ? 255u : LED_DIM);
     if (ui.playing)
         b[B_PLAY] = 255;
     else                                               /* stopped: PLAY breathes, the one thing to press (the header
@@ -3828,7 +3889,8 @@ static void sp_screen(int all)
     }
     if (!all)
         return;
-    sp_cat(ui.playing ? " Playing" : " Stopped");
+    sp_cat(ui.midi_mode ? (ui.playing ? " MIDI mode armed" : " MIDI mode stopped") :
+           (ui.playing ? " Playing" : " Stopped"));
     lk_sound_at();
     if (lk_at >= 0) {
         sp_cat(", ");
@@ -3840,7 +3902,7 @@ static void sp_screen(int all)
         sp_scene(proj.bank, ui.morph);
     }
     sp_cat(".");
-    if (proj.par[P_PULSE])
+    if (proj.par[P_PULSE] || ui.midi_mode)
         sp_cat(" Swell on.");
     i = lk_gesture();
     if (i >= 0) {

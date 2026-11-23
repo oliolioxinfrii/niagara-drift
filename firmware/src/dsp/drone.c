@@ -1104,6 +1104,21 @@ static float rnd(void)                            /* -1..1 */
  * during a retrigger. No project parameter is written. */
 static uint8_t midi_mode;
 static int16_t midi_note_now[DR_NGROUPS], midi_note_pending[DR_NGROUPS];
+/* A replacement note is retuned only at zero output. Snap the silent
+ * oscillator pitch and its two anti-click one-poles BEFORE opening its
+ * envelope, so the prior note does not glissando into the replacement
+ * when the user's global GLIDE is nonzero. The synth's FM1 keys remain
+ * independent of this external MIDI trigger state. */
+static void midi_start_voice(int g, int note)
+{
+    grp_t *v = &grp[g];
+    const float pitch = (float)note;
+    midi_note_now[g] = (int16_t)note;
+    midi_note_pending[g] = -1;
+    v->pitch = v->ps1 = v->ps2 = v->st = pitch;
+    v->slide = v->lslide = 0.0f;
+    v->gtarget = 1.0f;
+}
 int dr_midi_mode_get(void) { return midi_mode != 0; }
 int dr_midi_note_get(int g) { return (unsigned)g < DR_NGROUPS ? midi_note_now[g] : -1; }
 int dr_midi_pending_get(int g) { return (unsigned)g < DR_NGROUPS ? midi_note_pending[g] : -1; }
@@ -1804,9 +1819,7 @@ static void drain(void)
                      * The queued pitch always replaces an older pending
                      * pitch, so no third sounding voice is possible. */
                     if (v->gf <= 0.0f) {
-                        midi_note_now[a] = (int16_t)note;
-                        midi_note_pending[a] = -1;
-                        v->gtarget = 1.0f;
+                        midi_start_voice(a, note);
                     } else {
                         midi_note_pending[a] = (int16_t)note;
                         v->gtarget = 0.0f;
@@ -3999,11 +4012,8 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             /* The old note finishes its FADE before the replacement
              * begins; the last incoming MIDI key has priority. */
             for (g = 0; g < DR_NGROUPS; ++g)
-                if (midi_note_pending[g] >= 0 && grp[g].gf <= 0.0f) {
-                    midi_note_now[g] = midi_note_pending[g];
-                    midi_note_pending[g] = -1;
-                    grp[g].gtarget = 1.0f;
-                }
+                if (midi_note_pending[g] >= 0 && grp[g].gf <= 0.0f)
+                    midi_start_voice(g, midi_note_pending[g]);
         }
         for (j = 0; j < k; j++)
             mixl[j] = mixr[j] = 0.0f;

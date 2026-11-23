@@ -726,6 +726,9 @@ static void vl_planet(void)
     static const uint16_t layers[5] = {RGB(246, 208, 62), RGB(242, 156, 47),
                                        RGB(225, 88, 43), RGB(173, 47, 39),
                                        RGB(106, 29, 36)};
+    const int pct = plat_battery_pct();
+    const int charge = pct < 0 ? 0 : pct > 100 ? 100 : pct;
+    const uint16_t uncharged = RGB(51, 52, 56);
     int k, i;
     /* One fixed orbit reference: a small station marker to the right.
      * Both channels start near its radius and separate in opposite
@@ -760,14 +763,26 @@ static void vl_planet(void)
         }
     }
     lk_circle(cx, cy, r, LK_LABEL);
+    /* Battery charge fills only the five colored semicircles from their
+     * lower ends upward. The white meridian, tuning spokes, and L/R stereo
+     * orbits are independent of battery state. */
     for (k = 0; k < 5; k++) {
         const int rr = r - 5 - k * 6;
+        const float cut = (float)(cy + rr) - 2.0f * (float)rr * (float)charge * 0.01f;
+        const uint16_t ink = vl_bright(layers[k], 0.85f);
         int px = cx, py = cy - rr;
         for (i = 1; i <= 28; i++) {
             const float a = 3.14159265f * (float)i / 28.0f;
             const int x = cx + (int)((float)rr * fm_sinf(a));
             const int y = cy - (int)((float)rr * fm_cosf(a));
-            cv_line(px, py, x, y, vl_bright(layers[k], 0.85f));
+            if ((float)py < cut && (float)y > cut) {
+                const float f = (cut - (float)py) / (float)(y - py);
+                const int sx = px + (int)((float)(x - px) * f + 0.5f);
+                const int sy = (int)(cut + 0.5f);
+                cv_line(px, py, sx, sy, uncharged);
+                cv_line(sx, sy, x, y, ink);
+            } else
+                cv_line(px, py, x, y, ((float)(py + y) * 0.5f < cut) ? uncharged : ink);
             px = x; py = y;
         }
     }

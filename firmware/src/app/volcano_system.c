@@ -171,6 +171,11 @@ static void vl_save_menu(void)
     }
     cv_blit(0, LK_VAL_Y);
 }
+static float vs_glow(float x)
+{
+    x = fm_clampf(x, 0.0f, 1.0f);
+    return 0.08f + 0.92f * x * x;
+}
 static void vs_atlas_terrain(int y0, const float a[5])
 {
     /* Cyan denotes the atmosphere ABOVE the surface, not a rock layer.
@@ -179,15 +184,36 @@ static void vs_atlas_terrain(int y0, const float a[5])
     static const int8_t warp[8] = {2, 0, -6, -3, 3, 6, 0, -2};
     const float brightness[5] = {a[1], a[2], a[3], a[4], a[4] * 0.70f};
     int layer, i, band;
-    /* Atmosphere occupies the space over the mountain summit. */
-    for (i = 0; i < 175; i++) {
-        const uint32_t h = vg_hash((uint32_t)(i * 97 + 113));
-        const int y = 34 + (int)(h % 40u);
-        const int x = 62 + (int)((h >> 8) % 45u) - 11 + (74 - y) / 7;
-        if (x >= 5 && x <= 114)
-            cv_rect(x, y - y0, (h & 31u) == 0u ? 2 : 1, 1,
-                    vg_dim(i % 9 == 0 ? LK_WHITE : VL_AIR,
-                           0.15f + 0.54f * a[0]));
+    /* An animated plume and rising motes replace the static dust square.
+     * Each thin strand curls outward from the crater in phase with time. */
+    {
+        const uint32_t now = plat_ms();
+        const float phase = (float)(now % 9000u) * (6.2831853f / 9000.0f);
+        int strand, j;
+        for (strand = 0; strand < 5; strand++) {
+            int px = 67, py = 77;
+            for (j = 1; j <= 13; j++) {
+                const float t = (float)j / 13.0f;
+                const float sway = fm_sinf(phase + 3.1f * t + (float)strand * 0.85f);
+                const int x = 67 + (strand - 2) * j / 5 +
+                              (int)(10.0f * t * t + 7.0f * t * sway);
+                const int y = 77 - 4 * j;
+                const uint16_t ink = vg_dim(strand == 2 ? LK_WHITE : VL_AIR,
+                                             a[0] * (0.85f - 0.45f * t));
+                if (x >= 6 && x < 116)
+                    cv_line(px, py - y0, x, y - y0, ink);
+                px = x; py = y;
+            }
+        }
+        for (i = 0; i < 45; i++) {
+            const uint32_t h = vg_hash((uint32_t)(i * 97 + 113));
+            const int rise = (int)(((h >> 8) % 54u + (now / 130u)) % 54u);
+            const int x = 65 + (int)(h % 29u) - 14 + rise / 6;
+            const int y = 77 - rise;
+            if (x >= 6 && x <= 115)
+                cv_rect(x, y - y0, 1, 1,
+                        vg_dim(VL_AIR, a[0] * (0.35f + 0.4f * (float)(54 - rise) / 54.0f)));
+        }
     }
     /* Crater and flanks are BELOW the atmospheric band, on the Surface. */
     cv_line(6, 101 - y0, 45, 91 - y0, vg_dim(colors[0], a[1]));
@@ -230,6 +256,23 @@ static void vs_atlas_terrain(int y0, const float a[5])
                              vg_dim(VL_MANTLE, 0.43f + 0.50f * a[3]);
         cv_line(66 + i, 209 - y0, 67 + i, 80 - y0, ink);
     }
+    /* Incandescent beads climb the feeder and follow the left flank, like
+     * the moving lava front on the HOME Drones illustration. */
+    if (a[3] > 0.10f) {
+        const uint32_t now = plat_ms();
+        const int sy = 207 - (int)((now / 90u) % 126u);
+        const int sx = 67 + (int)((now / 370u) % 3u);
+        if (sy >= y0 && sy < y0 + 120)
+            cv_rect(sx - 1, sy - y0, 3, 3, vg_dim(LK_WHITE, a[3]));
+        {
+            const int t = (int)((now / 160u) % 32u);
+            const int x = 67 - 2 * t;
+            const int y = x >= 45 ? 78 + (67 - x) * 13 / 22 :
+                                  91 + (45 - x) * 10 / 39;
+            if (x >= 6 && y >= y0 && y < y0 + 120)
+                cv_rect(x - 1, y - y0, 3, 2, vg_dim(VL_SURFACE, a[3]));
+        }
+    }
 }
 /* Navigation remains the original button map: this is a transient observatory
  * overview, not a hidden second menu. Brightness indicates active signal or
@@ -243,14 +286,13 @@ static void vl_atlas(void)
     static const char *const name[5] = {"ATMOSPHERE", "SURFACE", "CRUST", "MANTLE", "DEEP MANTLE"};
     static const char *const btn[5] = {"FX", "HOME", "SEQ  ARP", "EDIT  ENV", "LFO"};
     int part, row;
-    a[0] = fm_clampf(0.22f + 0.78f * fm_maxf(vl_norm(P_DLY_MIX), vl_norm(P_REV_MIX)), 0.22f, 1.0f);
-    a[1] = fm_clampf(0.22f + 0.78f * dr_fade * (f0 + f1) * 0.5f, 0.22f, 1.0f);
-    a[2] = fm_clampf(0.22f + 0.78f * (proj.par[P_PULSE] ?
-                        dr_pulse_wave_for(0, dr_pulse_ph) : sd.enabled ? 0.50f : 0.0f), 0.22f, 1.0f);
-    a[3] = fm_clampf(0.22f + 0.78f * (vl_norm(P_CHAR) + vl_norm(P_FEEDBACK) +
-                        vl_norm(P_DRIFT)) / 3.0f, 0.22f, 1.0f);
-    a[4] = fm_clampf(0.22f + 0.78f * vl_norm(P_MOVE) *
-                       (fm_fabsf(dr_lfo[0]) + fm_fabsf(dr_lfo[1])) * 0.5f, 0.22f, 1.0f);
+    a[0] = vs_glow(fm_maxf(vl_norm(P_DLY_MIX), vl_norm(P_REV_MIX)));
+    a[1] = vs_glow(dr_fade * (f0 + f1) * 0.5f);
+    a[2] = vs_glow(proj.par[P_PULSE] ?
+                   dr_pulse_wave_for(0, dr_pulse_ph) : sd.enabled ? 0.50f : 0.0f);
+    a[3] = vs_glow((vl_norm(P_CHAR) + vl_norm(P_FEEDBACK) + vl_norm(P_DRIFT)) / 3.0f);
+    a[4] = vs_glow(vl_norm(P_MOVE) *
+                   (fm_fabsf(dr_lfo[0]) + fm_fabsf(dr_lfo[1])) * 0.5f);
     for (part = 0; part < 2; part++) {
         const int y0 = part * 120;
         cv_begin(240, 120, LK_BG);

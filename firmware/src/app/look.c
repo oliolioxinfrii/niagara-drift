@@ -2308,6 +2308,7 @@ static void lk_pic_speaker(void)
 
 static void lk_pic_sequence(int timing);
 static void lk_pic_seq_shape(void);
+static void sd_dim_canvas(void);
 #include "volcano_look.c"        /* v1.5: geological drawings, saved-state orbit, live atlas */
 
 static void lk_pic(void)
@@ -2320,6 +2321,7 @@ static void lk_pic(void)
         h = hash(h, (uint32_t)proj.par[P_SPEAKER]);
     if (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE) {
         int j;
+        h = hash(h, (uint32_t)ui.midi_mode);
         h = hash(h, (uint32_t)sd.count | (uint32_t)sd.position << 8 | (uint32_t)sd.phase << 16 |
                     (uint32_t)sd.enabled << 24 | (uint32_t)sd.paused << 25 | (uint32_t)sd_linked() << 26 |
                     (uint32_t)sd.stopping << 27);
@@ -2373,6 +2375,11 @@ static void lk_pic(void)
                 dr_param_text(ps, proj.par[ps], t);
             lk_sel_tag(c, t, held);
         }
+    }
+    if (ui.midi_mode &&
+        (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE)) {
+        sd_dim_canvas();
+        cv_text(167, 1, &FONT_XS, "SEQ OFF", LK_LABEL);
     }
     if (msg)
         lk_banner();

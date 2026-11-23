@@ -152,20 +152,21 @@ expect par48 1
 set 49 10
 tap OCT+
 expect par49 1
-# ALGORITHM controls Movement; SEL+ALGORITHM controls GHOST MIX.
+# ALGORITHM controls GHOST MIX; SEL+ALGORITHM controls Movement.
 expect par112 0
 expect par75 50
-spin ALGO 5
-expect par75 55
-expect par112 0
-spin ALGO -5
-expect par75 50
-press SEL
+expect par113 50
 spin ALGO 5
 expect par112 5
 expect par75 50
 spin ALGO -5
 expect par112 0
+press SEL
+spin ALGO 5
+expect par75 55
+expect par112 0
+spin ALGO -5
+expect par75 50
 release SEL
 # hold ENV to peek: the knobs are the Life page's (Character first) while it's held, then back to Play
 press ENV
@@ -563,12 +564,13 @@ tap FX
 page 15
 expect view 15
 tap HOME
-# SEL+SELECT: the LFO rate; PRESETS: gesture time, waves unchanged
+# SEL+SELECT changes LFO rate; PRESETS sets GHOST event level, not waves.
 press SEL
 spin SELECT 10
 release SEL
 expect par47 108
 spin PRESET 2
+expect par113 52
 expect par48 1
 expect par49 1
 # Normal PLAY mode must ignore external MIDI Note On, including channel 2.

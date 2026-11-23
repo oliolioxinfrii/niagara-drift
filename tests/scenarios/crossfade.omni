@@ -142,7 +142,7 @@ wait 1300
 expect par7 300
 expect par53 90
 set 53 60
-# turning ALGORITHM (Movement, par75) while a scene switch is on its way: the switch lets go of it, and the
+# turning SEL+ALGORITHM (Movement, par75) while a scene switch is on its way: the switch lets go of it, and the
 # rest still lands (scene A2 stored with Movement 50 and cutoff 700; the sound at Movement 80, cutoff 300)
 spin K2 40
 wait 300
@@ -151,7 +151,9 @@ tapkey w1
 release SAVE
 wait 300
 spin K2 -40
+press SEL
 spin ALGO 30
+release SEL
 wait 300
 expect par75 80
 tap GLO
@@ -159,9 +161,13 @@ spin K3 13
 tap HOME
 tapkey w1
 wait 400
+press SEL
 spin ALGO 10
+release SEL
 wait 200
+press SEL
 spin ALGO 5
+release SEL
 wait 7500
 expect par75 >90
 expect par7 700

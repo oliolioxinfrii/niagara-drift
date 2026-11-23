@@ -317,6 +317,16 @@ void dr_init(void);
 void dr_set(int param, int value);
 void dr_play(int on);                          /* fade the whole drone in (1) / out (0) over P_FADE */
 void dr_voice(int group, int on);              /* fade one drone in / out */
+/* External MIDI note triggers take temporary control of the two existing
+ * drones, without changing preset pitches, the FM-1 keyboard or polyphony.
+ * Note-on rises and note-off falls over global FADE; a replacement note
+ * waits until its predecessor has faded to zero before retuning.
+ * Plain PLAY returns the synthesis engine to its regular transport. */
+void dr_midi_note(int group, int note, int on); /* 0/1 group, MIDI note 0..127 */
+int dr_midi_mode_get(void);                   /* 1 while external MIDI controls voices */
+int dr_midi_note_get(int group);             /* actual current key, -1 if unused */
+int dr_midi_pending_get(int group);          /* deferred key while fading, -1 if none */
+int dr_midi_gate_get(int group);             /* note gate target: 0/1 */
 /* the drone's next pitch change slides there in a straight line over ms (1..30000), instead of the Glide:
  * a pitch knob sends each detent's change with the time until the next detent is expected, so a turn at
  * any speed is one continuous slide */

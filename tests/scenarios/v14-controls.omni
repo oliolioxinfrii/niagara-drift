@@ -125,22 +125,24 @@ expect par39 2
 tapkey b4
 expect par39 0
 
-# A fifth SEQ page shapes each active segment independently.
+# A fifth SEQ page assigns independent named curves to active segments.
 page 18
 spin K3 3
 page 20
 expect view 20
-spin K1 -100
-spin K2 100
-spin K3 50
-spin K4 -50
-expect seqshape0 -100
-expect seqshape1 100
-expect seqshape2 50
-expect seqshape3 -50
+# Sine is the default; exercise both extremes and two intermediate curves.
+spin K1 -3
+spin K2 4
+spin K3 2
+spin K4 -2
+expect seqshape0 101
+expect seqshape1 108
+expect seqshape2 106
+expect seqshape3 102
 shot seq-shape-edges.png
 page 18
 spin K3 -2
+expect seqcount 2
 page 20
-spin K3 -30
-expect seqshape2 50
+spin K3 -1
+expect seqshape2 106

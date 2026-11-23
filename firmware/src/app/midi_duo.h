@@ -4,10 +4,10 @@
  * keeps its ordinary gesture, sequencer and GHOST performance functions.
  *
  * The first held note uses drone I, a second simultaneous note uses
- * drone II. Replacing a released note reuses its vacant slot. If a third
- * key is pressed while both are held, it steals drone II (last-note
- * priority) without creating a third voice. Matching note-off messages
- * are required: a late note-off for a stolen key cannot stop its replacement.
+ * drone II. Replacing a released note reuses EXACTLY its vacant slot:
+ * release drone I and the next note takes drone I; release drone II
+ * and the next note takes drone II. A third press while BOTH notes are
+ * still held is ignored (no voice stealing and no third voice).
  *
  * Only the key allocator lives here. Pitch and envelope transitions are
  * performed in the DSP audio queue, without changing saved parameters. */
@@ -30,7 +30,8 @@ static inline int midi_duo_on(midi_duo_t *d, unsigned channel, unsigned note)
     if (channel >= 16u || note >= 128u) return -1;
     id = (int16_t)(channel * 128u + note);
     if (d->key[0] == id || d->key[1] == id) return -1; /* duplicate key-down */
-    slot = d->key[0] < 0 ? 0 : d->key[1] < 0 ? 1 : 1;
+    slot = d->key[0] < 0 ? 0 : d->key[1] < 0 ? 1 : -1;
+    if (slot < 0) return -1; /* both drones occupied: do not steal */
     d->key[slot] = id;
     return slot;
 }

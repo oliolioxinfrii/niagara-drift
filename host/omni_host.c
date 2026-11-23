@@ -508,6 +508,14 @@ static int expect(const char *what, const char *val)
         got = ui.ghost_event_held;
     else if (!strcmp(what, "ghostlatched"))         /* double-tap locks, press cancels (four-bit mask) */
         got = ui.ghost_event_latched;
+    else if (!strcmp(what, "midimode"))             /* external two-voice trigger active */
+        got = dr_midi_mode_get();
+    else if (!strncmp(what, "midinote", 8))         /* note currently sounded on slot 0/1 */
+        got = dr_midi_note_get(atoi(what + 8));
+    else if (!strncmp(what, "midipending", 11))     /* next note, waiting for old one to fade out */
+        got = dr_midi_pending_get(atoi(what + 11));
+    else if (!strncmp(what, "midigate", 8))         /* fade target for slot 0/1 */
+        got = dr_midi_gate_get(atoi(what + 8));
     else if (!strncmp(what, "ghosthits", 9))         /* GHOST event N fired count (N=0..3) */
         got = (int)dr_ghost_event_hits_test(atoi(what + 9));
     else if (!strcmp(what, "dirty"))

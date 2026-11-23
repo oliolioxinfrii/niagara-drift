@@ -317,11 +317,17 @@ void dr_init(void);
 void dr_set(int param, int value);
 void dr_play(int on);                          /* fade the whole drone in (1) / out (0) over P_FADE */
 void dr_voice(int group, int on);              /* fade one drone in / out */
+/* SEL+GLO selects a session-only performance mode. MIDI mode keeps the
+ * LFOs and Swell running, disables sequencer-driven pitch, and starts with
+ * both drones gated off. MIDI note messages are ignored outside this mode.
+ * It changes neither the saved Swell switch nor the stored drone pitches. */
+void dr_midi_mode_set(int on);
 /* External MIDI note triggers take temporary control of the two existing
  * drones, without changing preset pitches, the FM-1 keyboard or polyphony.
  * Note-on rises and note-off falls over global FADE; a replacement note
  * waits until its predecessor has faded to zero before retuning.
- * Plain PLAY returns the synthesis engine to its regular transport. */
+ * Plain PLAY controls the transport without changing MIDI mode; SEL+GLO
+ * alone selects or leaves MIDI mode. */
 void dr_midi_note(int group, int note, int on); /* 0/1 group, MIDI note 0..127 */
 int dr_midi_mode_get(void);                   /* 1 while external MIDI controls voices */
 int dr_midi_note_get(int group);             /* actual current key, -1 if unused */

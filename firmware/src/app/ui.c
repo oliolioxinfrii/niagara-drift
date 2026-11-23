@@ -2585,7 +2585,10 @@ static void input(void)
             else
                 page_up((int)i);
         } else if (btn & m) {
-            ui.btn_used &= ~m;
+            /* Reverse-order SEL+GLO must keep SEL marked as used; the
+             * normal press handler otherwise clears its chord flag. */
+            if (!(ui.midi_glo_used && i == B_SEL))
+                ui.btn_used &= ~m;
             if (i == B_OCTDN || i == B_OCTUP) {
                 const int w = i == B_OCTUP;
                 oct_down_t[w] = plat_ms();

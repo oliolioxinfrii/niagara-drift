@@ -1767,8 +1767,8 @@ static void button(int b)                              /* the other buttons, on 
 
 /* External USB-MIDI and TRS MIDI notes share two independent drone slots.
  * This is not a polyphonic keyboard mode: the first held note takes drone I,
- * the second takes II, and a third concurrent press steals II. A released
- * slot may be re-used while the other key remains down. The audio engine
+ * the second takes II; if both are occupied, a third key waits silently
+ * and enters whichever slot is released first. The audio engine
  * handles global-FADE envelopes and delayed retuning of a fading voice.
  * The physical FM-1 performance keys remain dispatched separately. */
 #include "midi_duo.h"

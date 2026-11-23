@@ -1767,21 +1767,26 @@ static void button(int b)                              /* the other buttons, on 
 
 /* External USB-MIDI and TRS MIDI notes share two independent drone slots.
  * This is not a polyphonic keyboard mode: the first held note takes drone I,
- * the second takes II. With both sounding, a third key glides the
- * nearest drone over Scene Time; ordinary released-slot replacement
- * still uses the global FADE and silent retune.
+ * the second takes II. Each drone can chain Scene-Time glides when
+ * its previous target finishes and is the remaining held note. Extra
+ * notes always select the nearest audible drone, with last-played
+ * tie-breaking; a busy drone ignores new targets. Ordinary released
+ * slots still use FADE and silent retune.
  * The physical FM-1 performance keys remain dispatched separately. */
 #include "midi_duo.h"
 static midi_duo_t midi_duo;
 static int16_t midi_sent_note[2];  /* last effective note sent to audio */
-static uint8_t midi_sent_glide[2]; /* note is from simultaneous third key */
+static uint8_t midi_sent_glide[2]; /* note is from a per-drone extra key */
+static uint8_t midi_glide_locked[2]; /* Scene glide queued or running */
+static uint32_t midi_glide_done_seen[2]; /* DSP completion epoch when queued */
 static void midi_note_reset(void)
 {
     int g;
     midi_duo_reset(&midi_duo);
     for (g = 0; g < 2; ++g) {
         midi_sent_note[g] = -1;
-        midi_sent_glide[g] = 0u;
+        midi_sent_glide[g] = midi_glide_locked[g] = 0u;
+        midi_glide_done_seen[g] = dr_midi_glide_done_get(g);
     }
 }
 /* Reconcile after EACH MIDI packet, so an Off then On cannot collapse
@@ -1798,11 +1803,16 @@ static void midi_note_reconcile(void)
         if (note < 0) {
             if (midi_sent_note[g] >= 0)
                 dr_midi_note(g, midi_sent_note[g], 0);
+            /* A released slot may be reused during FADE without
+             * waiting for a canceled Scene-Time glide acknowledgment. */
+            midi_glide_locked[g] = 0u;
         } else if (midi_sent_note[g] < 0) {
             dr_midi_note(g, note, 1); /* normal FADE-in/retrigger */
         } else if (note != midi_sent_note[g]) {
             if (glide || midi_sent_glide[g]) {
                 /* Same clock-aware Scene Time as a scene recall. */
+                midi_glide_done_seen[g] = dr_midi_glide_done_get(g);
+                midi_glide_locked[g] = 1u;
                 dr_midi_glide(g, note, scene_s());
             } else {
                 dr_midi_note(g, midi_sent_note[g], 0);
@@ -1812,6 +1822,24 @@ static void midi_note_reconcile(void)
         midi_sent_note[g] = (int16_t)note;
         midi_sent_glide[g] = (uint8_t)glide;
     }
+}
+/* A queued glide must remain locked even before the audio ISR consumes
+ * its command. It unlocks only after the DSP increments that drone's
+ * completion epoch. When the old note has already been released, the
+ * held glide target becomes the new primary owner without changing
+ * its gate or pitching it again. This permits unlimited serial glides.
+ * The other drone has a completely independent lock. */
+static void midi_note_sync(void)
+{
+    int g;
+    for (g = 0; g < 2; ++g) {
+        if (midi_glide_locked[g] &&
+            dr_midi_glide_done_get(g) != midi_glide_done_seen[g])
+            midi_glide_locked[g] = 0u;
+        if (!midi_glide_locked[g])
+            (void)midi_duo_promote_completed(&midi_duo, g);
+    }
+    midi_note_reconcile();
 }
 
 /* SEL+GLO changes performance modes. The MIDI setting is session-only
@@ -1994,6 +2022,8 @@ static void clk_show(void)                             /* the test build: the cl
 static void midi_in(void)
 {
     uint32_t pkt, us;
+    if (ui.midi_mode && ui.playing)
+        midi_note_sync(); /* observe completed glides even without new keys */
     while (plat_midi_in(&pkt, &us)) {
         uint32_t st = (pkt >> 8) & 0xFFu, n = (pkt >> 16) & 0x7Fu, v = pkt >> 24;
         if (st >= 0xF8u && !proj.par[P_CLK_SYNC])   /* Sync off: no clock, no Start */
@@ -2023,6 +2053,7 @@ static void midi_in(void)
         /* Explicit MIDI mode only. CC64 is channel-specific: keys
          * released with sustain down remain owners until pedal-up. */
         if (!ui.midi_mode || !ui.playing) continue;
+        midi_note_sync(); /* ensure completion is observed before assignment */
         if ((st & 0xF0u) == 0x90u && v != 0u) {
             float p0 = dr_midi_pitch_get(0), p1 = dr_midi_pitch_get(1);
             /* A three-note chord can arrive before the first audio render.
@@ -2032,18 +2063,19 @@ static void midi_in(void)
                 p0 = (float)midi_sent_note[0];
             if (dr_midi_note_get(1) < 0 && midi_sent_note[1] >= 0)
                 p1 = (float)midi_sent_note[1];
-            (void)midi_duo_on(&midi_duo, st & 0x0Fu, n, p0, p1);
+            (void)midi_duo_on(&midi_duo, st & 0x0Fu, n, p0, p1,
+                              midi_glide_locked[0], midi_glide_locked[1]);
             midi_note_reconcile();
         } else if ((st & 0xF0u) == 0x80u ||
                    ((st & 0xF0u) == 0x90u && v == 0u)) {
             (void)midi_duo_off(&midi_duo, st & 0x0Fu, n);
-            midi_note_reconcile();
+            midi_note_sync(); /* release may now promote a completed target */
         } else if ((st & 0xF0u) == 0xB0u && n == 64u) {
             (void)midi_duo_pedal(&midi_duo, st & 0x0Fu, v);
-            midi_note_reconcile();
+            midi_note_sync(); /* CC64 release may free the prior primary */
         } else if ((st & 0xF0u) == 0xB0u && (n == 120u || n == 123u)) {
             (void)midi_duo_channel_off(&midi_duo, st & 0x0Fu);
-            midi_note_reconcile();
+            midi_note_sync();
         }
     }
 }

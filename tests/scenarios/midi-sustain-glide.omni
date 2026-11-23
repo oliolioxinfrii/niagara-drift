@@ -1,0 +1,129 @@
+# External MIDI CC64 sustain and nearest-drone third-key Scene-Time glide.
+# No new voices and no changes to saved project pitches/Swells.
+notips
+set 51 0
+set 50 100
+set 71 24
+set 55 0
+set 0 4500
+set 21 5700
+press SEL
+tap GLO
+release SEL
+wait 250
+expect midiui 1
+expect midimode 1
+expect midigate0 0
+expect midigate1 0
+
+# CC64 down latches a note when its physical key is released.
+midi B0 40 7F
+wait 20
+expect midipedal0 1
+midi 90 24 64
+midi 90 3C 64
+wait 130
+expect midinote0 36
+expect midinote1 60
+expect midigate0 1
+expect midigate1 1
+midi 80 24 00
+wait 100
+expect midigate0 1
+expect midigate1 1
+# Pedal-up releases only the key no longer physically pressed.
+midi B0 40 00
+wait 35
+expect midipedal0 0
+expect midigate0 0
+expect midigate1 1
+
+# New D2 reuses released drone I. Prior C2 must finish FADE-out first.
+midi 90 26 64
+wait 18
+expect midinote0 36
+expect midipending0 38
+wait 130
+expect midinote0 38
+expect midigate0 1
+expect midipending0 -1
+
+# Third C#2 selects nearest I, not II; its live semitone pitch glides
+# over SCENE (about 1.1 s here) even though normal GLIDE is 10 s.
+midi 90 25 64
+wait 180
+expect midiextra 37
+expect midiextraslot 0
+expect miditarget0 37
+expect midiglide0 1
+expect midigate0 1
+expect midipitch0 >3700
+expect midipitch0 <3800
+# Releasing ORIGINAL D2 must NOT stop or reverse that pitch glide.
+midi 80 26 00
+wait 120
+expect midigate0 1
+expect midiglide0 1
+expect miditarget0 37
+# Original and third now both physically released: stop pitch change,
+# fade the drone using global FADE, leave unrelated II sounding.
+midi 80 25 00
+wait 20
+expect midigate0 0
+expect midiglide0 0
+expect midigate1 1
+
+# Reclaim freed drone I with D2, while C4 remains held on drone II.
+midi 90 26 64
+wait 140
+expect midinote0 38
+expect midigate0 1
+
+# Third F3 is nearer C4 than D2, so only II glides toward F3.
+midi 90 35 64
+wait 220
+expect midiextra 53
+expect midiextraslot 1
+expect miditarget1 53
+expect midiglide1 1
+expect midipitch1 >5300
+expect midipitch1 <6000
+# Releasing the extra before its original C4 returns to C4 over Scene.
+midi 80 35 00
+wait 100
+expect midiextra -1
+expect miditarget1 60
+expect midiglide1 1
+expect midigate1 1
+
+# Pedal can hold a third-note glide target even after its key releases.
+midi B0 40 7F
+midi 90 35 64
+wait 100
+expect miditarget1 53
+midi 80 35 00
+wait 100
+expect midiextra 53
+expect miditarget1 53
+expect midigate1 1
+# Original C4 released while third note is sustained: glide continues.
+midi 80 3C 00
+wait 100
+expect midiglide1 1
+expect midigate1 1
+expect miditarget1 53
+# Pedal-up releases both: stop the glide and FADE out II.
+midi B0 40 00
+wait 40
+expect midiextra -1
+expect midiglide1 0
+expect midigate1 0
+expect midigate0 1
+
+# All note events were temporary, including the third-key pitch glides.
+expect par0 4500
+expect par21 5700
+expect par55 0
+midi 80 26 00
+wait 120
+expect midigate0 0

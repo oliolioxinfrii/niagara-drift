@@ -10,8 +10,43 @@ set 50 80
 set 0 4500
 set 21 5700
 set 45 1
+set 55 0
 expect playing 0
 expect midimode 0
+expect midiui 0
+
+# Note On cannot commandeer ordinary PLAY mode. MIDI is an explicit
+# session mode, not a consequence of connecting/playing a controller.
+midi 90 24 64
+wait 100
+expect midiui 0
+expect midimode 0
+expect par0 4500
+
+# Even if sequence is already playing, entering MIDI mode stops it
+# while preserving the authored note data.
+press SEL
+tap PLAY
+release SEL
+wait 100
+expect seqstate 1
+
+# SEL+GLO starts both LFO transport and Swell, without starting
+# either drone or changing the saved Swell and pitch parameters.
+press SEL
+tap GLO
+release SEL
+wait 300
+expect midiui 1
+expect midimode 1
+expect playing 1
+expect seqstate 0
+expect view 0
+expect par55 0
+expect midigate0 0
+expect midigate1 0
+expect swell1_phase >0
+expect lfo_phase >0
 
 # C2 first -> drone I; C3 second -> drone II; PITCH LINK ignored
 # for the external MIDI control while project settings are preserved.
@@ -106,13 +141,59 @@ expect midinote0 62
 expect midigate0 1
 expect midigate1 0
 
-# Pressing the physical PLAY button returns to the original transport,
-# and all MIDI pitch changes remained absent from saved parameters.
+# PLAY controls the transport within MIDI mode without changing modes.
+# Stopping closes both MIDI gates and ignores notes while stopped.
 expect par0 4500
 expect par21 5700
 tap PLAY
+wait 120
+expect midimode 1
+expect midiui 1
+expect playing 0
+expect midigate0 0
+midi 90 24 64
 wait 100
-expect midimode 0
+expect midigate0 0
+
+# Restarting MIDI mode keeps both drones silent until the next key press.
+tap PLAY
+wait 100
+expect midiui 1
+expect midimode 1
 expect playing 1
+expect midigate0 0
+midi 90 2F 64
+wait 120
+expect midigate0 1
+expect midinote0 47
+midi 80 2F 00
+wait 120
+
+# SEL+GLO returns to PLAY mode, stopped; no automatic playback.
+# The original Swell switch, pitches, and PITCH LINK remain intact.
+press SEL
+tap GLO
+release SEL
+wait 250
+expect midiui 0
+expect midimode 0
+expect playing 0
+expect seqstate 0
+expect par55 0
+expect par45 1
 expect par0 4500
 expect par21 5700
+
+# Plain PLAY now starts the original continuous drones again.
+tap PLAY
+wait 100
+expect playing 1
+expect midiui 0
+expect midimode 0
+# In PLAY mode SEL+OCT once again controls the saved individual switches.
+press SEL
+tap OCT-
+release SEL
+wait 100
+expect par110 1
+

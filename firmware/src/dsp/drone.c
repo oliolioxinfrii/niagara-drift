@@ -1802,12 +1802,19 @@ static void drain(void)
                     const int note = b & 127;
                     int g;
                     if (!midi_mode) {
-                        /* First incoming note takes ownership of the
-                         * existing two voices; do not abruptly sound
-                         * the prior panel tuning or restore it at key-up. */
+                        /* First external key takes ownership of the
+                         * existing two voices. If PLAY was already sounding
+                         * the panel drones, release those over global FADE
+                         * before the first MIDI note retunes; otherwise
+                         * (PLAY silent) the old panel gates can be reset
+                         * immediately without producing an audio click. */
+                        const int transport_audible = fade > 0.0f ||
+                                                      fade_target > 0.0f;
                         midi_mode = 1u;
                         for (g = 0; g < DR_NGROUPS; ++g) {
-                            grp[g].gf = grp[g].gtarget = 0.0f;
+                            if (!transport_audible)
+                                grp[g].gf = 0.0f;
+                            grp[g].gtarget = 0.0f;
                             grp[g].out_fade_step = 0.0f; /* use global FADE */
                             midi_note_now[g] = midi_note_pending[g] = -1;
                         }

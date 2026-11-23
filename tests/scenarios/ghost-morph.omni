@@ -1,30 +1,36 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# Final-voice candidate: fixed 50% Cross+Body / Terrain+Body hybrid.
+# Final-voice candidate: fixed Cross/Body and Terrain/Body hybrid.
 notips
 expect ghostblend 50
 expect ghostmode 14
+expect par113 50
+expect par70 34
 
-# SEL+PRESETS must not change the timbre; PRESETS alone remains Morph Time.
+# PRESETS changes event level; SEL+PRESETS changes Morph Time.
+spin PRESET 20
+expect par113 70
+expect par70 34
 press SEL
-spin PRESET -100
-wait 60
+spin PRESET -10
+expect par70 24
+expect par113 70
 expect ghostblend 50
-spin PRESET 100
-wait 60
-expect ghostblend 50
+spin PRESET 10
+expect par70 34
 release SEL
 
-# GHOST MIX remains a saved/morphable sound parameter.
+# GHOST MIX remains a saved/morphable sound parameter; the hybrid is fixed.
 set 112 50
 expect par112 50
 press SEL
-spin PRESET -100
+spin PRESET -10
 wait 60
 expect ghostblend 50
 expect par112 50
+expect par113 70
 release SEL
 
-# STRESS must preserve the fixed timbre and not change GHOST MIX.
+# STRESS retains the hybrid and sound's MIX while changing other controls.
 press SEL
 tap REC
 release SEL

@@ -1,47 +1,53 @@
 # SPDX-License-Identifier: GPL-3.0-only
-# CPU1 experiment: only Terrain -> Body (mode 14) remains selectable.
+# Global performance knobs: ALGO controls the dry/GHOST balance and
+# PRESETS scales excitation events, with MOVEMENT and MORPH behind SEL.
 notips
 expect par112 0
+expect par113 50
 expect par75 50
+expect par70 34
 expect ghostmode 14
 expect ghostmonitor 0
 expect ghostmute 0
-spin PRESET 1
-expect ghostmode 14
+
+# PRESETS changes event intensity, not the fixed GHOST hybrid timbre.
+spin PRESET 10
+expect par113 60
+expect par70 34
+expect ghostblend 50
 press SEL
 spin PRESET 4
-expect ghostmode 14
+expect par70 38
+expect par113 60
 spin PRESET -4
-expect ghostmode 14
+expect par70 34
 release SEL
 
-# ALGORITHM controls MOVEMENT (75); SEL+ALGORITHM controls GHOST MIX (112).
+# The direct ALGO job is GHOST MIX; SEL+ALGO changes MOVEMENT.
+spin ALGO 25
+expect par112 25
+expect par75 50
+press SEL
 spin ALGO 25
 expect par75 75
-expect par112 0
-press SEL
-spin ALGO 40
-expect par112 40
-expect par75 75
+expect par112 25
 release SEL
 spin ALGO -10
-expect par75 65
-expect par112 40
+expect par112 15
 spin ALGO -15
-expect par75 50
+expect par112 0
 press SEL
-spin ALGO 30
-expect par112 70
+spin ALGO -25
 expect par75 50
-# The entire dry-to-GHOST crossfade remains reachable, with unchanged
-# scene storage and no separate saved mute parameter.
+release SEL
+spin ALGO 70
+expect par112 70
 spin ALGO 30
 expect par112 100
 spin ALGO -30
 expect par112 70
-release SEL
 
-# Both monitoring shortcuts must preserve the saved GHOST MIX.
+# Monitoring toggles must not modify the GHOST mix or event level.
 press SEL
 tapkey w0
 expect ghostmonitor 1
@@ -50,6 +56,7 @@ tapkey w1
 expect ghostmonitor 1
 expect ghostmute 1
 expect par112 70
+expect par113 60
 tapkey w0
 expect ghostmonitor 0
 tapkey w1
@@ -59,13 +66,15 @@ expect ghostmute 1
 release SEL
 tapkey w1
 expect ghostmute 1
-expect par112 70
 
+# Excitation and GHOST mix are saved sounds, Morph Time is a room setting.
 save
 wait 150
 reboot
 expect par112 70
+expect par113 60
 expect par75 50
+expect par70 34
 expect ghostmode 14
 expect ghostmonitor 0
 expect ghostmute 0

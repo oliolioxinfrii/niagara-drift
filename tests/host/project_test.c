@@ -119,7 +119,7 @@ int main(void)
     }
     old_project(19u);
     check("a 0.1 project loads", project_load() == 0);
-    check("now format 46, on bank A", proj.format == 46u && PROJ_FORMAT == 46u && proj.bank == 0 && proj.mtime == MTIME_DEF);
+    check("now format 47, on bank A", proj.format == 47u && PROJ_FORMAT == 47u && proj.bank == 0 && proj.mtime == MTIME_DEF);
     check("a value 0.1 didn't have (Weight's depth) at its default", proj.par[P_GD_0] == dr_param_info(P_GD_0)->def);
     check("its sound is kept", proj.par[DR_GP(0, GP_PITCH)] == 4321);
     check("Colour pink (1) becomes 100, white stays 0",
@@ -826,6 +826,56 @@ int main(void)
         check("GHOST level and migrated banks persist on save and reload",
               project_save() == 0 && project_load() == 0 &&
               proj.par[P_GHOST] == 64 && scene_get(BANK_D, 0)[DR_GP(0, GP_PITCH)] == 4900);
+    }
+    {   /* Format 46 scenes, independent banks, and labels migrate to
+         * format 47 with the event level at its original 50 setting. */
+        static proj_v46_t old;
+        static bank_v46_t b;
+        static bank8_v46_t d;
+        int i;
+        memset(store_n, 0, sizeof store_n);
+        memset(&old, 0, sizeof old);
+        old.magic = PROJ_MAGIC;
+        old.format = 46u;
+        old.bank = BANK_D;
+        old.mtime = MTIME_DEF;
+        for (i = 0; i < NP46; i++)
+            old.par[i] = dr_param_info(i)->def;
+        old.par[P_GHOST] = 64;
+        old.scene_used = 1u;
+        memcpy(old.scene[0], old.par, sizeof old.par);
+        old.scene[0][DR_GP(0, GP_PITCH)] = 4700;
+        memcpy(old.slot_name[0][0], "OLD DRONE", 10);
+        memcpy(store[OBJ_PROJ], &old, sizeof old);
+        store_n[OBJ_PROJ] = (int)sizeof old;
+        memset(&b, 0, sizeof b);
+        b.magic = BANK_MAGIC; b.format = 46u; b.used = 1u;
+        memcpy(b.scene[0], old.par, sizeof old.par);
+        b.scene[0][DR_GP(0, GP_PITCH)] = 4800;
+        memcpy(store[OBJ_BANKB], &b, sizeof b);
+        store_n[OBJ_BANKB] = (int)sizeof b;
+        memset(&d, 0, sizeof d);
+        d.magic = BANK_MAGIC; d.format = 46u; d.used = 1u;
+        memcpy(d.scene[0], old.par, sizeof old.par);
+        d.scene[0][DR_GP(0, GP_PITCH)] = 4900;
+        memcpy(store[OBJ_BANKD], &d, sizeof d);
+        store_n[OBJ_BANKD] = (int)sizeof d;
+        check("format-46 project, A/B/D scenes, and labels migrate intact",
+              project_load() == 0 && proj.format == PROJ_FORMAT &&
+              proj.par[P_GHOST] == 64 && proj.par[P_GHOST_EVENT] == 50 &&
+              scene_get(0, 0)[DR_GP(0, GP_PITCH)] == 4700 &&
+              scene_get(1, 0)[DR_GP(0, GP_PITCH)] == 4800 &&
+              scene_get(BANK_D, 0)[DR_GP(0, GP_PITCH)] == 4900 &&
+              scene_get(0, 0)[P_GHOST_EVENT] == 50 &&
+              scene_get(1, 0)[P_GHOST_EVENT] == 50 &&
+              scene_get(BANK_D, 0)[P_GHOST_EVENT] == 50 &&
+              !strcmp(proj.slot_name[0][0], "OLD DRONE"));
+        proj.par[P_GHOST_EVENT] = 72;
+        check("format-47 event level persists independently of old scenes",
+              project_save() == 0 && project_load() == 0 &&
+              proj.par[P_GHOST_EVENT] == 72 &&
+              scene_get(0, 0)[P_GHOST_EVENT] == 50 &&
+              scene_get(BANK_D, 0)[DR_GP(0, GP_PITCH)] == 4900);
     }
     printf("project: %s\n", fails ? "FAILED" : "all ok");
     {   /* Complete authored progressions round-trip with each of A-F's eight slots.

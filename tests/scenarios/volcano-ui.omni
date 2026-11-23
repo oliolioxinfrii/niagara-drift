@@ -31,11 +31,13 @@ shot mantle-drive.png
 page 6
 wait 150
 shot deep-mantle-lfo.png
-# Holding HOME opens the temporary atlas, then returns to the prior page.
+# Holding HOME shows atmospheric and lava motion, then restores the page.
 press HOME
 expect view 0
 wait 600
 shot geological-atlas.png
+wait 900
+shot geological-atlas-moving.png
 release HOME
 expect view 6
 page 7
@@ -60,8 +62,21 @@ page 11
 wait 150
 shot setup-time-overlay.png
 page 12
+battery 100
+expect battery 100
 wait 150
 shot planet-tuning-stereo.png
+battery 90
+expect battery 90
+shot planet-battery-90.png
+battery 50
+shot planet-battery-50.png
+battery 0
+shot planet-battery-0.png
+battery -1
+expect battery -1
+shot planet-battery-unavailable.png
+battery 100
 spin K3 -100
 wait 120
 shot planet-stereo-narrow.png

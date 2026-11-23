@@ -67,6 +67,31 @@ int main(void)
     check_event("Event accent returns to unity after resonator decay",
                 recovered == 1.0f);
 
+    {   /* Original intensity is the midpoint; zero gates both excitation
+         * and the brief output accent, with no ordinary GHOST level change. */
+        float zero = 0.0f, one = 0.0f, two = 0.0f;
+        int level, j;
+        for (level = 0; level < 3; level++) {
+            float common = 0.0f, low = 0.0f, high = 0.0f;
+            ghost_event_reset();
+            ghost_event_level = (float)level;
+            ghost_event_fire(1u);
+            for (j = 0; j <= 300; j++)
+                ghost_event_tick(&common, &low, &high, 0.11f, 0.13f);
+            if (level == 0) zero = common;
+            if (level == 1) one = common;
+            if (level == 2) two = common;
+        }
+        check_event("Event intensity 0 silences impact; 100 exceeds 50",
+                    zero == 0.0f && one > 0.0f && two > 1.8f * one);
+        ghost_event_level = 0.0f;
+        ghost_event_reset();
+        ghost_event_fire(1u);
+        check_event("Event intensity 0 does not boost the unchanged GHOST body",
+                    ghost_event_output_gain(0.70710678f) == 1.0f);
+        ghost_event_level = 1.0f;
+    }
+
     const float scrape_live = inject_rms(1, 1, 2);
     const float scrape_one = inject_rms(1, 0, 2);
     const float bow_live = inject_rms(2, 1, 0);

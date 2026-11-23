@@ -67,16 +67,19 @@ expect midigate1 1
 expect pitch0 3600
 expect pitch1 4800
 
-# A third note waits silently, never stealing a held key. Releasing
-# that waiting note before either assigned note cancels the request.
+# A third held note does not add a voice: it glides the closest
+# SOUNDING drone (C4 is nearest C3 on drone II) over Scene Time.
 midi 90 3C 64
 wait 20
 expect midinote0 36
-expect midinote1 48
-expect midiwait 60
+expect midiglide1 1
+expect miditarget1 60
+expect midiextra 60
+expect midiextraslot 1
 midi 80 3C 00
 wait 20
-expect midiwait -1
+expect midiextra -1
+expect miditarget1 48
 
 # Release C3 and replace exactly drone II, AFTER the 50ms fade.
 midi 80 30 00
@@ -112,26 +115,37 @@ wait 20
 expect midigate0 1
 expect midigate1 1
 
-# A third note pressed BEFORE release takes whichever slot is
-# released first. Here B2 (Drone I) is released: waiting C4 takes I,
-# while B3 (Drone II) continues.
+# Third C4 glides nearest drone II from B3 (59) toward C4 (60).
+# Releasing B2 (Drone I) does not reassign or interrupt that glide.
 midi 90 3C 64
 wait 20
-expect midiwait 60
+expect midiextra 60
+expect midiextraslot 1
+expect miditarget1 60
 expect midinote0 47
-expect midinote1 59
 midi 80 2F 00
 wait 20
 expect midigate0 0
-expect midipending0 60
-expect midiwait -1
+expect midiglide1 1
+expect miditarget1 60
+# D4 is a new ordinary trigger on the released Drone I; it waits
+# for B2 to finish fading before D4 sounds, even while II is gliding.
+midi 90 3E 64
+wait 18
+expect midipending0 62
 wait 130
-expect midinote0 60
-expect midinote1 59
+expect midinote0 62
 expect midigate0 1
+# Releasing third C4 while the original B3 remains held starts
+# a scene-time return glide toward B3, not a gate release.
+midi 80 3C 00
+wait 20
+expect midiextra -1
+expect midigate1 1
+expect miditarget1 59
 
 # Release both, reassign first subsequent note to Drone I.
-midi 80 3C 00
+midi 80 3E 00
 midi 80 3B 00
 wait 110
 expect midigate0 0

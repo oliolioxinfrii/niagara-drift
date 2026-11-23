@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 # External MIDI dual-drone trigger experiment
 
-**Branch:** `experiment/volcano-midi-dual-trigger` (forked from the
-merged `main` with half-rate GHOST and reactive excitation keys).
+**Branch:** `experiment/volcano-midi-pedal-seq-curves`, based on the
+hardware-tested sustained/chained MIDI glide experiment and its GHOST foundation.
 
 **Status:** Source and host regressions committed. This merged firmware
 has **not** been compiled or hardware-timed in the assistant environment.
@@ -18,7 +18,7 @@ is not inferred from a cable insertion or the first Note On.
 | PLAY | Normal continuous drone transport | Arms/disarms MIDI-triggered audio without changing mode |
 | At rest | Stopped until PLAY pressed | Both drone envelopes closed; LFO I/II phase clocks and Swell run |
 | Drone tuning | Panel knobs, pitch link, sequences | External MIDI keys independently assign two drone pitches |
-| Sequencer | SEL+PLAY available | Stopped; SEL+PLAY does not start it |
+| Sequencer | SEL+PLAY available; Sequence/Intervals/Transitions editable | Stopped; three SEQ edit pages dimmed/read-only, knob attempts show disabled banner |
 | Drone I/II outputs | SEL+OCT−/OCT+ | Gated only by external MIDI Note On/Off |
 | GLO button without SEL | Setup pages | Setup pages |
 
@@ -61,12 +61,14 @@ STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
   If a fourth key is closest to the **already gliding** drone, it is
   ignored without being redirected. If closest to the **other** drone,
   it starts another simultaneous glide. Neither case adds any voice.
-- Releasing the original note during a glide does not interrupt the
-  third note. On **actual DSP completion**, if that original note is
-  no longer held/sustained, the gliding note becomes the new primary
-  owner. It may then glide again to another key, without any limit on
-  the number of successive transitions. A key ignored while the
-  drone was busy must be physically re-pressed to be considered.
+- Releasing the original note during a glide does not interrupt
+  its extra note. On **actual DSP completion**, a held destination
+  becomes primary if the older original has been released.
+  **With CC64 depressed**, the completed destination becomes primary
+  even if the older note remains physically held or pedal-latched,
+  allowing unlimited serial glides without touching the pedal. New
+  notes targeting a drone still gliding are ignored (and require
+  re-press), while the other drone can glide simultaneously.
 - Releasing an extra key while its original remains held triggers a
   Scene-Time return glide; that voice remains unavailable to new
   overlapping glide targets until the return finishes. Releasing
@@ -74,13 +76,15 @@ STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
 - Ordinary Note On after a slot is freed STILL uses its former
   fade-out/retune/fade-in behavior, regardless of when the replacement
   arrives during the old note's FADE.
-- Note On with velocity zero functions as Note Off. MIDI sustain
-  pedal **CC64 >=64** latches notes after key release (including the
-  third-note glide target); **CC64 <64** releases only physically
-  released keys. Each channel's pedal state is independent. CC120
-  and CC123 explicitly release notes on that channel, regardless
-  of pedal state. Other MIDI messages, including MIDI clock,
-  continue their original behavior.
+- Note On with velocity zero functions as Note Off. Sustain pedal
+  **CC64 >=64** latches note releases and allows a finished glide
+  destination to supersede the previous owner. **On CC64 <64**,
+  a drone survives ONLY if its exact currently sounding note (or
+  active glide destination) is physically held. If that destination
+  has been lifted, the drone fades out using FADE, even if an
+  earlier superseded key is still physically held. Other MIDI
+  channels' sustain state is independent. CC120 and CC123 explicitly
+  release notes regardless of pedal state.
 - MIDI pitches are **temporary**, not written to saved project
   parameters. Only **SEL+GLO** exits MIDI mode. PLAY in MIDI mode
   stops or restarts MIDI note triggering; the stored pitch link
@@ -106,16 +110,33 @@ STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
 
 With no held notes, a subsequent Note On again takes Drone I.
 
+## Sequencer curve update
+
+The SEQ **Transitions** page retains its four independent curve graphs,
+LATE–SINE–EARLY ruler, and knob layout, but the curve controls no longer
+use continuous percentage sliders. Each detent steps through **Late,
+Pw (cubic power), Quad, Sine, Line, Sqrt, Log, Early**. The graph
+renders the exact interpolation used by the sequencer. Previously
+saved percentages convert to the nearest named type when loaded.
+
+While **SEL+GLO MIDI mode** is active, the Sequence, Intervals and
+Transitions pages remain navigable but their existing content is dimmed
+and read-only; turning a knob reports "SEQUENCER DISABLED" without
+changing stored sequence data. The Partner and Pitch moves controls
+remain available and SEL+PLAY cannot start the sequence.
+
 ## Implementation
 
-- `firmware/src/app/midi_duo.h`: two-slot allocator with a separate
-  extra held target per drone; it tracks physical key release, per-channel
-  CC64 sustain and which drone received the latest accepted Note On.
-  Each drone has at most one active extra target. This remains two voices.
-- `firmware/src/app/ui.c`: SEL+GLO toggles mode and stops the
-  sequencer on entry; Note On/Off/velocity-zero only reach the note
-  allocator when MIDI mode is armed. Neither mode nor MIDI notes
-  change `proj.par[GP_PITCH]`. PLAY remains a transport control.
+- `firmware/src/app/midi_duo.h`: two-slot allocator with one extra
+  target per drone, physical-note tracking, CC64 sustain and
+  nearest-pitch/tie-breaking logic. Under pedal sustain, a completed
+  target supersedes earlier held notes; pedal-up keeps only the
+  physically held exact current note or glide target.
+- `firmware/src/app/ui.c`: SEL+GLO toggles modes and stops the
+  sequencer on entry. All SEQ note/interval/transition editors are
+  disabled in MIDI mode; attempts show a banner. MIDI Note On/Off/CC64
+  only change the transient allocator when MIDI mode is armed, never
+  saved `proj.par[GP_PITCH]`.
 - `firmware/src/dsp/drone.c`: explicit `C_MIDI_MODE` enables the
   two MIDI voice gates and temporarily forces the existing Swell
   engine active; `C_MIDI_NOTE` controls FADE-based attacks and

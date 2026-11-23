@@ -97,7 +97,9 @@ static inline int midi_duo_on(midi_duo_t *d, unsigned channel,
         const float p = (float)note;
         const float a = pitch0 > p ? pitch0 - p : p - pitch0;
         const float b = pitch1 > p ? pitch1 - p : p - pitch1;
-        g = a < b ? 0 : b < a ? 1 : (int)d->last_slot;
+        /* 0.001 semitone = 0.1 cent: small DSP smoothing differences
+         * must not override a mathematically equidistant tie. */
+        g = a + 0.001f < b ? 0 : b + 0.001f < a ? 1 : (int)d->last_slot;
     }
     if (d->extra[g] >= 0 || (g == 0 ? busy0 : busy1))
         return -1; /* nearest is busy: ignore, never steal/redirect */

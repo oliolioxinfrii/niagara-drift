@@ -743,7 +743,7 @@ void dr_param_text(int i, int v, char *b)
 }
 
 /* -------------------------------------------------------------- commands --- */
-enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC, C_MIDI_NOTE, C_MIDI_MODE };
+enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC, C_MIDI_NOTE, C_MIDI_MODE, C_MIDI_GLIDE_TIME, C_MIDI_GLIDE };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
 #define QN 256u
@@ -768,6 +768,19 @@ void dr_midi_note(int g, int note, int on)
         post(C_MIDI_NOTE, g, note | (on ? 256 : 0));
 }
 void dr_midi_mode_set(int on) { post(C_MIDI_MODE, on != 0, 0); }
+/* Scene Time may be up to five minutes; the queue's 16-bit payload
+ * carries centiseconds (0..30000) before the corresponding note.
+ * Both commands are consumed in order on the audio DSP core. */
+void dr_midi_glide(int g, int note, float scene_seconds)
+{
+    int cs;
+    if ((unsigned)g >= DR_NGROUPS || (unsigned)note >= 128u) return;
+    cs = (int)(100.0f * scene_seconds + 0.5f);
+    if (cs < 1) cs = 1;
+    if (cs > 30000) cs = 30000;
+    post(C_MIDI_GLIDE_TIME, g, cs);
+    post(C_MIDI_GLIDE, g, note);
+}
 void dr_panic(void) { post(C_PANIC, 0, 0); }
 void dr_duck(int on) { post(C_DUCK, on, 0); }
 void dr_slide(int g, int ms) { post(C_SLIDE, g, ms); }
@@ -1105,6 +1118,30 @@ static float rnd(void)                            /* -1..1 */
  * during a retrigger. No project parameter is written. */
 static uint8_t midi_mode, midi_exit_pending, midi_resume_panel_pending;
 static int16_t midi_note_now[DR_NGROUPS], midi_note_pending[DR_NGROUPS];
+/* One interpolated pitch per existing drone; no oscillator/voice allocation.
+ * A scene-time glide starts from the pitch currently sounding, without
+ * touching the ordinary off/on fade-retrigger path or saved parameters.
+ * The MIDI glide bypasses P_GLIDE so its duration is precisely Scene Time. */
+static uint8_t midi_glide_active[DR_NGROUPS], midi_pitch_frozen[DR_NGROUPS];
+static int16_t midi_glide_dest[DR_NGROUPS];
+static uint16_t midi_glide_cs[DR_NGROUPS]; /* most recently queued scene duration, 10ms units */
+static uint32_t midi_glide_left[DR_NGROUPS];
+static float midi_glide_pitch[DR_NGROUPS], midi_glide_step[DR_NGROUPS];
+static float midi_pitch_hold[DR_NGROUPS];
+static void midi_stop_glide(int g)
+{
+    if (midi_glide_active[g]) {
+        midi_glide_active[g] = 0u;
+        midi_pitch_frozen[g] = 1u;
+        midi_pitch_hold[g] = grp[g].pitch;
+        grp[g].st = grp[g].pitch;
+        grp[g].slide = 0.0f;
+    }
+}
+float dr_midi_pitch_get(int g) { return (unsigned)g < DR_NGROUPS ? grp[g].pitch : -1.0f; }
+int dr_midi_glide_get(int g) { return (unsigned)g < DR_NGROUPS && midi_glide_active[g]; }
+int dr_midi_target_get(int g) { return (unsigned)g < DR_NGROUPS ?
+    (midi_glide_active[g] ? midi_glide_dest[g] : midi_note_now[g]) : -1; }
 /* A replacement note is retuned only at zero output. Snap the silent
  * oscillator pitch and its two anti-click one-poles BEFORE opening its
  * envelope, so the prior note does not glissando into the replacement
@@ -1116,6 +1153,7 @@ static void midi_start_voice(int g, int note)
     const float pitch = (float)note;
     midi_note_now[g] = (int16_t)note;
     midi_note_pending[g] = -1;
+    midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
     v->pitch = v->ps1 = v->ps2 = v->st = pitch;
     v->slide = v->lslide = 0.0f;
     v->gtarget = 1.0f;
@@ -1184,7 +1222,11 @@ void dr_init(void)
     voice_fade_step = (float)CR / (DR_SR * fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.020f));
     midi_mode = midi_exit_pending = midi_resume_panel_pending = 0;
     for (g = 0; g < DR_NGROUPS; g++) {
-        midi_note_now[g] = midi_note_pending[g] = -1;
+        midi_note_now[g] = midi_note_pending[g] = midi_glide_dest[g] = -1;
+        midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
+        midi_glide_cs[g] = 100u; /* default 1.00s until first scene command */
+        midi_glide_left[g] = 0u;
+        midi_glide_pitch[g] = midi_glide_step[g] = midi_pitch_hold[g] = 0.0f;
     }
     for (g = 0; g < DR_NGROUPS; g++) {
         grp_t *v = &grp[g];
@@ -1813,6 +1855,7 @@ static void drain(void)
                     grp[g].gtarget = 0.0f;
                     grp[g].out_fade_step = 0.0f;
                     midi_note_now[g] = midi_note_pending[g] = -1;
+                    midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
                 }
 #if OM_FX_CPU1 && !defined(OM_HOST)
                 fx_c1_silence = 0;
@@ -1828,7 +1871,29 @@ static void drain(void)
                 for (g = 0; g < DR_NGROUPS; ++g) {
                     grp[g].gtarget = 0.0f;
                     midi_note_pending[g] = -1;
+                    midi_stop_glide(g);
                 }
+            }
+            break;
+        case C_MIDI_GLIDE_TIME:
+            if ((unsigned)a < DR_NGROUPS)
+                midi_glide_cs[a] = (uint16_t)(b < 1 ? 1 : b > 30000 ? 30000 : b);
+            break;
+        case C_MIDI_GLIDE:
+            if (midi_mode && !midi_exit_pending && fade_target > 0.0f &&
+                (unsigned)a < DR_NGROUPS && (unsigned)b < 128u &&
+                midi_note_now[a] >= 0 && grp[a].gtarget > 0.5f) {
+                const float from = grp[a].pitch;
+                uint32_t ticks = (uint32_t)((float)midi_glide_cs[a] *
+                                   (0.01f * DR_SR / (float)CR) + 0.5f);
+                if (!ticks) ticks = 1u;
+                midi_glide_pitch[a] = from;
+                midi_glide_dest[a] = (int16_t)b;
+                midi_glide_left[a] = ticks;
+                midi_glide_step[a] = ((float)b - from) / (float)ticks;
+                midi_glide_active[a] = 1u;
+                midi_pitch_frozen[a] = 0u;
+                grp[a].slide = 0.0f;
             }
             break;
         case C_MIDI_NOTE:
@@ -1849,6 +1914,7 @@ static void drain(void)
                 } else {
                     midi_note_pending[a] = -1;
                     v->gtarget = 0.0f;
+                    midi_stop_glide(a); /* original and extra key both released */
                 }
             }
             break;
@@ -1874,6 +1940,7 @@ static void drain(void)
             midi_mode = midi_exit_pending = midi_resume_panel_pending = 0u;
             for (g = 0; g < DR_NGROUPS; g++) {
                 midi_note_now[g] = midi_note_pending[g] = -1;
+                midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
                 grp[g].gf = grp[g].gtarget = 0.0f;
                 grp[g].ic1 = grp[g].ic2 = grp[g].bc = 0.0f;
             }
@@ -2817,9 +2884,10 @@ static DR_RAM_CODE void render_group(int g, uint32_t n)
      * so it can't sit half a cycle out and cancel it (it did: -20 dB, depending on what came before), and
      * Drift's wanders don't beat them. Any Detune lets it go. */
     const int plock = !v->ovon && iv == DR_IV_UNISON && pv[GP_DETUNE] < 0.5f;
-    const float tune = 12.0f * fm_log2f(1.0f + (float)par[P_TUNE] * (1.0f / 4400.0f)),   /* A in Hz, as semitones */
-                target = midi_mode && midi_note_now[g] >= 0 ?
-                         (float)midi_note_now[g] : (float)p[GP_PITCH] * 0.01f;
+    const float tune = 12.0f * fm_log2f(1.0f + (float)par[P_TUNE] * (1.0f / 4400.0f)); /* A in Hz, semitones */
+    float target = midi_mode && midi_note_now[g] >= 0 ?
+                   (midi_pitch_frozen[g] ? midi_pitch_hold[g] :
+                    (float)midi_note_now[g]) : (float)p[GP_PITCH] * 0.01f;
     /* the cutoff, 0..1000 = log2 20 .. log2 18000 */
     const float cut_t = 4.32192809f + pv[GP_CUTOFF] * 0.00981378f;
     /* the links, on drone II: hard sync, pitch link, cross-mod (12 octaves a unit of drone I's sound, at
@@ -2867,20 +2935,34 @@ static DR_RAM_CODE void render_group(int g, uint32_t n)
         /* control rate: glide, drift, pitch, cutoff, fade. A knob's detents slide (dr_slide: a straight line at
          * the rate asked for), and the Glide follows the slide, so it smooths knob turns, scenes and the motion
          * loop as well as MIDI notes (the slide replaced it: knob turns arrived at once at any Glide) */
-        if (v->slide > 0.0f) {
-            float d = target - v->st;
-            if (fm_fabsf(d) <= v->slide) {
-                v->st = target;
-                v->slide = 0.0f;
-            } else {
-                v->st += d > 0.0f ? v->slide : -v->slide;
+        if (midi_glide_active[g]) {
+            /* The third held note interpolates the LIVE pitch at control
+             * rate, reaching its destination in the current Scene Time.
+             * Do not additionally apply the unrelated global GLIDE. */
+            midi_glide_pitch[g] += midi_glide_step[g];
+            if (--midi_glide_left[g] == 0u) {
+                midi_glide_pitch[g] = (float)midi_glide_dest[g];
+                midi_note_now[g] = midi_glide_dest[g];
+                midi_glide_active[g] = 0u;
+                target = midi_glide_pitch[g];
             }
+            v->pitch = v->st = midi_glide_pitch[g];
         } else {
-            v->st = target;
+            if (v->slide > 0.0f) {
+                float d = target - v->st;
+                if (fm_fabsf(d) <= v->slide) {
+                    v->st = target;
+                    v->slide = 0.0f;
+                } else {
+                    v->st += d > 0.0f ? v->slide : -v->slide;
+                }
+            } else {
+                v->st = target;
+            }
+            v->pitch += (v->st - v->pitch) * glide_k;
+            if (fm_fabsf(v->st - v->pitch) < 1e-4f)
+                v->pitch = v->st;
         }
-        v->pitch += (v->st - v->pitch) * glide_k;
-        if (fm_fabsf(v->st - v->pitch) < 1e-4f)
-            v->pitch = v->st;
         if (g == 0) {
             ptick[j0 / CR] = v->pitch;
         } else if (link) {                      /* PITCH LINK: drone I's pitch now, plus the offset */
@@ -4036,6 +4118,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
             midi_mode = midi_exit_pending = 0u;
             for (g = 0; g < DR_NGROUPS; ++g) {
                 midi_note_now[g] = midi_note_pending[g] = -1;
+                midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
                 grp[g].gf = grp[g].gtarget =
                     par[g ? P_II_OUT : P_I_OUT] ? 0.0f : 1.0f;
                 grp[g].out_fade_step = 0.0f;

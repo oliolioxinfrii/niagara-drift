@@ -743,7 +743,7 @@ void dr_param_text(int i, int v, char *b)
 }
 
 /* -------------------------------------------------------------- commands --- */
-enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC };
+enum { C_SET, C_PLAY, C_VOICE, C_PANIC, C_SLIDE, C_LFO_RESET, C_PSLIDE, C_SEED, C_DUCK, C_GEST, C_SUB, C_SUB_RETURN, C_LFO_TRANSPORT, C_GHOST_EXC, C_MIDI_NOTE };
 /* a load (boot, project_apply) posts every value at once, before the render drains any: the queue holds
  * them all (at 64 the last values of a saved sound were dropped at start-up, the macros among them) */
 #define QN 256u
@@ -762,6 +762,11 @@ static void post(uint32_t c, int a, int b)
 void dr_set(int p, int v) { post(C_SET, p, v); }
 void dr_play(int on) { post(C_PLAY, on, 0); }
 void dr_voice(int g, int on) { post(C_VOICE, g, on); }
+void dr_midi_note(int g, int note, int on)
+{
+    if ((unsigned)g < DR_NGROUPS && (unsigned)note < 128u)
+        post(C_MIDI_NOTE, g, note | (on ? 256 : 0));
+}
 void dr_panic(void) { post(C_PANIC, 0, 0); }
 void dr_duck(int on) { post(C_DUCK, on, 0); }
 void dr_slide(int g, int ms) { post(C_SLIDE, g, ms); }
@@ -1091,6 +1096,19 @@ static float rnd(void)                            /* -1..1 */
     return (float)(int32_t)rng * (1.0f / 2147483648.0f);
 }
 
+/* External MIDI temporarily gates these same two oscillator/resonator
+ * sources, rather than adding a keyboard synth. Only the audio ISR owns
+ * the actual pitch and gate envelope; external UI merely posts commands.
+ * A new key on an occupied/fading slot is held pending until the old
+ * note's global-FADE release has reached zero, preventing pitch glissandi
+ * during a retrigger. No project parameter is written. */
+static uint8_t midi_mode;
+static int16_t midi_note_now[DR_NGROUPS], midi_note_pending[DR_NGROUPS];
+int dr_midi_mode_get(void) { return midi_mode != 0; }
+int dr_midi_note_get(int g) { return (unsigned)g < DR_NGROUPS ? midi_note_now[g] : -1; }
+int dr_midi_pending_get(int g) { return (unsigned)g < DR_NGROUPS ? midi_note_pending[g] : -1; }
+int dr_midi_gate_get(int g) { return (unsigned)g < DR_NGROUPS && grp[g].gtarget > 0.5f; }
+
 static float voice_fade_step;                   /* per CR samples: SEL+OCT uses MORPH TIME */
 static float fade_rate(void)                      /* per sample: 0.05 s * 1200^(v/100) for a full fade */
 {
@@ -1148,6 +1166,10 @@ void dr_init(void)
         pslide_ms[i] = 0;
     }
     voice_fade_step = (float)CR / (DR_SR * fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.020f));
+    midi_mode = 0;
+    for (g = 0; g < DR_NGROUPS; g++) {
+        midi_note_now[g] = midi_note_pending[g] = -1;
+    }
     for (g = 0; g < DR_NGROUPS; g++) {
         grp_t *v = &grp[g];
         *v = (grp_t){0};
@@ -1678,7 +1700,7 @@ static void drain(void)
                         if (grp[g].out_fade_step > 0.0f)
                             grp[g].out_fade_step = voice_fade_step;
                 }
-                if (a == P_I_OUT || a == P_II_OUT) {
+                if (!midi_mode && (a == P_I_OUT || a == P_II_OUT)) {
                     grp_t *v = &grp[a == P_II_OUT];
                     v->gtarget = b ? 0.0f : 1.0f;
                     v->out_fade_step = voice_fade_step;
@@ -1740,17 +1762,66 @@ static void drain(void)
             if (a < DR_NGROUPS)
                 grp[a].slide_ms = (uint16_t)(b < 1 ? 1 : b > 30000 ? 30000 : b);
             break;
-        case C_PLAY:
+        case C_PLAY: {
+            int g;
+            /* The FM-1 PLAY key resumes its familiar continuous-drone
+             * transport; MIDI note gates do not alter its saved state. */
+            if (midi_mode) {
+                midi_mode = 0u;
+                for (g = 0; g < DR_NGROUPS; ++g) {
+                    midi_note_now[g] = midi_note_pending[g] = -1;
+                    grp[g].gtarget = par[g ? P_II_OUT : P_I_OUT] ? 0.0f : 1.0f;
+                    grp[g].out_fade_step = 0.0f;
+                }
+            }
             fade_target = a ? 1.0f : 0.0f;
 #if OM_FX_CPU1 && !defined(OM_HOST)
             if (a) fx_c1_silence = 0;
 #endif
             break;
+        }
+        case C_MIDI_NOTE:
+            if ((unsigned)a < DR_NGROUPS) {
+                grp_t *v = &grp[a];
+                if (b & 256) {
+                    const int note = b & 127;
+                    int g;
+                    if (!midi_mode) {
+                        /* First incoming note takes ownership of the
+                         * existing two voices; do not abruptly sound
+                         * the prior panel tuning or restore it at key-up. */
+                        midi_mode = 1u;
+                        for (g = 0; g < DR_NGROUPS; ++g) {
+                            grp[g].gf = grp[g].gtarget = 0.0f;
+                            grp[g].out_fade_step = 0.0f; /* use global FADE */
+                            midi_note_now[g] = midi_note_pending[g] = -1;
+                        }
+                    }
+#if OM_FX_CPU1 && !defined(OM_HOST)
+                    fx_c1_silence = 0;
+#endif
+                    /* Retune only at the silent end of any prior note.
+                     * The queued pitch always replaces an older pending
+                     * pitch, so no third sounding voice is possible. */
+                    if (v->gf <= 0.0f) {
+                        midi_note_now[a] = (int16_t)note;
+                        midi_note_pending[a] = -1;
+                        v->gtarget = 1.0f;
+                    } else {
+                        midi_note_pending[a] = (int16_t)note;
+                        v->gtarget = 0.0f;
+                    }
+                } else if (midi_mode) {
+                    midi_note_pending[a] = -1;
+                    v->gtarget = 0.0f;
+                }
+            }
+            break;
         case C_DUCK:
             duck_to = a ? 0.0f : 1.0f;
             break;
         case C_VOICE:
-            if (a < DR_NGROUPS) {
+            if (!midi_mode && a < DR_NGROUPS) {
                 grp[a].gtarget = b ? 1.0f : 0.0f;
                 grp[a].out_fade_step = 0.0f;  /* existing dr_voice callers retain FADE */
             }
@@ -1765,8 +1836,12 @@ static void drain(void)
             fx_clear();                          /* silence now: the echoes and the tail too */
 #endif
             fade = fade_target = 0.0f;
-            for (g = 0; g < DR_NGROUPS; g++)
+            midi_mode = 0u;
+            for (g = 0; g < DR_NGROUPS; g++) {
+                midi_note_now[g] = midi_note_pending[g] = -1;
+                grp[g].gf = grp[g].gtarget = 0.0f;
                 grp[g].ic1 = grp[g].ic2 = grp[g].bc = 0.0f;
+            }
             for (g = 0; g < (int)FB_N; g++)      /* and nothing left to feed back */
                 fb_ring[g] = 0.0f;
             fb_c = 1.0f;
@@ -2242,7 +2317,7 @@ typedef struct {
     float l[BLK], r[BLK];  /* parent dry stereo, then GHOST and FX in-place */
     float source_a[BLK], source_b[BLK], ghost_wet[BLK];
     float ghost_pitch[2];
-    uint8_t ghost_mute, ghost_active, ghost_tail_closed, ghost_events;
+    uint8_t ghost_mute, ghost_active, ghost_tail_closed, ghost_events, midi_audio;
     int16_t par[DR_NPARAMS];
     float pfs[DR_NPARAMS], lfo[2][BLK / CR + 1];
     float fade, fade_target, ext_spb;
@@ -2304,6 +2379,8 @@ static void fx_c1_snapshot(fx_c1_slot_t *s)
     s->fade = fade;
     s->fade_target = fade_target;
     s->ext_spb = dr_ext_spb;
+    s->midi_audio = midi_mode && (grp[0].gf > 0.0f || grp[0].gtarget > 0.0f ||
+                                 grp[1].gf > 0.0f || grp[1].gtarget > 0.0f);
 }
 static void fx_c1_init_snapshot(void)
 {
@@ -2320,7 +2397,8 @@ static void fx_c1_job(uint32_t slot)
     ghost_cpu1_mix(fx_c1_ctx);  /* same source block as its parents, before FX */
     if (fx_c1_ctx->clear)
         fx_clear();
-    if (fx_c1_ctx->fade > 0.0f || fx_c1_ctx->fade_target > 0.0f || fx_quiet < 160u) {
+    if (fx_c1_ctx->fade > 0.0f || fx_c1_ctx->fade_target > 0.0f ||
+        fx_c1_ctx->midi_audio || fx_quiet < 160u) {
         fx_run(fx_c1_ctx->l, fx_c1_ctx->r, BLK);
         for (j = 0; j < BLK; j++)
             pk = fm_maxf(pk, fm_maxf(fm_fabsf(fx_c1_ctx->l[j]), fm_fabsf(fx_c1_ctx->r[j])));
@@ -2705,12 +2783,13 @@ static DR_RAM_CODE void render_group(int g, uint32_t n)
      * Drift's wanders don't beat them. Any Detune lets it go. */
     const int plock = !v->ovon && iv == DR_IV_UNISON && pv[GP_DETUNE] < 0.5f;
     const float tune = 12.0f * fm_log2f(1.0f + (float)par[P_TUNE] * (1.0f / 4400.0f)),   /* A in Hz, as semitones */
-                target = (float)p[GP_PITCH] * 0.01f;
+                target = midi_mode && midi_note_now[g] >= 0 ?
+                         (float)midi_note_now[g] : (float)p[GP_PITCH] * 0.01f;
     /* the cutoff, 0..1000 = log2 20 .. log2 18000 */
     const float cut_t = 4.32192809f + pv[GP_CUTOFF] * 0.00981378f;
     /* the links, on drone II: hard sync, pitch link, cross-mod (12 octaves a unit of drone I's sound, at
      * the top: its sound is about +-0.3, so +-3.6 octaves) */
-    const int link = g == 1 && par[P_PLINK];
+    const int link = g == 1 && par[P_PLINK] && !midi_mode;
     const float xamt = g == 1 ? depth_amtf(pfs[P_XMOD_AMT]) * 12.0f : 0.0f;
     const float famt_x = depth_amtf(pfs[P_XMOD_AMT]) * 10.0f;   /* CROSS-FM: the other's sound (~+-0.3) x 10 at the top */
     const float frate = v->out_fade_step > 0.0f ?
@@ -3916,6 +3995,16 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         int g;
         float frate = fade_rate();
         PROF_START;
+        if (midi_mode) {
+            /* The old note finishes its FADE before the replacement
+             * begins; the last incoming MIDI key has priority. */
+            for (g = 0; g < DR_NGROUPS; ++g)
+                if (midi_note_pending[g] >= 0 && grp[g].gf <= 0.0f) {
+                    midi_note_now[g] = midi_note_pending[g];
+                    midi_note_pending[g] = -1;
+                    grp[g].gtarget = 1.0f;
+                }
+        }
         for (j = 0; j < k; j++)
             mixl[j] = mixr[j] = 0.0f;
         pf_run(k);
@@ -3926,7 +4015,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         }
         pulse_run(k);
         PROF_MARK(DR_PROF_CTRL);
-        if (fade > 0.0f || fade_target > 0.0f) {
+        if (fade > 0.0f || fade_target > 0.0f || midi_mode) {
             for (g = 0; g < DR_NGROUPS; g++) {
                 DR_FAR(render_group)(g, k);
                 PROF_MARK(DR_PROF_I + g);
@@ -3945,8 +4034,9 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                 morph_snap(g);
                 for (q = 0; q < DR_SCOPE_N; q++) /* and the drones are drawn flat */
                     dr_scope[g][q] = 0.0f;
-                float t = (float)par[DR_GP(g, GP_PITCH)] * 0.01f;
-                if (g == 1 && par[P_PLINK]) {
+                float t = midi_mode && midi_note_now[g] >= 0 ?
+                          (float)midi_note_now[g] : (float)par[DR_GP(g, GP_PITCH)] * 0.01f;
+                if (g == 1 && par[P_PLINK] && !midi_mode) {
                     v->lofs = (float)par[P_PLINK_OFF] * 0.01f;
                     t = grp[0].pitch + v->lofs;
                 }
@@ -3993,7 +4083,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         for (j = 0; j < k; j++) {                /* PLAY fade after the individual swells */
             float a;
             fade = fade_target > fade ? fm_minf(fade + frate, fade_target) : fm_maxf(fade - frate, fade_target);
-            a = fade * fade;
+            a = midi_mode ? 1.0f : fade * fade;
             mixl[j] *= a;
             mixr[j] *= a;
 #if OM_FX_CPU1 && !defined(OM_HOST)
@@ -4016,7 +4106,7 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         /* the effects, after the fade: the tails ring on when stopped. Stopped, and silent (below -120 dB)
          * for longer than the delay's line (743 ms: an echo still in it would have come out by then), they
          * rest until PLAY */
-        if (fade > 0.0f || fade_target > 0.0f || fx_quiet < 160u) {
+        if (fade > 0.0f || fade_target > 0.0f || midi_mode || fx_quiet < 160u) {
             float pk = 0.0f;
             FX_FAR(fx_run)(mixl, mixr, k);
             clean_hold(mixl, mixr, k);

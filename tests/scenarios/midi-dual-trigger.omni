@@ -1,0 +1,93 @@
+# External MIDI notes: two triggered drones, never an FM-1 physical-key remap.
+# MIDI note values: C2=0x24 (36), C3=0x30 (48),
+# B3=0x3B (59), B2=0x2F (47), C4=0x3C (60).
+# FADE=0 is 50ms; MIDI pitch must not modify project parameters.
+notips
+set 51 0
+set 0 4500
+set 21 5700
+set 45 1
+expect playing 0
+expect midimode 0
+
+# C2 first -> drone I; C3 second -> drone II; PITCH LINK ignored
+# for the external MIDI control while project settings are preserved.
+midi 90 24 64
+wait 100
+expect midimode 1
+expect midinote0 36
+expect midinote1 -1
+expect midigate0 1
+expect midigate1 0
+expect playing 0
+midi 90 30 64
+wait 100
+expect midinote0 36
+expect midinote1 48
+expect midigate1 1
+expect pitch0 3600
+expect pitch1 4800
+
+# A third note cannot steal a still-held key.
+midi 90 3C 64
+wait 15
+expect midinote0 36
+expect midinote1 48
+midi 80 3C 00
+
+# Release C3 and replace exactly drone II, AFTER the 50ms fade.
+midi 80 30 00
+wait 8
+expect midigate1 0
+midi 90 3B 64
+wait 8
+expect midinote1 48
+expect midipending1 59
+wait 130
+expect midinote1 59
+expect midigate1 1
+expect midipending1 -1
+expect midinote0 36
+
+# Release C2 while B3 remains held: B2 must take drone I.
+midi 90 24 00
+wait 8
+expect midigate0 0
+midi 90 2F 64
+wait 8
+expect midinote0 36
+expect midipending0 47
+wait 130
+expect midinote0 47
+expect midigate0 1
+expect midinote1 59
+expect midipending0 -1
+
+# Note Off for a non-held key does nothing.
+midi 80 24 00
+wait 20
+expect midigate0 1
+expect midigate1 1
+
+# Release both, reassign first subsequent note to drone I.
+midi 80 2F 00
+midi 80 3B 00
+wait 110
+expect midigate0 0
+expect midigate1 0
+midi 90 3C 64
+wait 100
+expect midinote0 60
+expect midigate0 1
+expect midigate1 0
+
+# Pressing the physical PLAY button returns to the original transport,
+# and all MIDI pitch changes remained absent from saved parameters.
+expect par0 4500
+expect par21 5700
+tap PLAY
+wait 100
+expect midimode 0
+expect playing 1
+expect par0 4500
+expect par21 5700

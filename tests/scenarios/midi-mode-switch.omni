@@ -1,0 +1,84 @@
+# Mode UX regression: GLO retains its normal pages; SEL+GLO in either
+# press order changes performance modes without a phantom SEL release.
+notips
+set 51 0
+set 55 0
+set 82 0
+set 72 0
+expect midiui 0
+expect midimode 0
+expect playing 0
+tap GLO
+expect view 11
+tap GLO
+expect view 12
+expect midiui 0
+
+# GLO-before-SEL must also form the chord, retaining the prior page.
+press GLO
+press SEL
+wait 200
+expect midiui 1
+expect midimode 1
+expect playing 1
+expect seqstate 0
+expect view 12
+expect par55 0
+expect midigate0 0
+expect midigate1 0
+release SEL
+release GLO
+wait 80
+expect midiui 1
+
+# MIDI note gates own both drones: SEL+OCT cannot write saved output
+# flags, and SEL+PLAY cannot enable pitch sequencing.
+press SEL
+tap OCT-
+release SEL
+expect par82 0
+press SEL
+tap OCT+
+release SEL
+expect par72 0
+press SEL
+tap PLAY
+release SEL
+wait 100
+expect seqstate 0
+expect playing 1
+expect midiui 1
+
+# Plain PLAY stops/restarts MIDI note input but never changes mode.
+tap PLAY
+wait 100
+expect playing 0
+expect midiui 1
+expect midimode 1
+midi 90 24 64
+wait 100
+expect midigate0 0
+tap PLAY
+wait 100
+expect playing 1
+expect midiui 1
+expect midigate0 0
+
+# SEL+GLO exits to the normal transport in its stopped state.
+press SEL
+tap GLO
+release SEL
+wait 200
+expect midiui 0
+expect midimode 0
+expect playing 0
+expect par55 0
+expect view 12
+
+# Plain GLO still cycles setup pages; normal SEL+OCT acts as before.
+tap GLO
+expect view 11
+press SEL
+tap OCT-
+release SEL
+expect par82 1

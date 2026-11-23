@@ -48,7 +48,7 @@ These four retain their established sonic transformations. Unlike STRIP/DARK/STI
 - **Hold an active key longer than approximately 220 ms:** increase again from the amount already reached.
 - **Tap from zero:** a brief press can establish a small retained amount, rather than jumping immediately to 100%.
 
-**PRESETS** adjusts **Morph Time**, also found at **GLO → Setup 1 → Morph**. It controls gesture rise and return speed, STILL phase rejoining, and the SEL+OCT drone in/out transition. The separate Gesture Time behavior and SEL-to-latch gesture shortcut are retired. The screen reports a percentage rather than a separate “latched” label.
+**SEL + PRESETS** adjusts **Morph Time**, also found at **GLO → Setup 1 → Morph**. It controls gesture rise and return speed, STILL phase rejoining, and the SEL+OCT drone in/out transition. The separate Gesture Time behavior and SEL-to-latch gesture shortcut are retired. The screen reports a percentage rather than a separate “latched” label.
 
 An active Motion Loop can replay original gesture amounts; the exact session behavior of STRIP/DARK/STILL/TAIL is separate from stored scene values.
 
@@ -64,6 +64,8 @@ These keys excite the existing GHOST eight-resonator bank, rather than introduci
 | **16 · G5** | TREMOR | Seven irregular, alternating impacts emphasizing the lower resonators | Every 900 ms |
 
 **Single tap:** one event fires immediately. **Hold:** the event repeats until release. **Double-tap:** two short presses (second press within approximately 320 ms after the first release) start automatic repeating even after release. **Press the same key once more:** cancel the latch and stop new events; resonators already ringing decay naturally. A long hold does not count toward a double-tap.
+
+**PRESETS** sets the events' shared excitation level (0–100). At 50, the events have their original intensity; 0 removes their additional excitation; at 100, it increases their injected energy and temporary GHOST accent. The setting is stored with sounds and scenes, without altering the underlying non-event GHOST timbre.
 
 Each latch operates independently, so STRIKE and TREMOR (for example) can remain running together. Latched keys pulse their LEDs; a non-latched held key illuminates steadily. GHOST MIX governs audibility: at MIX 0, GHOST is bypassed after its transition. The GHOST TAIL recovery gate also attenuates event energy while fully closed and during re-entry. SCRAPE and BOW derive their excitation from the **actual parent audio signals**, not independent noise effects, and are not intended to produce their normal excitation from a single parent.
 

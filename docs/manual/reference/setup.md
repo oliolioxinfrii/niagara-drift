@@ -26,7 +26,7 @@ These settings belong to the FM-1, not to a sound: scenes don't change them, exc
 | Knob | What it does |
 |---|---|
 | **Fade** | how long PLAY takes: up to 60 s (1.5 s to start) |
-| **Morph** | how long parameter morphs take **and** the time scale for held gesture intensity and STILL phase return: 0.02–30 s (2 s to start). The global PRESETS encoder adjusts the same setting. |
+| **Morph** | how long parameter morphs take **and** the time scale for held gesture intensity and STILL phase return: 0.02–30 s (2 s to start). Hold SEL while turning PRESETS to adjust the same setting. |
 | **Scene time** | how long a **TRANSITION** takes, from 0.1 s to 5 minutes (about 8 s to start); **LOAD** bypasses this and applies immediately |
 | **Sync** | **On** follows a MIDI clock; **Off** ignores it |
 
@@ -34,7 +34,7 @@ VOLCANO displays **Fade (yellow)**, **Morph (orange)** and **Scene (red)** on a 
 
 ## Setup 2
 
-> **Screenshot needed — Setup 2:** `build/scenarios/volcano-ui/planet-tuning-stereo.png`, plus `planet-stereo-narrow.png` and `planet-stereo-wide.png`.
+> **Screenshot needed — Setup 2:** `build/scenarios/volcano-ui/planet-tuning-stereo.png`, `planet-stereo-narrow.png`, `planet-stereo-wide.png` and `planet-battery-90.png`.
 
 | Knob | What it does |
 |---|---|
@@ -84,5 +84,5 @@ hear is within 10 cents; otherwise the familiar name ("5th").
   Tune moves them; LMY's 1/1 is C, Harrison's and Partch's G.
 - **Wander, Chord, a partner's interval and Shift** take the Tuning's notes.
 - **A sound carries its Tuning:** a scene saved on LMY brings LMY back, even with Pitch Lock on. A factory preset normally plays on 12-tone unless it specifies another Tuning. LOAD applies the sound immediately; TRANSITION changes it over Scene Time.
-- **VOLCANO's Setup 2 visualization** places tuning markers around a planetary cross-section, with animated stereo orbits. The A marker follows Tune; orbit spacing reflects Stereo.
+- **VOLCANO's Setup 2 visualization** places tuning markers around a planetary cross-section, with animated stereo orbits. The A marker follows Tune; orbit spacing reflects Stereo. The five colored crust arcs indicate the battery-voltage estimate: color fills from bottom to top as the estimated charge rises. Their unfilled portions are dark grey. White lines and stereo orbits do not depend on charge. This is an approximate ADC-voltage indicator rather than a calibrated fuel-gauge percentage.
 - **Pressure sensitivity** is not an adjustable Setup parameter in v1.5.

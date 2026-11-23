@@ -18,8 +18,10 @@ VOLCANO uses the FM-1's four parameter encoders, four global encoders, page butt
 | **MASTER** | Overall volume |
 | **SELECT** | Move backward or forward among pages in the current page family |
 | **[[SEL]] + SELECT** | Set the common LFO rate (or MIDI-synced cycle division) |
-| **PRESETS** | **Morph Time**: how quickly a held gesture rises or returns, and how STILL rejoins its master clock |
-| **ALGORITHM** | Movement: scale the LFO modulation depths |
+| **PRESETS** | GHOST EVENTS: strength of STRIKE, SCRAPE, BOW and TREMOR (0–100; 50 retains the original intensity) |
+| **[[SEL]] + PRESETS** | Morph Time: how quickly a held gesture rises or returns, and how STILL rejoins its master clock |
+| **ALGORITHM** | GHOST MIX: dry parent drones at 0, equal-power mix at 50, and GHOST alone at 100 |
+| **[[SEL]] + ALGORITHM** | Movement: scale the LFO modulation depths |
 | **KNOB 1–4** | Edit the four parameters shown on the current page; many drone pages use KNOB 1–2 for drone I and KNOB 3–4 for drone II |
 
 ## Page buttons
@@ -51,7 +53,7 @@ Most page buttons also support a temporary *peek*: hold the button, adjust a con
 
 **SEL + GLO** selects either normal PLAY mode or external MIDI mode. Selecting MIDI mode starts both LFO clocks and Swell while leaving both drone gates silent until a MIDI Note On, and disables pitch-sequence playback; switching back leaves normal PLAY mode stopped. See [MIDI](midi.md).
 
-**Hold HOME for 400 ms** to display the temporary VOLCANO activity atlas. It shows five geological layers representing effects, drone levels, Swell/sequencing, Feedback/Drift/Character and LFO activity. Releasing HOME returns to the previous page. See [Drones and Pitch](drones.md).
+**Hold HOME for 400 ms** to display the temporary VOLCANO activity atlas. It shows five animated geological layers representing effects, drone levels, Swell/sequencing, Feedback/Drift/Character and LFO activity. Atmospheric plumes and lava move while their brightness follows these sources. Releasing HOME returns to the previous page. See [Drones and Pitch](drones.md).
 
 > **Screenshot needed — HOME atlas:** `build/scenarios/volcano-ui/geological-atlas.png`, captured from v1.5 source.
 

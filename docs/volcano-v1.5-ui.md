@@ -151,9 +151,18 @@ The five strata remain visible when inactive. Their brightness derives from:
 - Deep Mantle: magnitude of the active LFO signals scaled by Movement.
 
 These are **instrument-state indicators**, not scientifically calibrated
-measurements of geological energy. The atlas now places cyan atmospheric particles above the surface volcano,
-with the dense warm rock strata and magma feeder entirely beneath it. The
-labels and button map remain legible independent of brightness.
+measurements of geological energy. Their brightness has a wider dark-to-bright
+response, and cyan atmospheric plumes curl and rise from the crater rather
+than forming a stationary dust field. Small incandescent highlights travel
+up the magma feeder and down the left flank. The dense warm rock strata and
+magma feeder remain beneath the atmosphere; labels and the button map remain
+legible independent of brightness.
+
+Setup 2 uses the FM-1 battery-divider ADC to indicate estimated charge through
+the five colored crust arcs, filling each arc upward from its bottom. Unfilled
+portions are dark grey, while the white tuning markers, meridian and stereo
+orbits are unaffected. The voltage-based estimate requires calibration against
+the battery for reliable percentages.
 
 ## Implementation locations
 

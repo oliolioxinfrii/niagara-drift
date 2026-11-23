@@ -1103,7 +1103,7 @@ static float rnd(void)                            /* -1..1 */
  * A new key on an occupied/fading slot is held pending until the old
  * note's global-FADE release has reached zero, preventing pitch glissandi
  * during a retrigger. No project parameter is written. */
-static uint8_t midi_mode, midi_exit_pending;
+static uint8_t midi_mode, midi_exit_pending, midi_resume_panel_pending;
 static int16_t midi_note_now[DR_NGROUPS], midi_note_pending[DR_NGROUPS];
 /* A replacement note is retuned only at zero output. Snap the silent
  * oscillator pitch and its two anti-click one-poles BEFORE opening its
@@ -1182,7 +1182,7 @@ void dr_init(void)
         pslide_ms[i] = 0;
     }
     voice_fade_step = (float)CR / (DR_SR * fm_maxf(dr_time_s(P_MORPH, par[P_MORPH]), 0.020f));
-    midi_mode = midi_exit_pending = 0;
+    midi_mode = midi_exit_pending = midi_resume_panel_pending = 0;
     for (g = 0; g < DR_NGROUPS; g++) {
         midi_note_now[g] = midi_note_pending[g] = -1;
     }
@@ -1779,9 +1779,14 @@ static void drain(void)
                 grp[a].slide_ms = (uint16_t)(b < 1 ? 1 : b > 30000 ? 30000 : b);
             break;
         case C_PLAY:
-            /* PLAY is the transport in either performance mode. In MIDI
-             * mode it starts/stops the modulation engines and FX, never
-             * converts MIDI mode back to ordinary PLAY. */
+            /* PLAY controls audio transport without changing modes.
+             * If MIDI mode is still fading out, defer an immediate
+             * normal PLAY restart until the old MIDI pitch is silent. */
+            if (a && midi_exit_pending) {
+                midi_resume_panel_pending = 1u;
+                break;
+            }
+            if (!a) midi_resume_panel_pending = 0u;
             fade_target = a ? 1.0f : 0.0f;
             if (!a && midi_mode) {
                 int g;
@@ -1797,9 +1802,9 @@ static void drain(void)
         case C_MIDI_MODE:
             if (a) {
                 int g;
-                const int panel_audible = fade > 0.0f || fade_target > 0.0f;
+                const int panel_audible = fade_target > 0.0f;
                 midi_mode = 1u;
-                midi_exit_pending = 0u;
+                midi_exit_pending = midi_resume_panel_pending = 0u;
                 for (g = 0; g < DR_NGROUPS; ++g) {
                     /* Close both panel drones, with normal global FADE
                      * if already sounding, and no pitch change until
@@ -1818,6 +1823,7 @@ static void drain(void)
                  * transport fade reaches silence, then restore the
                  * panel settings. This avoids a pitch jump on exit. */
                 midi_exit_pending = 1u;
+                midi_resume_panel_pending = 0u;
                 fade_target = 0.0f;
                 for (g = 0; g < DR_NGROUPS; ++g) {
                     grp[g].gtarget = 0.0f;
@@ -1865,7 +1871,7 @@ static void drain(void)
             fx_clear();                          /* silence now: the echoes and the tail too */
 #endif
             fade = fade_target = 0.0f;
-            midi_mode = midi_exit_pending = 0u;
+            midi_mode = midi_exit_pending = midi_resume_panel_pending = 0u;
             for (g = 0; g < DR_NGROUPS; g++) {
                 midi_note_now[g] = midi_note_pending[g] = -1;
                 grp[g].gf = grp[g].gtarget = 0.0f;
@@ -4033,6 +4039,13 @@ void dr_render(int32_t *out, uint32_t n, uint32_t gain_q12)
                 grp[g].gf = grp[g].gtarget =
                     par[g ? P_II_OUT : P_I_OUT] ? 0.0f : 1.0f;
                 grp[g].out_fade_step = 0.0f;
+            }
+            if (midi_resume_panel_pending) {
+                midi_resume_panel_pending = 0u;
+                fade_target = 1.0f;
+#if OM_FX_CPU1 && !defined(OM_HOST)
+                fx_c1_silence = 0;
+#endif
             }
         }
         if (midi_mode && !midi_exit_pending && fade_target > 0.0f) {

@@ -242,7 +242,7 @@ it, and every echo warbles; let the Swell dip the drones, and the bending echoes
 
 > **Good to know.** On the LFO pages, black key 10, [[D#5]], picks which LFO moves the delay's time: LFO I's
 > regular waves warble evenly, LFO II's random glide makes them wander, as here. Turning Time by hand bends the
-> echoes too. Movement (ALGORITHM) scales the warble with the other LFO sends.
+> echoes too. Movement (SEL + ALGORITHM) scales the warble with the other LFO sends.
 
 > **Screenshot needed — Mods, Delay +100.** Regenerate this view from the Volcano v1.5 firmware.
 > **Screenshot needed — Details, a longer Time.** Regenerate this view from the Volcano v1.5 firmware.

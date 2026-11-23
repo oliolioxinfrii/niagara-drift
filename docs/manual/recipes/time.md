@@ -28,7 +28,7 @@ Three timing controls appear on **GLO → Setup 1**: Fade (KNOB 1), Morph (KNOB 
 1. On Setup 1, increase **Morph** with KNOB 2.
 2. Tap a black key or change an LFO waveform. The parameter changes over the selected time.
 
-Morph applies to parameter changes such as oscillator/sub controls and LFO wave selection, **all 16 gesture rise/return movements**, and STILL rejoining. **PRESETS** controls the same Morph Time setting as GLO Setup 1. **Scene Time** controls TRANSITION, not LOAD.
+Morph applies to parameter changes such as oscillator/sub controls and LFO wave selection, **all 16 gesture rise/return movements**, and STILL rejoining. **SEL + PRESETS** controls the same Morph Time setting as GLO Setup 1. **Scene Time** controls TRANSITION, not LOAD.
 
 ### Fade in slowly, or fade out one drone {#fades}
 

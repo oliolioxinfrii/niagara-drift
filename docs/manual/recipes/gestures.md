@@ -6,7 +6,7 @@ description: Hold-and-tap exercises for Volcano's sixteen performance gestures, 
 
 <!-- SPDX-License-Identifier: GPL-3.0-only -->
 
-All 16 white-key gestures share one interaction: **hold** to increase the amount, **release** to keep that amount, and **tap an active key** to begin returning toward zero. Tap again during the return to pause; another tap resumes. **PRESETS** changes **Morph Time**, which controls how long a 0–100% rise or return takes. On the Sequence page, the keyboard enters notes instead of gestures.
+All 16 white-key gestures share one interaction: **hold** to increase the amount, **release** to keep that amount, and **tap an active key** to begin returning toward zero. Tap again during the return to pause; another tap resumes. **SEL + PRESETS** changes **Morph Time**, which controls how long a 0–100% rise or return takes. On the Sequence page, the keyboard enters notes instead of gestures.
 
 ### Build a reverb wash, then release it {#hold}
 
@@ -88,7 +88,7 @@ All 16 white-key gestures share one interaction: **hold** to increase the amount
 
 *Morph Time determines how long a full gesture movement takes.*
 
-1. Set **GLO → Setup 1 → Morph** to a long duration, or turn **PRESETS** to the same parameter.
+1. Set **GLO → Setup 1 → Morph** to a long duration, or turn **SEL + PRESETS** to the same parameter.
 2. Hold a gesture such as Weight until it reaches the amount you want. Release to retain it.
 3. Tap Weight to start a correspondingly slow return.
 

@@ -27,7 +27,9 @@ turn K1 30 60
 wait 3000
 tap LFO
 turn K2 40 50
+press SEL
 turn ALGO 40 50
+release SEL
 wait 4500
 tap FX
 turn K2 30 50

@@ -12,7 +12,9 @@ release SEL
 tapkey w3
 tap PLAY
 wait 2500
+press SEL
 turn PRESET -40 30
+release SEL
 wav g-minute.wav
 # @ P12 Ashram, Gesture time slow
 wait 1500

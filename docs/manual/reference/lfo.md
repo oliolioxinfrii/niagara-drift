@@ -12,7 +12,7 @@ Volcano has two LFO waveforms (I and II) on a shared clock. Either waveform can 
 ## Controls
 
 - **Hold [[SEL]] and turn SELECT** to set the shared LFO rate (or cycle division when following MIDI clock).
-- **ALGORITHM** controls Movement, which scales the LFO sends together from 0% to 200%.
+- **SEL + ALGORITHM** controls Movement, which scales the LFO sends together from 0% to 200%.
 - **Tap [[OCT-]]** or [[OCT+]] to advance LFO I or II to the next waveform. The Off entry is no longer part of the rotation.
 - **Hold [[OCT-]]** or [[OCT+]] for at least 400 ms to bypass or restore LFO I or II, preserving the shape and level.
 - **[[SEL]] + [[OCT-]]** toggles drone I in/out, and **[[SEL]] + [[OCT+]]** toggles drone II in/out. These act on the drone fade, not its filter cutoff.

@@ -41,7 +41,10 @@ Holding **SEL** leaves the current parameter page visible rather than opening th
 | Hold key 13–16 | Retrigger periodically until release |
 | Double-tap key 13–16 | Latch continuous retriggering (second tap within 320 ms) |
 | Press a latched key 13–16 | Cancel its latch without firing a new event |
-| Turn **PRESETS** | Adjust **Morph Time** for gesture movement |
+| Turn **PRESETS** | Adjust the intensity of GHOST excitation events (50 retains the original strength) |
+| Turn **SEL + PRESETS** | Adjust **Morph Time** for gesture movement |
+| Turn **ALGORITHM** | Adjust GHOST MIX |
+| Turn **SEL + ALGORITHM** | Adjust MOVEMENT |
 | Tap a page button twice / turn SELECT | Cycle pages within its family |
 | Hold **HOME** (~400 ms) | Inspect geological atlas; release to return |
 | Hold **ARP** (~400 ms) | Toggle Swell on or off |

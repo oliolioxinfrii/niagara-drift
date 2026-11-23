@@ -29,7 +29,10 @@ uint32_t plat_us(void);                 /* microseconds, as MIDI packets are sta
 uint32_t plat_buttons(void);           /* UI snapshot: call once before plat_keys(), preserves short taps */
 uint32_t plat_keys(void);              /* note keys from the same snapshot (0 = F3) */
 int32_t plat_enc(int role);            /* detents since the last call, + = clockwise; EN_* */
-uint32_t plat_master(void);            /* MASTER pot, 0..4096 gain Q12 */
+uint32_t plat_master(void);
+/* Voltage-derived battery estimate 0..100; -1 until the ADC samples PB1.
+ * This is not a calibrated battery fuel gauge. */
+int plat_battery_pct(void);            /* MASTER pot, 0..4096 gain Q12 */
 int plat_pressure(uint32_t k);         /* key k's pressure 0..127 while held (0 when not), -1: it has no sensing */
 void plat_leds(const uint8_t *buttons, const uint8_t *keys);   /* brightness 0..255 (as the eye sees it): [B_*], [key] */
 

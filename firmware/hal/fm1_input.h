@@ -158,6 +158,8 @@ static volatile struct {
     uint16_t con;                /* the conversion's clock / start delay (FM1_ADC_CON); 0 = analog off */
     uint8_t pend, col, rowbit;   /* a conversion runs for (col, rowbit); rowbit 0 = the pot */
     uint16_t master;             /* the MASTER pot, 0..1023 */
+    uint16_t batt_raw;           /* PB1 divider, read in the pot's ADC slot */
+    uint8_t batt_valid, batt_pending, batt_counter;
     uint16_t timeouts;           /* conversions not done after a tick (the settings too slow) */
     uint16_t us;                 /* a timed conversion: how long it took (fm1_an_time_req) */
     uint8_t time_req;            /* main loop: time the next pot conversion (spins in the tick) */
@@ -443,7 +445,11 @@ static void fm1_input_tick(void)
                 FM1_INPUT_PROBE(fm1_an.col, fm1_an.rowbit, v, (fm1_in.raw[fm1_an.col] >> fm1_an.rowbit) & 1u);
             else if (fm1_an.rowbit)
                 FM1_INPUT_ANALOG(fm1_an.col, fm1_an.rowbit, v, driven);
-            else
+            else if (fm1_an.batt_pending) {
+                fm1_an.batt_raw = fm1_an.batt_valid ?
+                    (uint16_t)((7u * fm1_an.batt_raw + v + 4u) / 8u) : (uint16_t)v;
+                fm1_an.batt_valid = 1u;
+            } else
                 fm1_an.master = (uint16_t)v;
         } else {
             fm1_adc_abort();
@@ -487,7 +493,11 @@ static void fm1_input_tick(void)
     if (fm1_an.con && fm1_an.phase < 2u) {         /* column n is latched now: sample it until the next tick */
         uint32_t odd = fm1_an.phase, ch, rowbit;
         if (odd && n == 0u) {
-            ch = FM1_ADC_MASTER;
+            /* Reuse one pot conversion in 128 to read battery voltage.
+             * Key/pressure samples retain their existing converter slots. */
+            const int battery = !fm1_an.time_req && ++fm1_an.batt_counter >= 128u;
+            if (battery) fm1_an.batt_counter = 0u;
+            ch = battery ? FM1_ADC_BATT : FM1_ADC_MASTER;
             rowbit = 0;
         } else {
             ch = odd ? FM1_ADC_ROW_PA8 : FM1_ADC_ROW_PA7;
@@ -495,6 +505,7 @@ static void fm1_input_tick(void)
         }
         fm1_an.col = (uint8_t)n;
         fm1_an.rowbit = (uint8_t)rowbit;
+        fm1_an.batt_pending = (uint8_t)(ch == FM1_ADC_BATT);
         if (rowbit && !FM1_INPUT_LED_OK(n, rowbit))
             fm1__led_lines(0);                     /* a held key: no LED current in its column while it is read */
         if (rowbit && fm1_an.drive && !fm1_an.selftest && FM1_INPUT_DRIVE(n, rowbit)) {
@@ -520,7 +531,11 @@ static void fm1_input_tick(void)
                     uint32_t v = fm1_adc_take();
                     if (rowbit)
                         FM1_INPUT_ANALOG(n, rowbit, v, fm1_an.driven);
-                    else
+                    else if (fm1_an.batt_pending) {
+                        fm1_an.batt_raw = fm1_an.batt_valid ?
+                            (uint16_t)((7u * fm1_an.batt_raw + v + 4u) / 8u) : (uint16_t)v;
+                        fm1_an.batt_valid = 1u;
+                    } else
                         fm1_an.master = (uint16_t)v;
                 } else {
                     fm1_adc_abort();

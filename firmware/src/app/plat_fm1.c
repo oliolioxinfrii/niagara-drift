@@ -31,6 +31,15 @@ int32_t plat_enc(int role)
 
 static volatile uint32_t master_q12 = 2048;
 uint32_t plat_master(void) { return master_q12; }
+/* Approximate PB1 voltage scaling; FM-1's coarse bar thresholds are near
+ * ADC counts 531, 561 and 591. The range is not calibrated to true SOC. */
+int plat_battery_pct(void)
+{
+    int pct;
+    if (!fm1_an.batt_valid) return -1;
+    pct = ((int)fm1_an.batt_raw - 500) * 100 / 110;
+    return pct < 0 ? 0 : pct > 100 ? 100 : pct;
+}
 
 /* LEDs: the picture is built off-line and copied one byte per column (Felucca: clearing
  * and relighting would let the 10 kHz scan catch the dark gap and flicker) */

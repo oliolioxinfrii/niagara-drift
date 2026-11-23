@@ -13,6 +13,7 @@
  *   turn ENC N [MS]              (ENC: SELECT ALGO PRESET K1 K2 K3 K4; N detents, MS apart, default 80)
  *   spin ENC N                   N detents at once, exactly N (no acceleration)
  *   master N                     MASTER pot 0..4096
+ *   battery N                    simulated charge 0..100 (-1 unavailable)
  *   midi B0 B1 B2                incoming USB MIDI message (hex bytes)
  *   wav FILE | wavstop           start / stop recording the output
  *   peakreset                    restart the output peak (expect peak_db_min / peak_db_max)
@@ -68,6 +69,7 @@ static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint1
 #include "../firmware/src/app/plat.h"
 
 static uint32_t now_ms, held_btn, held_keys, master = 2048;
+static int battery_pct = 100; /* synthetic fully charged battery */
 static int32_t enc_acc[NE];
 static uint32_t lit_btn, lit_keys;
 
@@ -91,6 +93,7 @@ int32_t plat_enc(int role)
     return v;
 }
 uint32_t plat_master(void) { return master; }
+int plat_battery_pct(void) { return battery_pct; }
 #ifndef OM_WEB
 static uint8_t legacy_scene_keys;            /* only the host script runner can opt into old pads */
 #endif
@@ -490,6 +493,8 @@ static int expect(const char *what, const char *val)
         got = ui.playing;
     else if (!strcmp(what, "fade"))                /* the PLAY fade x 100 */
         got = (int)(dr_fade * 100.0f + 0.5f);
+    else if (!strcmp(what, "battery"))
+        got = plat_battery_pct();
     else if (!strcmp(what, "view"))
         got = ui.view;
     else if (!strcmp(what, "keymap"))             /* the black keys' map showing (SEL held) */
@@ -900,7 +905,11 @@ int main(int argc, char **argv)
             phones = atoi(a);
         else if (!strcmp(cmd, "master"))
             master = (uint32_t)atoi(a);
-        else if (!strcmp(cmd, "midi")) {
+        else if (!strcmp(cmd, "battery")) {
+            battery_pct = atoi(a);
+            if (battery_pct < -1 || battery_pct > 100) return 2;
+            run_ms(20);
+        } else if (!strcmp(cmd, "midi")) {
             uint32_t s = (uint32_t)strtoul(a, 0, 16), d1 = (uint32_t)strtoul(b, 0, 16), d2 = (uint32_t)strtoul(c, 0, 16);
             uint32_t cin = s >= 0xF0 ? 0x0F : s >> 4;
             min_t[mi_w % MQ] = now_ms * 1000u;

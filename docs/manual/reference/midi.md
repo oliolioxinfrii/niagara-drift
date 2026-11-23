@@ -11,9 +11,20 @@ An external MIDI keyboard triggers the two drones, and MIDI clock synchronizes t
 
 ## MIDI in
 
+### Performance modes: SEL + GLO
+
+**SEL + GLO** toggles between VOLCANO's two performance modes. This choice is session-only and is not saved into scenes or presets.
+
+- **PLAY mode (normal):** PLAY fades the full instrument in or out; the sequencer remains available via SEL+PLAY. Each drone can be independently faded out or in with SEL+OCT− / SEL+OCT+. Incoming external MIDI notes do not retune or trigger the drones in this mode.
+- **MIDI mode:** Selecting it starts the two LFO transport clocks and the Swell immediately, without starting either drone or the pitch sequence. Both drone voices stay silent until an external MIDI key is pressed. The Swell runs even when the saved patch has Swell OFF; that saved switch is not changed. SEL+PLAY cannot start the sequence in MIDI mode. SEL+OCT does not override the MIDI-controlled drone gates.
+- **PLAY while in MIDI mode:** stops or restarts acceptance of triggered notes but does **not** change modes. Stopping releases held MIDI notes. A restarted MIDI transport has no sounding voices until another Note On.
+- **SEL + GLO again:** leaves MIDI mode, fades to silence and returns to normal PLAY mode, initially stopped. Use PLAY to start the normal continuous drones.
+
+The FM-1's physical white and black keys keep their original gestures, switches, and GHOST excitation actions in both modes. The GLO button's ordinary setup-page function is unchanged unless SEL is held.
+
 ### Notes
 
-Incoming MIDI notes use **two independent drone slots**, regardless of MIDI channel. The first held key activates drone I; the second held key activates drone II. MIDI does not make VOLCANO polyphonic or change either drone's stored pitch.
+**Only in MIDI mode**, incoming MIDI notes use **two independent drone slots**, regardless of MIDI channel. The first held key activates drone I; the second held key activates drone II. MIDI does not make VOLCANO polyphonic or change either drone's stored pitch.
 
 **Each key release closes its drone using global FADE** (Setup 1). The next MIDI note reuses **whichever drone was released**: it waits for that drone to finish fading out, then begins the new pitch's FADE-in. The other held drone continues sounding.
 
@@ -22,7 +33,7 @@ For example, hold C2 to start drone I, then C3 to start drone II. Release C3 and
 If a third key is pressed while both drones remain held, it **waits silently**. Whichever existing note is released first determines the slot the waiting key receives, after that drone's FADE-out. It never steals either held drone, and only two drones can sound at once. Releasing the waiting key before either slot becomes free cancels it.
 
 - **Note On** starts a drone; **Note Off** releases it. A Note On with velocity zero is also Note Off.
-- **Physical PLAY** exits external MIDI control and returns to VOLCANO's normal continuous drone transport.
+- **SEL+GLO** exits external MIDI control. PLAY starts or stops the current performance mode without changing it.
 - Each drone's patch, filters, GHOST interactions and effects remain in force. Saved project pitch parameters do not change.
 - PITCH LINK is temporarily bypassed while MIDI controls both pitches independently; the saved setting is preserved.
 - A sustained key continues the note, and subsequent notes are triggers rather than a continuous pitch-following keyboard. No additional oscillator voices are introduced.
@@ -49,7 +60,7 @@ Setup 1, KNOB 4: on follows a clock, off ignores it.
 
 ## Good to know
 
-- **Notes trigger**, rather than permanently tune, the two drones. PITCH LINK is temporarily bypassed and MIDI channels do not select the drone. FADE controls their attacks and releases.
+- **In MIDI mode**, notes trigger rather than permanently tune the two drones. PITCH LINK is temporarily bypassed and MIDI channels do not select the drone. FADE controls their attacks and releases.
 - **A wobbly clock** is smoothed, and nothing drifts from it however long it runs.
 - **Start** brings the Swell and the LFO back to their tops.
 - **While synced,** scenes leave the Swell's on / off and division alone.

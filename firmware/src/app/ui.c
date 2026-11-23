@@ -551,6 +551,11 @@ static void knob_turn(int i, int32_t e)
 {
     int p = knob_param(i);
     knob_t k = VIEW_KNOB[ui.view][i];
+    if (ui.midi_mode &&
+        (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE)) {
+        say_c("MIDI MODE", "SEQUENCER DISABLED", K_GOLD);
+        return;
+    }
     if (ui.view == V_SEQ_NOTES) { sd_note_knob(i, e); return; }
     if (ui.view == V_SEQ_TIME) { sd_time_knob(i, e); return; }
     if (ui.view == V_SEQ_SHAPE) { sd_shape_knob(i, e); return; }
@@ -1852,6 +1857,10 @@ static void midi_mode_toggle(void)
     const int on = !ui.midi_mode;
     midi_note_reset();
     if (on) {
+        /* Exit any audition preview before entering MIDI performance.
+         * The pattern remains stored, but can neither play nor edit. */
+        sd.preview_key = -1;
+        sd.preview_active = sd.preview_sounded = 0u;
         sd_stop();
         ui.midi_mode = 1u;
         ui.playing = 1u;
@@ -2738,7 +2747,7 @@ static void input(void)
             ui.act_t = plat_ms();
         }
     }
-    if (ui.view == V_SEQ_NOTES) {
+    if (ui.view == V_SEQ_NOTES && !ui.midi_mode) {
         /* If the player enters note editing while physically holding an
          * excitation key, do not leave a phantom held retrigger running
          * after release. Existing double-tap latches intentionally persist. */
@@ -3270,7 +3279,7 @@ static void leds(void)
             (ui.ghost_event_held & bit) && !(ui.ghost_event_cancel & bit) ? 255u : 0u;
     }
     /* SEL no longer turns gesture keys into bank selectors. */
-    if (ui.view == V_SEQ_NOTES)
+    if (ui.view == V_SEQ_NOTES && !ui.midi_mode)
         sd_key_leds(k);
     boxed_blink(b, k);
     plat_leds(b, k);

@@ -173,8 +173,10 @@ static void vl_save_menu(void)
 }
 static float vs_glow(float x)
 {
+    /* Lift small signals perceptibly instead of compressing an already
+     * modest activity range into dark colors. The ends remain exact. */
     x = fm_clampf(x, 0.0f, 1.0f);
-    return 0.08f + 0.92f * x * x;
+    return 0.06f + 0.94f * fm_sqrtf(x);
 }
 static void vs_atlas_terrain(int y0, const float a[5])
 {

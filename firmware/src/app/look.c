@@ -2333,7 +2333,10 @@ static void lk_pic(void)
     }
     /* These views have no autonomous animation while stopped or paused.
      * Redraw them only when their state changes, not on the scope cadence. */
-    const int still = ui.view == V_SEQ_SHAPE || ui.view == V_SPEAKER ||
+    const int still = (ui.midi_mode &&
+                       (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME ||
+                        ui.view == V_SEQ_SHAPE)) ||
+                      ui.view == V_SEQ_SHAPE || ui.view == V_SPEAKER ||
                       (ui.view == V_SEQ_TIME && (!sd.enabled || sd.paused));
     if (h == ui.sig[1] && (still || ui.frame % SCOPE_EVERY))
         return;

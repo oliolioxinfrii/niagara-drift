@@ -1960,13 +1960,20 @@ static void midi_in(void)
         } else if ((st & 0xF0u) == 0x80u ||
                    ((st & 0xF0u) == 0x90u && v == 0u)) {
             const int slot = midi_duo_off(&midi_duo, st & 0x0Fu, n);
-            if (slot >= 0) dr_midi_note(slot, (int)n, 0);
+            if (slot >= 0) {
+                const int promoted = midi_duo_promote(&midi_duo, slot);
+                dr_midi_note(slot, (int)n, 0);
+                if (promoted >= 0) dr_midi_note(slot, promoted, 1);
+            }
         } else if ((st & 0xF0u) == 0xB0u && (n == 120u || n == 123u)) {
             const unsigned released = midi_duo_channel_off(&midi_duo, st & 0x0Fu);
             int slot;
             for (slot = 0; slot < 2; ++slot)
-                if (released & (1u << slot))
+                if (released & (1u << slot)) {
+                    const int promoted = midi_duo_promote(&midi_duo, slot);
                     dr_midi_note(slot, 0, 0);
+                    if (promoted >= 0) dr_midi_note(slot, promoted, 1);
+                }
         }
     }
 }

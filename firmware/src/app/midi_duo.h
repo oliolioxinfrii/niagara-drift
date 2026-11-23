@@ -118,10 +118,11 @@ static inline int midi_duo_off(midi_duo_t *d, unsigned channel, unsigned note)
  * Pedal-up removes only notes whose physical keys are released. */
 static inline unsigned midi_duo_pedal(midi_duo_t *d, unsigned channel, unsigned value)
 {
-    const uint16_t bit = (uint16_t)(1u << channel);
+    uint16_t bit;
     unsigned affected = 0u;
     int slot;
     if (channel >= 16u) return 0u;
+    bit = (uint16_t)(1u << channel);
     if (value >= 64u) {
         d->pedal |= bit;
         return 0u;

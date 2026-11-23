@@ -11,7 +11,8 @@
 #define OM_VERSION "1.1 DEV"
 #endif
 #define PROJ_MAGIC 0x314E5244u           /* "DRN1" */
-#define PROJ_FORMAT 46u                  /* 46: adds GHOST level at the end of every sound (older 45 banks migrated).
+#define PROJ_FORMAT 47u                  /* 47: adds GHOST event level at the end of each sound (46 migrated).
+                                           * 46: adds GHOST level at the end of every sound (older 45 banks migrated).
                                            * 45: reuse retired gesture slots for per-drone mute, Swell design and per-LFO levels.
                                           * Previous project and bank formats migrate these slots to new defaults.
                                           * 44: the LFO's depth on X-Wave and the resonance, 100 their whole range

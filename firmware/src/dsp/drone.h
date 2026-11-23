@@ -155,6 +155,7 @@ enum {
     P_CLK_SYNC,                     /* follow a MIDI clock (1, as since v0.3's step 3) or not (0: the clock ignored, its
                                      * tempo forgotten); a room setting (v0.3, Evan 2026-11-01, ledger item 5) */
     P_GHOST,                        /* GHOST MIX: 0 dry parents, 50 equal-power blend, 100 GHOST only; FX shared */
+    P_GHOST_EVENT,                  /* GHOST event level: 0 silent, 50 original intensity, 100 twice the excitation */
     DR_NPARAMS
 };
 /* Reuse the eight retired gesture-depth/time slots in format 45: no parameter

@@ -2787,8 +2787,10 @@ static int lk_readout(void)
         return 0;
     for (q = ui.glab[0]; *q; q++) h = hash(h, (uint32_t)*q);
     for (q = ui.glab[1]; *q; q++) h = hash(h, (uint32_t)*q << 8);
-    if (ui.glab[0][0] == 'M') magnitude = vl_norm(P_MOVE);
-    else if (ui.glab[0][0] == 'G') magnitude = 1.0f - (float)proj.mtime * 0.01f;
+    if (txt_eq(ui.glab[0], "MOVEMENT")) magnitude = vl_norm(P_MOVE);
+    else if (txt_eq(ui.glab[0], "GHOST MIX")) magnitude = vl_norm(P_GHOST);
+    else if (txt_eq(ui.glab[0], "GHOST EVENTS")) magnitude = vl_norm(P_GHOST_EVENT);
+    else if (txt_eq(ui.glab[0], "MORPH TIME")) magnitude = vl_norm(P_MORPH);
     else if (ui.glab[0][0] == 'L')
         magnitude = vl_norm(dr_ext_spb > 0.0f ? P_LFO_DIV : P_LFO_RATE);
     magnitude = fm_clampf(magnitude, 0.0f, 1.0f);

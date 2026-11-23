@@ -177,6 +177,7 @@ static const dr_param_t PARAMS[DR_NPARAMS] = {
     {"Tuning", 0, DR_NTUNING - 1, DR_TUN_12},
     {"Sync", 0, 1, 1},
     {"Ghost", 0, 100, 0},       /* off by default: older sounds keep their exact audio */
+    {"Excitation", 0, 100, 50}, /* 50 keeps the original event intensity */
 };
 const char *const DR_REV_NAME[DR_NREV] = {"Room", "Hall", "Cathedral", "Chorus hall", "Shimmer"};
 const char *const DR_DIV_NAME[DR_NDIV] = {"32 bars", "16 bars", "8 bars", "4 bars", "2 bars", "1 bar", "1/2", "1/4"};
@@ -3756,6 +3757,7 @@ static float ghost_event_tremor_env;
  * present in a dense parent mix. This affects the entire GHOST body (not
  * the parent drones), using the same resonators; no second bank or voice. */
 static float ghost_event_accent;
+static float ghost_event_level = 1.0f; /* at 50, preserve the current excitation */
 
 static void ghost_event_reset(void)
 {
@@ -3877,9 +3879,9 @@ static void ghost_event_tick(float *common, float *low, float *high,
             ghost_event_tremor_env = 0.0f;
         }
     }
-    *common = fm_clampf(e, -11.0f, 11.0f);
-    *low = fm_clampf(bass, -12.0f, 12.0f);
-    *high = fm_clampf(treble, -10.0f, 10.0f);
+    *common = fm_clampf(e * ghost_event_level, -11.0f, 11.0f);
+    *low = fm_clampf(bass * ghost_event_level, -12.0f, 12.0f);
+    *high = fm_clampf(treble * ghost_event_level, -10.0f, 10.0f);
 }
 /* The event energy otherwise suffers TWO masking stages: the GHOST
  * compressor and the wet/dry crossfade. Do not raise the whole always-on
@@ -3900,7 +3902,7 @@ static float ghost_event_output_gain(float wet)
         ghost_event_accent = fm_minf(1.0f, ghost_event_accent + 0.006f);
     else if (ghost_event_accent > 0.0f)
         ghost_event_accent = fm_maxf(0.0f, ghost_event_accent - 0.000045f);
-    return 1.0f + ghost_event_accent * (0.8f + 5.2f * (1.0f - wet));
+    return 1.0f + ghost_event_accent * ghost_event_level * (0.8f + 5.2f * (1.0f - wet));
 }
 /* Legacy diagnostic setters are inert: synthesis is fixed at 50%.
  * The getter retains the older 5/14 classification for host scripts;
@@ -4052,6 +4054,7 @@ static float ghost_tail_block(uint32_t n, int closed, float *delta,
 static void ghost_run_single(uint32_t n)
 {
     const float balance = fm_clampf(pfs[P_GHOST] * 0.01f, 0.0f, 1.0f);
+    ghost_event_level = fm_clampf(pfs[P_GHOST_EVENT] * 0.02f, 0.0f, 2.0f);
     float tail_delta = 0.0f, tail_level;
     float exc_delta = 0.0f, exc_level = 1.0f;
     uint32_t j;
@@ -4101,6 +4104,7 @@ static void ghost_run(uint32_t n)
 static void ghost_cpu1_mix(fx_c1_slot_t *s)
 {
     const float step = 1.0f / (0.012f * DR_SR);
+    ghost_event_level = fm_clampf(s->pfs[P_GHOST_EVENT] * 0.02f, 0.0f, 2.0f);
     const float target = s->ghost_mute ? 0.0f : 1.0f;
     float tail_delta = 0.0f, tail_level;
     float exc_delta = 0.0f, exc_level = 1.0f;

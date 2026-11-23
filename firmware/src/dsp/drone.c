@@ -1126,6 +1126,11 @@ static uint8_t midi_glide_active[DR_NGROUPS], midi_pitch_frozen[DR_NGROUPS];
 static int16_t midi_glide_dest[DR_NGROUPS];
 static uint16_t midi_glide_cs[DR_NGROUPS]; /* most recently queued scene duration, 10ms units */
 static uint32_t midi_glide_left[DR_NGROUPS];
+/* Completion epochs avoid treating a newly QUEUED glide as already
+ * finished. The UI uses these to promote its held target to primary
+ * ownership only after the entire Scene-Time transition has ended.
+ * Each drone has an independent counter and may glide concurrently. */
+static volatile uint32_t midi_glide_done[DR_NGROUPS];
 static float midi_glide_pitch[DR_NGROUPS], midi_glide_step[DR_NGROUPS];
 static float midi_pitch_hold[DR_NGROUPS];
 static void midi_stop_glide(int g)
@@ -1140,6 +1145,10 @@ static void midi_stop_glide(int g)
 }
 float dr_midi_pitch_get(int g) { return (unsigned)g < DR_NGROUPS ? grp[g].pitch : -1.0f; }
 int dr_midi_glide_get(int g) { return (unsigned)g < DR_NGROUPS && midi_glide_active[g]; }
+uint32_t dr_midi_glide_done_get(int g)
+{
+    return (unsigned)g < DR_NGROUPS ? midi_glide_done[g] : 0u;
+}
 int dr_midi_target_get(int g) { return (unsigned)g < DR_NGROUPS ?
     (midi_glide_active[g] ? midi_glide_dest[g] : midi_note_now[g]) : -1; }
 /* A replacement note is retuned only at zero output. Snap the silent
@@ -1226,6 +1235,7 @@ void dr_init(void)
         midi_glide_active[g] = midi_pitch_frozen[g] = 0u;
         midi_glide_cs[g] = 100u; /* default 1.00s until first scene command */
         midi_glide_left[g] = 0u;
+        midi_glide_done[g] = 0u;
         midi_glide_pitch[g] = midi_glide_step[g] = midi_pitch_hold[g] = 0.0f;
     }
     for (g = 0; g < DR_NGROUPS; g++) {
@@ -2945,6 +2955,7 @@ static DR_RAM_CODE void render_group(int g, uint32_t n)
                 midi_glide_pitch[g] = (float)midi_glide_dest[g];
                 midi_note_now[g] = midi_glide_dest[g];
                 midi_glide_active[g] = 0u;
+                ++midi_glide_done[g]; /* acknowledge THIS glide to allocator */
                 target = midi_glide_pitch[g];
             }
             v->pitch = v->st = midi_glide_pitch[g];

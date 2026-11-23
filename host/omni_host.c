@@ -622,8 +622,14 @@ static int expect(const char *what, const char *val)
         int i;
         got = sd.count > 1;
         for (i = 0; i < sd.count; i++)
-            if (sd.shape[i] == 0) got = 0;
+            if (!sd_curve_valid(sd.shape[i])) got = 0;
     }
+    else if (!strcmp(what, "seqcurveq1"))
+        got = (int)(sd_interp(0, 0.25f) * 1000.0f + 0.5f);
+    else if (!strcmp(what, "seqcurvemid"))
+        got = (int)(sd_interp(0, 0.5f) * 1000.0f + 0.5f);
+    else if (!strcmp(what, "seqcurvecount"))
+        got = SD_CURVE_COUNT;
     else if (!strncmp(what, "seqshape", 8))
         got = sd.shape[atoi(what + 8) & 3];
     else if (!strcmp(what, "bscenes")) {           /* the current bank's slots in use, as a bit mask */

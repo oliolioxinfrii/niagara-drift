@@ -19,7 +19,7 @@ Incoming MIDI notes use **two independent drone slots**, regardless of MIDI chan
 
 For example, hold C2 to start drone I, then C3 to start drone II. Release C3 and press B3: drone II fades from C3 to silence, then fades in B3 while C2 continues. Release C2 and press B2 while holding B3: only drone I changes.
 
-A third key pressed while both drones remain held is **ignored**, not assigned arbitrarily or used to steal a voice. It must be pressed again after a drone slot is available.
+If a third key is pressed while both drones remain held, it **waits silently**. Whichever existing note is released first determines the slot the waiting key receives, after that drone's FADE-out. It never steals either held drone, and only two drones can sound at once. Releasing the waiting key before either slot becomes free cancels it.
 
 - **Note On** starts a drone; **Note Off** releases it. A Note On with velocity zero is also Note Off.
 - **Physical PLAY** exits external MIDI control and returns to VOLCANO's normal continuous drone transport.

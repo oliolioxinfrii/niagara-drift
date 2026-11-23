@@ -316,8 +316,8 @@ static void sd_toggle(void)
     }
 }
 
-/* Named monotonic curves: one interpolation for playback and display.
- * LATE and EARLY are deliberate steps; all other types are continuous. */
+/* Named pitch transitions: LATE, EARLY and SPACE step at their event;
+ * the other types interpolate continuously between notes. */
 static float sd_interp(int seg, float x)
 {
     const int curve = sd_curve_from_saved(sd.shape[seg]);

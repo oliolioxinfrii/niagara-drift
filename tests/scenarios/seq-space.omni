@@ -6,6 +6,9 @@ tap PLAY
 page 18
 spin K3 1
 expect seqcount 2
+spin K1 1
+tapkey b5
+expect seqnonhome 1
 page 19
 spin K4 -18
 expect seqtotal 2
@@ -20,6 +23,7 @@ expect seqcurvegainq1 500
 expect seqcurvegainmid 0
 expect seqcurvegainq3 500
 shot seq-space-envelope.png
+wav seq-space-audio.wav
 
 press SEL
 tap PLAY
@@ -50,6 +54,30 @@ expect seqgain1 <150
 # Stopping releases the temporary envelope even when silence is selected.
 tap PLAY
 wait 1800
+expect seqstate 0
+expect seqgain0 >990
+expect seqgain1 >990
+wavstop
+
+# Drone II's phase offset moves its silence independently of drone I.
+page 18
+spin K4 25
+expect seqphase 25
+tap PLAY
+press SEL
+tap PLAY
+release SEL
+expect seqstate 1
+wait 490
+expect seqgain0 <150
+expect seqgain1 >800
+
+# Leaving the sequencer for MIDI mode clears the temporary envelope.
+press SEL
+tap GLO
+release SEL
+wait 120
+expect midiui 1
 expect seqstate 0
 expect seqgain0 >990
 expect seqgain1 >990

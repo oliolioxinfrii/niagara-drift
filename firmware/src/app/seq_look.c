@@ -103,8 +103,8 @@ static uint32_t sd_curve_node_ms(int g, int pos, uint32_t len)
     const uint32_t offset = g && !sd_linked() ? len * (uint32_t)sd.phase / 100u : 0u;
     return (at + len - offset) % len;
 }
-/* Each segment's transition is drawn from its actual interpolation function.
- * The horizontal axis is the fractional time within a single interval. */
+/* Pitch curves use their actual interpolation; SPACE instead depicts the
+ * amplitude dip between notes. Horizontal position is interval time. */
 static void lk_pic_seq_shape(void)
 {
     int i, j;

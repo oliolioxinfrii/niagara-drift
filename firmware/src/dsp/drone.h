@@ -329,10 +329,18 @@ void dr_midi_mode_set(int on);
  * Plain PLAY controls the transport without changing MIDI mode; SEL+GLO
  * alone selects or leaves MIDI mode. */
 void dr_midi_note(int group, int note, int on); /* 0/1 group, MIDI note 0..127 */
+/* A simultaneous third MIDI key glides whichever drone is closest in
+ * sounding pitch. The time is the scene duration captured at key press,
+ * including clock-based Scene Bars when a MIDI clock is active.
+ * No new oscillator or saved pitch is allocated. */
+void dr_midi_glide(int group, int note, float scene_seconds);
 int dr_midi_mode_get(void);                   /* 1 while external MIDI controls voices */
-int dr_midi_note_get(int group);             /* actual current key, -1 if unused */
+int dr_midi_note_get(int group);             /* last discrete MIDI pitch, -1 if unused */
 int dr_midi_pending_get(int group);          /* deferred key while fading, -1 if none */
 int dr_midi_gate_get(int group);             /* note gate target: 0/1 */
+float dr_midi_pitch_get(int group);          /* current interpolated pitch in MIDI semitones */
+int dr_midi_glide_get(int group);            /* active Scene-Time pitch transition */
+int dr_midi_target_get(int group);           /* target MIDI note during transition */
 /* the drone's next pitch change slides there in a straight line over ms (1..30000), instead of the Glide:
  * a pitch knob sends each detent's change with the time until the next detent is expected, so a turn at
  * any speed is one continuous slide */

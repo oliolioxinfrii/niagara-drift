@@ -40,7 +40,7 @@ int main(void)
     midi_duo_reset(&d);
     midi_duo_on(&d, 0, 36, 36.0f, 48.0f);
     midi_duo_on(&d, 0, 48, 36.0f, 48.0f);
-    check("B2 third chooses nearest drone I (36 to 47 versus 48 to 47)",
+    check("B2 third chooses nearest drone II (47 is one semitone below 48)",
           midi_duo_on(&d, 0, 47, 36.0f, 48.0f) == 3 &&
           d.extra_slot == 1);
     check("Releasing third before original returns to original pitch",

@@ -133,20 +133,35 @@ static inline int midi_duo_off(midi_duo_t *d, unsigned channel, unsigned note)
     }
     return -1;
 }
-/* Called once the DSP has COMPLETED the final queued glide on g.
- * Promotion is legal only if the previous primary key is no longer
- * held or pedal-sustained; otherwise both keys retain ownership.
- * No new Note On is generated: the drone stays at the attained pitch. */
+/* Called only after the DSP ACKNOWLEDGES completion.
+ * Normal MIDI: retain the original owner until it is released.
+ * With CC64 depressed on the primary's channel, the finished glide
+ * destination becomes the primary immediately, even if the old note
+ * is still held or pedal-latched. This is what permits indefinite
+ * consecutive glides using the sustain pedal. No extra voice or
+ * new Note On is generated; the oscillator stays at its pitch. */
 static inline int midi_duo_promote_completed(midi_duo_t *d, int g)
 {
-    if ((unsigned)g >= 2u || d->key[g] >= 0 || d->extra[g] < 0)
-        return 0;
+    if ((unsigned)g >= 2u || d->extra[g] < 0) return 0;
+    if (d->key[g] >= 0 &&
+        !(d->pedal & (uint16_t)(1u << ((unsigned)d->key[g] / 128u))))
+        return 0; /* no pedal: old owner must release first */
     d->key[g] = d->extra[g];
     d->down[g] = d->extra_down[g];
     d->extra[g] = -1;
     d->extra_down[g] = 0u;
     return 1;
 }
+/* Pedal-up is a hard ownership reconciliation. The CURRENT sounding
+ * note (or active glide destination) is the only candidate to survive
+ * when a pedal-latched drone is released. Older base notes cannot pull
+ * the oscillator backward just because they are still physically held.
+ *
+ * With a glide target, preserve that target only when its exact MIDI
+ * key is physically held; otherwise clear the entire drone's ownership
+ * and let the normal FADE release stop any pitch transition. With no
+ * target, preserve only an actually held base key.
+ * CC64 is channel-local; unrelated channels' note ownership persists. */
 static inline unsigned midi_duo_pedal(midi_duo_t *d, unsigned channel, unsigned value)
 {
     uint16_t bit;
@@ -158,17 +173,33 @@ static inline unsigned midi_duo_pedal(midi_duo_t *d, unsigned channel, unsigned 
         d->pedal |= bit;
         return 0u;
     }
+    if (!(d->pedal & bit)) return 0u;
     d->pedal &= (uint16_t)~bit;
     for (g = 0; g < 2; ++g) {
-        if (d->key[g] >= 0 && !d->down[g] &&
-            (unsigned)d->key[g] / 128u == channel) {
-            d->key[g] = -1;
+        const int base_on_channel = d->key[g] >= 0 &&
+                                    (unsigned)d->key[g] / 128u == channel;
+        const int target_on_channel = d->extra[g] >= 0 &&
+                                      (unsigned)d->extra[g] / 128u == channel;
+        if (target_on_channel) {
+            /* The latest destination, not the superseded original,
+             * determines survival. This includes an unfinished glide. */
+            if (!d->extra_down[g]) {
+                d->extra[g] = -1;
+                if (base_on_channel) {
+                    d->key[g] = -1;
+                    d->down[g] = 0u;
+                }
+            } else if (base_on_channel) {
+                d->key[g] = -1;
+                d->down[g] = 0u;
+            }
             mask |= 1u << g;
-        }
-        if (d->extra[g] >= 0 && !d->extra_down[g] &&
-            (unsigned)d->extra[g] / 128u == channel) {
-            d->extra[g] = -1;
-            mask |= 1u << g;
+        } else if (base_on_channel) {
+            if (d->extra[g] >= 0 || !d->down[g]) {
+                d->key[g] = -1;
+                d->down[g] = 0u;
+                mask |= 1u << g;
+            }
         }
     }
     return mask;

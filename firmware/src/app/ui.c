@@ -50,7 +50,8 @@
  *   ENV            Life: Feedback, Drift, Character, Age (first: review 5, 2026-10-28; reordered 2026-10-31); again: Tone: each
  *                  drone's noise and colour
  * Saving: SAVE, and by itself a few seconds after a change while stopped (a flash write stops the audio
- * for a moment). MIDI in: notes on channel 1 tune drone I, on channel 2 drone II. */
+ * for a moment). External MIDI notes trigger two monophonic drone slots;
+ * hardware keys remain unchanged, with no MIDI pitch stored in projects. */
 
 /* ------------------------------------------------------------- pages --- */
 /* the pages (2026-10-10, from the review: what's played together sits together, no half-empty pages) */
@@ -1762,7 +1763,14 @@ static void button(int b)                              /* the other buttons, on 
     }
 }
 
-/* MIDI in (USB and the TRS jack): a note on channel 1 tunes drone I to it, on channel 2 drone II */
+/* External USB-MIDI and TRS MIDI notes share two independent drone slots.
+ * This is not a polyphonic keyboard mode: the first held note takes drone I,
+ * the second takes II, and a third concurrent press steals II. A released
+ * slot may be re-used while the other key remains down. The audio engine
+ * handles global-FADE envelopes and delayed retuning of a fading voice.
+ * The physical FM-1 performance keys remain dispatched separately. */
+#include "midi_duo.h"
+static midi_duo_t midi_duo;
 /* MIDI CLOCK IN (v0.3, step 3; a test build first, OM_CLOCK_TEST: the tempo and jitter on screen). 24 pulses a beat,
  * each stamped as it came in (us; the inputs are read between renders, so a pulse can wait one out). Over the last
  * two beats (48 pulses) a straight line through their times: its slope the tempo, how far each pulse sits off it the
@@ -1943,12 +1951,22 @@ static void midi_in(void)
 #endif
             continue;
         }
-        if ((st == 0x90u || st == 0x91u) && v) {
-            int g = (int)(st & 1u), c = (int)n * 100;
-            if (g == 1 && proj.par[P_PLINK])
-                param_set(P_PLINK_OFF, c - proj.par[DR_GP(0, GP_PITCH)]);
-            else
-                param_set(DR_GP(g, GP_PITCH), c);
+        /* External note messages on any MIDI channel: channel is part of
+         * note identity, not a drone selector. Velocity 0 is Note Off.
+         * Never write GP_PITCH or another saved project parameter. */
+        if ((st & 0xF0u) == 0x90u && v != 0u) {
+            const int slot = midi_duo_on(&midi_duo, st & 0x0Fu, n);
+            if (slot >= 0) dr_midi_note(slot, (int)n, 1);
+        } else if ((st & 0xF0u) == 0x80u ||
+                   ((st & 0xF0u) == 0x90u && v == 0u)) {
+            const int slot = midi_duo_off(&midi_duo, st & 0x0Fu, n);
+            if (slot >= 0) dr_midi_note(slot, (int)n, 0);
+        } else if ((st & 0xF0u) == 0xB0u && (n == 120u || n == 123u)) {
+            const unsigned released = midi_duo_channel_off(&midi_duo, st & 0x0Fu);
+            int slot;
+            for (slot = 0; slot < 2; ++slot)
+                if (released & (1u << slot))
+                    dr_midi_note(slot, 0, 0);
         }
     }
 }
@@ -2532,6 +2550,10 @@ static void input(void)
                     seeded = 1;
                     dr_seed(plat_ms());
                 }
+                /* A physical PLAY press returns to the normal drone
+                 * transport; release the external MIDI note ownership.
+                 * The audio engine also drops MIDI takeover on C_PLAY. */
+                midi_duo_reset(&midi_duo);
                 ui.playing = (uint8_t)!ui.playing;
                 dr_play(ui.playing);
                 sd_global_play(ui.playing);
@@ -3136,6 +3158,7 @@ static void autosave(void)
 void ui_init(void)
 {
     memset(&ui, 0, sizeof ui);
+    midi_duo_reset(&midi_duo);
     ui.hold_btn = -1;
     ui.morph = -1;
     ui.visit = -1;

@@ -512,10 +512,17 @@ static int expect(const char *what, const char *val)
         got = dr_midi_mode_get();
     else if (!strcmp(what, "midiui"))               /* SEL+GLO mode visible to the UI */
         got = ui.midi_mode;
-    else if (!strcmp(what, "midiextra"))            /* simultaneous third key's note or -1 */
-        got = midi_duo.extra < 0 ? -1 : midi_duo.extra % 128;
-    else if (!strcmp(what, "midiextraslot"))        /* closest sounding drone, -1 when absent */
-        got = midi_duo.extra_slot;
+    else if (!strcmp(what, "midiextra"))            /* first of two optional glide targets */
+        got = midi_duo.extra[0] >= 0 ? midi_duo.extra[0] % 128 :
+              midi_duo.extra[1] >= 0 ? midi_duo.extra[1] % 128 : -1;
+    else if (!strcmp(what, "midiextraslot"))        /* legacy one-target test helper */
+        got = midi_duo.extra[0] >= 0 ? 0 : midi_duo.extra[1] >= 0 ? 1 : -1;
+    else if (!strncmp(what, "midiextra", 9) && what[9] >= '0' && what[9] <= '1')
+        got = midi_duo_extra_note(&midi_duo, what[9] - '0');
+    else if (!strncmp(what, "midibusy", 8) && what[8] >= '0' && what[8] <= '1')
+        got = midi_glide_locked[what[8] - '0'] != 0u;
+    else if (!strcmp(what, "midilastslot"))
+        got = midi_duo.last_slot;
     else if (!strcmp(what, "midipedal0"))           /* sustain pedal on MIDI channel 1 */
         got = (midi_duo.pedal & 1u) != 0u;
     else if (!strncmp(what, "midiglide", 9))        /* active DSP scene-time pitch glide */

@@ -30,9 +30,14 @@ The FM-1's physical white and black keys keep their original gestures, switches,
 
 For example, hold C2 to start drone I, then C3 to start drone II. Release C3 and press B3: drone II fades from C3 to silence, then fades in B3 while C2 continues. Release C2 and press B2 while holding B3: only drone I changes.
 
-If a third key is pressed while both drones remain held, it **waits silently**. Whichever existing note is released first determines the slot the waiting key receives, after that drone's FADE-out. It never steals either held drone, and only two drones can sound at once. Releasing the waiting key before either slot becomes free cancels it.
+If a **third MIDI key is held while both drones are already sounding**, VOLCANO finds the drone **closest in its current sounding pitch** and glides that existing drone toward the third key's pitch over the global **Scene Time** (Setup 1). This produces **no third voice** and does not interrupt the other drone. If both drones are equally close, Drone I is selected.
+
+The originally assigned key remains an owner during the glide. Releasing that original key does **not** interrupt the transition while the third key is held. Releasing the third key while the original remains held starts a new Scene-Time glide back to the original pitch. When neither key remains held or sustained, that drone stops transitioning and fades out using global **FADE**. A fourth overlapping key cannot steal or add a voice.
+
+This differs from a new note played **after a drone key is released**: that ordinary replacement uses the released slot, waits until the previous note has completed its FADE-out, then retunes silently and fades in. This holds even when the new Note On arrives during the preceding fade.
 
 - **Note On** starts a drone; **Note Off** releases it. A Note On with velocity zero is also Note Off.
+- **Sustain pedal (CC64)** acts as a temporary latch for MIDI notes. With CC64 at 64 or above, lifting a key does not release its drone or a third-note glide target. When CC64 falls below 64, notes whose keys are physically up are released; keys still held remain active. Sustain is interpreted independently for each MIDI channel.
 - **SEL+GLO** exits external MIDI control. PLAY starts or stops the current performance mode without changing it.
 - Each drone's patch, filters, GHOST interactions and effects remain in force. Saved project pitch parameters do not change.
 - PITCH LINK is temporarily bypassed while MIDI controls both pitches independently; the saved setting is preserved.

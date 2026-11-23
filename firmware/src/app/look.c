@@ -2379,6 +2379,9 @@ static void lk_pic(void)
     if (ui.midi_mode &&
         (ui.view == V_SEQ_NOTES || ui.view == V_SEQ_TIME || ui.view == V_SEQ_SHAPE)) {
         sd_dim_canvas();
+        /* Replace only the top-right transport/link caption with the
+         * disabled indicator; never overlap it with the old text. */
+        cv_rect(140, 0, 100, 12, LK_BG);
         cv_text(167, 1, &FONT_XS, "SEQ OFF", LK_LABEL);
     }
     if (msg)

@@ -340,6 +340,7 @@ int dr_midi_pending_get(int group);          /* deferred key while fading, -1 if
 int dr_midi_gate_get(int group);             /* note gate target: 0/1 */
 float dr_midi_pitch_get(int group);          /* current interpolated pitch in MIDI semitones */
 int dr_midi_glide_get(int group);            /* active Scene-Time pitch transition */
+uint32_t dr_midi_glide_done_get(int group);   /* completed transitions, per voice */
 int dr_midi_target_get(int group);           /* target MIDI note during transition */
 /* the drone's next pitch change slides there in a straight line over ms (1..30000), instead of the Glide:
  * a pitch knob sends each detent's change with the time until the next detent is expected, so a turn at

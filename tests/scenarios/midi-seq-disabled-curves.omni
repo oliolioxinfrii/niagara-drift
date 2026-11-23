@@ -1,0 +1,96 @@
+# Sequencer stays visibly present but EDIT-DISABLED in MIDI performance
+# mode; its transition curves are discrete named choices in PLAY mode.
+notips
+page 18
+expect view 18
+spin K3 2
+expect seqcount 3
+page 20
+expect view 20
+expect seqcurvecount 8
+expect seqshape0 104
+expect seqcurvemid 500
+expect seqcurveq1 >140
+expect seqcurveq1 <155
+
+# One detent = one named curve. Sine -> Linear -> Sqrt -> Log ->
+# Early (jump at start) -> Late (jump at end) -> Power -> Quad.
+spin K1 1
+expect seqshape0 105
+expect seqcurveq1 250
+spin K1 1
+expect seqshape0 106
+expect seqcurveq1 500
+spin K1 1
+expect seqshape0 107
+expect seqcurveq1 >500
+expect seqcurveq1 <525
+spin K1 1
+expect seqshape0 108
+expect seqcurveq1 1000
+spin K1 1
+expect seqshape0 101
+expect seqcurveq1 0
+spin K1 1
+expect seqshape0 102
+expect seqcurveq1 >14
+expect seqcurveq1 <18
+spin K1 1
+expect seqshape0 103
+expect seqcurveq1 >60
+expect seqcurveq1 <65
+spin K1 1
+expect seqshape0 104
+spin K1 -1
+expect seqshape0 103
+# The four transition types remain independently assigned.
+spin K2 2
+expect seqshape1 106
+expect seqshape0 103
+shot seq-named-choices.png
+
+# MIDI mode never starts or edits the sequencer.
+press SEL
+tap GLO
+release SEL
+wait 130
+expect midiui 1
+expect seqstate 0
+expect view 20
+shot seq-disabled-curves.png
+spin K1 4
+spin K2 -2
+expect seqshape0 103
+expect seqshape1 106
+expect seqstate 0
+page 19
+expect view 19
+expect seqtotal 30
+spin K4 20
+expect seqtotal 30
+shot seq-disabled-intervals.png
+page 18
+expect view 18
+expect seqcount 3
+spin K3 1
+expect seqcount 3
+shot seq-disabled-notes.png
+press SEL
+tap PLAY
+release SEL
+wait 80
+expect seqstate 0
+expect midiui 1
+
+# The sequence and editable named curves return unchanged in PLAY mode.
+press SEL
+tap GLO
+release SEL
+wait 100
+expect midiui 0
+expect seqstate 0
+page 20
+expect seqshape0 103
+expect seqshape1 106
+spin K1 1
+expect seqshape0 104

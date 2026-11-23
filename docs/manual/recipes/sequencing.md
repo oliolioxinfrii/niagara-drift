@@ -18,10 +18,10 @@ Volcano sequences **pitches, not note-on events**. The drones continue sounding 
 4. Select **step 2** and press **C4**, then select **step 3** and press **E4**. On the Sequence page, *all* black and white piano keys enter notes rather than triggering their usual switches or gestures.
 5. Open **SEQ → Intervals** (page 4). Turn **KNOB 4** to shorten the complete loop to about **13 seconds**. The relative positions of the notes stay in place as the loop changes length.
 6. Use **KNOB 1** to place step 2 near **3 seconds**, and **KNOB 2** to place step 3 near **9 seconds**. The resulting gaps are approximately **3, 6 and 4 seconds**, including the return to step 1. KNOB 3 has no effect on a three-step sequence.
-7. Open **SEQ → Transitions** (page 5). With three steps, KNOB 1 shapes **1→2**, KNOB 2 shapes **2→3**, and KNOB 3 shapes **3→1**. Try a smooth midpoint for the first transition, an *early* change (positive shape) for the second, and a *late* change (negative shape) for the return.
+7. Open **SEQ → Transitions** (page 5). With three steps, KNOB 1 shapes **1→2**, KNOB 2 shapes **2→3**, and KNOB 3 shapes **3→1**. Each detent selects a named curve instead of a percentage. Try **Sine** for the first transition, **Log** for an early-moving second transition, and **Pw** (power) for a gradual then accelerating return. **Late** and **Early** make immediate changes at the interval endpoints.
 8. Hold **SEL** and tap **PLAY** to start the pitch progression. Repeat this combination to pause and resume without muting the drones. Normal PLAY controls the instrument's overall fade and stops/resets the progression after fade-out.
 
-The three pitches now repeat, but the time spent traveling between them is unequal. The transition shapes determine *when within each interval* the pitch moves, not just how long the interval lasts.
+The three pitches now repeat, but the time spent traveling between them is unequal. The eight named transition curves determine *when within each interval* the pitch moves. The existing LATE–SINE–EARLY graph labels remain, while the four value cards display short curve names. The sequencer editors are disabled and dimmed in MIDI performance mode (SEL+GLO).
 
 > **Screenshot needed — Sequence notes:** Capture the v1.5 SEQ Sequence page with three programmed notes and step 3 selected.
 

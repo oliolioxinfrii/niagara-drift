@@ -24,10 +24,14 @@ STRIKE/SCRAPE/BOW/TREMOR; no local key is converted into a piano key.
   reopening that same drone. A new note is not glide-connected to
   the previous note; its oscillators snap to the new tuning while
   silent, then the global-FADE attack opens.
-- If both drones still have held keys, a **third Note On is ignored**.
-  There is no stealing and no third voice. If this key remains held
-  after a drone becomes free, a new Note On (key re-press) is required
-  to claim the newly available slot.
+- If both drones still have held keys, a third Note On **waits
+  silently**. When one assigned note is released, its slot is given
+  to that waiting key, following that slot's FADE-out. Which slot
+  changes is therefore determined by **which key was released**, not
+  by the incoming note's order or MIDI channel. At most one waiting
+  key is remembered (the most recent extra Note On has priority).
+  Releasing an unassigned waiting key cancels it. This does not create
+  a third voice or steal either held note.
 - Note On with velocity zero functions as Note Off. Repeated Note On
   messages for the same held key are ignored. MIDI CC 120 or 123
   releases notes belonging to that channel. Other MIDI input,
